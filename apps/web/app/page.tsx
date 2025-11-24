@@ -1,12 +1,13 @@
-import { Button } from "@workspace/ui/components/button"
+import { HeroSection } from "@/components/landing/hero-section";
+import { MissionSection } from "@/components/landing/mission-section";
+import { TeamSection } from "@/components/landing/team-section";
 
 export default function Page() {
   return (
-    <div className="flex items-center justify-center min-h-svh">
-      <div className="flex flex-col items-center justify-center gap-4">
-        <h1 className="text-2xl font-bold">Hello World</h1>
-        <Button size="sm">Button</Button>
-      </div>
+    <div className="flex flex-col min-h-svh">
+      <HeroSection />
+      <MissionSection />
+      <TeamSection />
     </div>
-  )
+  );
 }
