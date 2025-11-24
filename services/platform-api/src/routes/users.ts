@@ -1,7 +1,7 @@
-import { Router } from "express";
+import { Router, type Router as RouterType } from "express";
 import { db } from "../db/index.js";
 
-const router = Router();
+const router: RouterType = Router();
 
 router.get("/", async (req, res) => {
   try {
