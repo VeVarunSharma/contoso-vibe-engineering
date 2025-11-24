@@ -1,31 +1,23 @@
-# shadcn/ui monorepo template
+# Vibe Engineering Demo (Monorepo Edition)
 
-This template is for creating a monorepo with shadcn/ui.
+This project demonstrates the transition from "Single Player Vibe Coding" to "Multiplayer Vibe Engineering".
 
-## Usage
+## The Problem: Legacy Vibe
 
-```bash
-pnpm dlx shadcn@latest init
-```
+Located in `apps/web/app/legacy-vibe`.
 
-## Adding components
+- **Architecture:** Ignores the shared `@workspace/ui` package. Hardcodes styles.
+- **Security:** Vulnerable to SQL Injection. Returns sensitive user data (password hashes).
+- **Validation:** None.
 
-To add components to your app, run the following command at the root of your `web` app:
+## The Solution: Vibe Engineering
 
-```bash
-pnpm dlx shadcn@latest add button -c apps/web
-```
+Located in `apps/web/app/secure-vibe`.
 
-This will place the ui components in the `packages/ui/src/components` directory.
+- **Architecture:** Uses the shared `Button` from `@workspace/ui`.
+- **Security:** Uses ORM methods (`findUnique`) and Zod validation.
+- **Data:** Returns only safe DTOs.
 
-## Tailwind
+## Configuration
 
-Your `tailwind.config.ts` and `globals.css` are already set up to use the components from the `ui` package.
-
-## Using components
-
-To use the components in your app, import them from the `ui` package.
-
-```tsx
-import { Button } from "@workspace/ui/components/button"
-```
+The rules for the AI Agent are defined in `.github/copilot-instructions.md`.
