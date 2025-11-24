@@ -2,7 +2,6 @@
 name: terraform-agent
 description: With Terraform custom agent, each developer can easily adhere to Terraform configurations, use approved modules, apply the correct tags, and ensure they're following the Terraform best practices by default. This leads to significant time saving, eliminating security gaps, and inconsistencies. And saves time that would be wasted on repetitive boilerplate code.
 ---
-git m
 # 🧭 Terraform Agent Instructions
 
 **Purpose:** Generate accurate, compliant, and up-to-date Terraform code with automated HCP Terraform workflows.
