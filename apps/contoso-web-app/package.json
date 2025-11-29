@@ -1,7 +1,6 @@
 {
-  "name": "web",
+  "name": "contoso-web-app",
   "version": "0.0.1",
-  "type": "module",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -9,7 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:ci": "jest --config ./config/jest/jest.config.js --setupFiles dotenv/config --maxWorkers=2 --ci",
+    "test": "jest --config ./config/jest/jest.config.js --setupFiles dotenv/config",
+    "test:e2e": "playwright test --config=config/playwright/playwright.config.ts"
   },
   "dependencies": {
     "@workspace/ui": "workspace:*",
@@ -28,6 +30,15 @@
     "@workspace/eslint-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "^9.32.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "@jest/globals": "^29.7.0",
+    "@swc/jest": "^0.2.39",
+    "@tailwindcss/typography": "^0.5.18",
+    "@testing-library/jest-dom": "^4.2.4",
+    "@testing-library/react": "^16.3.0",
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
+    "jest-canvas-mock": "^2.5.2",
+    "jest-environment-jsdom": "^29.7.0"
   }
 }
