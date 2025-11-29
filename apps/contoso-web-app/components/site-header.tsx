@@ -26,6 +26,12 @@ export function SiteHeader() {
             >
               Team
             </Link>
+            <Link
+              href="/muppets"
+              className="transition-colors hover:text-foreground/80 text-foreground/60"
+            >
+              Muppets
+            </Link>
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-end space-x-2">

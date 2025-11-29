@@ -1,3 +1,6 @@
 {
-  "tailwindCSS.experimental.configFile": "packages/ui/src/styles/globals.css"
+  "tailwindCSS.experimental.configFile": "packages/ui/src/styles/globals.css",
+  "github-actions.workflows.pinned.workflows": [
+    ".github/workflows/contoso-web-app-unit-tests.yml"
+  ]
 }
