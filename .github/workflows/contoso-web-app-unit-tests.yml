@@ -1,0 +1,29 @@
+name: Contoso Web App Unit Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # Adds the ability to run manually from CLI or UI
+
+jobs:
+  unit-integration-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.11]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install pnpm
+        run: npm install -g corepack@latest && corepack enable && corepack prepare pnpm@10.4.1 --activate
+      - name: Install dependencies
+        run: pnpm install
+      - name: Run unit and integration tests
+        run: |
+          cd apps/contoso-web-app
+          pnpm test:ci
