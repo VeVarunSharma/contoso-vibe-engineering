@@ -2,5 +2,12 @@
   "tailwindCSS.experimental.configFile": "packages/ui/src/styles/globals.css",
   "github-actions.workflows.pinned.workflows": [
     ".github/workflows/contoso-web-app-unit-tests.yml"
-  ]
+  ],
+
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell": {
+      "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
+    }
+  }
 }
