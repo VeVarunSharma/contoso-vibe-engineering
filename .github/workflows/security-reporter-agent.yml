@@ -52,7 +52,11 @@ jobs:
             exit 0
           fi
 
-          echo "## Security Assessment Report" >> $GITHUB_STEP_SUMMARY
+          # Add a header to the summary
+          echo "# Security Assessment Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Append the full report content
           cat "$REPORT_PATH" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload security report artifact

@@ -75,11 +75,17 @@ This agent can perform comprehensive security analysis across the full stack:
 
 ### Security Assessment Report
 
-1. Executive Summary
-
-- Overall security posture
-- Critical findings count
-- Risk level assessment
+1. **Executive Summary**
+   - **Security Posture**: [Risk Level] (e.g., HIGH RISK, MEDIUM RISK)
+   - **Score**: [0-10]/10
+   - **Findings Summary**:
+     | Severity | Count |
+     | :--- | :--- |
+     | Critical | [Count] |
+     | High | [Count] |
+     | Medium | [Count] |
+     | Low | [Count] |
+   - Brief overview of the security state.
 
 2. Vulnerability Findings
    For each vulnerability:
@@ -108,12 +114,22 @@ This agent can perform comprehensive security analysis across the full stack:
 - Prioritized list of fixes needed
 - Quick wins vs. complex remediation
 
-6. Critical Vulnerability Warning
+6. Intentional Vulnerabilities
 
-- If any CRITICAL severity vulnerabilities are found, include exactly this message at the end of the report:
+- List any critical or high severity findings found in `infra/**` or `apps/contoso-web-app/**/legacy-vibe/**`.
+- Mark them as "Intentional - No Action Required".
+
+7. Critical Vulnerability Warning
+
+- If any CRITICAL severity vulnerabilities are found OUTSIDE of the following intentional insecure paths:
+  - `infra/**`
+  - `apps/contoso-web-app/**/legacy-vibe/**`
+
+  Then include exactly this message at the end of the report:
 
 ```
 THIS ASSESSMENT CONTAINS A CRITICAL VULNERABILITY
 ```
 
 - Do not adapt or change this message in any way.
+- If critical vulnerabilities are found ONLY within the intentional insecure paths above, DO NOT include the warning message. Instead, list them in a separate section titled "Intentional Vulnerabilities".
