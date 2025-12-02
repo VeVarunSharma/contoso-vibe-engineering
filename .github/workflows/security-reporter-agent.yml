@@ -1,7 +1,11 @@
 name: Security Agent Workflow
 # The GitHub Actions workflow requires you to create a secret named COPILOT_GITHUB_TOKEN. This token is a fine-grained personal access token with the Copilot Requests read-only permission. Add this token as a secret in your GitHub repository settings to enable the workflow to authenticate with Copilot.
 on:
-  workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch: # Adds the ability to run manually from CLI or
 
 jobs:
   security-assessment:
