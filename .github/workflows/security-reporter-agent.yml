@@ -31,7 +31,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          AGENT_PROMPT=$(cat .github/agents/security-agent.md)
+          AGENT_PROMPT=$(cat .github/agents/security-reporter-agent.md)
           PROMPT="$AGENT_PROMPT"
           PROMPT+=$'\n\nContext:\n'
           PROMPT+="- Repository: $GITHUB_REPOSITORY"
