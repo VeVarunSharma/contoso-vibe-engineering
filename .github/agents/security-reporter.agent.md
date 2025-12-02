@@ -116,20 +116,22 @@ This agent can perform comprehensive security analysis across the full stack:
 
 6. Intentional Vulnerabilities
 
-- List any critical or high severity findings found in `infra/**` or `apps/contoso-web-app/**/legacy-vibe/**`.
+- List any critical or high severity findings found in:
+  - Any file within the `infra/` directory.
+  - Any file path containing the string `legacy-vibe`.
 - Mark them as "Intentional - No Action Required".
 
 7. Critical Vulnerability Warning
 
-- If any CRITICAL severity vulnerabilities are found OUTSIDE of the following intentional insecure paths:
-  - `infra/**`
-  - `apps/contoso-web-app/**/legacy-vibe/**`
-
-  Then include exactly this message at the end of the report:
+- Review all CRITICAL severity findings.
+- Filter out any findings that are located in the "Intentional Vulnerabilities" paths defined above (files in `infra/` or containing `legacy-vibe/`).
+- If there are any REMAINING Critical vulnerabilities after filtering:
+  1. List them briefly under a header "### Blocking Critical Vulnerabilities".
+  2. Include exactly this message at the end of the report:
 
 ```
 THIS ASSESSMENT CONTAINS A CRITICAL VULNERABILITY
 ```
 
 - Do not adapt or change this message in any way.
-- If critical vulnerabilities are found ONLY within the intentional insecure paths above, DO NOT include the warning message. Instead, list them in a separate section titled "Intentional Vulnerabilities".
+- If all critical vulnerabilities were filtered out as intentional, DO NOT include the warning message.
