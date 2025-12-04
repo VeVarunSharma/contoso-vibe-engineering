@@ -1,0 +1,14 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "DIGEST_SMTP_HOST": "smtp.office365.com",
+    "DIGEST_SMTP_PORT": "587",
+    "DIGEST_SMTP_USER": "user@contoso.com",
+    "DIGEST_SMTP_PASSWORD": "changeme",
+    "DIGEST_FROM_EMAIL": "copilot-digest@contoso.com",
+    "DIGEST_TO_OVERRIDE": "",
+    "DIGEST_APP_INSIGHTS_CONNECTION_STRING": ""
+  }
+}

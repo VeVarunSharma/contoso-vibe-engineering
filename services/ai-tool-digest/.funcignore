@@ -1,0 +1,11 @@
+# Output and dependencies
+node_modules
+bower_components
+jspm_packages
+*.log
+dist
+coverage
+
+# Local settings
+local.settings.json
+.env
