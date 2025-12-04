@@ -1,0 +1,15 @@
+{
+  "teams": [
+    {
+      "name": "solution-engineering",
+      "description": "Primary Solution Engineering AI tooling advocates",
+      "members": [
+        {
+          "alias": "vsharma",
+          "displayName": "Varun Sharma",
+          "email": "varun.sharma@microsoft.com"
+        }
+      ]
+    }
+  ]
+}
