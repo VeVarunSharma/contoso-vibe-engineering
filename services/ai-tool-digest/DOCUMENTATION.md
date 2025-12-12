@@ -30,14 +30,14 @@ This document expands on the README with deeper implementation details, request/
 
 ## 2. HTTP Contract
 
-| Aspect | Details |
-| --- | --- |
-| **URL** | `https://<function-host>/api/digest` (local: `http://localhost:7071/api/digest`) |
-| **Auth Level** | `function` (requires key unless auth downgraded for internal intranet use) |
-| **Methods** | `GET` or `POST` |
-| **Request Body (POST only)** | JSON object with optional properties:<br/>- `count` *(number)*: 1-20, caps per-source items (default: 3).<br/>- `includeRaw` *(boolean)*: include raw summary paragraphs (default: false).<br/>- `recipients` *(string[])*: override email recipients for this invocation only. |
-| **Successful Responses** | `200 OK` with `{ message, recipients[], updates }` when an email is sent.<br/>`204 No Content` when no new updates were found. |
-| **Error Responses** | `400/500` JSON with `error` message (validation or runtime failure). |
+| Aspect                       | Details                                                                                                                                                                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **URL**                      | `https://<function-host>/api/digest` (local: `http://localhost:7071/api/digest`)                                                                                                                                                                                                |
+| **Auth Level**               | `function` (requires key unless auth downgraded for internal intranet use)                                                                                                                                                                                                      |
+| **Methods**                  | `GET` or `POST`                                                                                                                                                                                                                                                                 |
+| **Request Body (POST only)** | JSON object with optional properties:<br/>- `count` _(number)_: 1-20, caps per-source items (default: 3).<br/>- `includeRaw` _(boolean)_: include raw summary paragraphs (default: false).<br/>- `recipients` _(string[])_: override email recipients for this invocation only. |
+| **Successful Responses**     | `200 OK` with `{ message, recipients[], updates }` when an email is sent.<br/>`204 No Content` when no new updates were found.                                                                                                                                                  |
+| **Error Responses**          | `400/500` JSON with `error` message (validation or runtime failure).                                                                                                                                                                                                            |
 
 **Example POST request**
 
@@ -58,15 +58,15 @@ curl -X POST http://localhost:7071/api/digest \
 
 All secrets are sourced from environment variables. Use `local.settings.json` for development and App Configuration/Key Vault in production.
 
-| Variable | Purpose |
-| --- | --- |
-| `AzureWebJobsStorage` | Required by Azure Functions runtime. For local work, the storage emulator (`UseDevelopmentStorage=true`) is fine. |
-| `FUNCTIONS_WORKER_RUNTIME` | Should remain `node`. |
-| `DIGEST_SMTP_HOST` / `DIGEST_SMTP_PORT` | SMTP relay host and port (587 + STARTTLS recommended). |
-| `DIGEST_SMTP_USER` / `DIGEST_SMTP_PASSWORD` | Credentials or app password of the sending account. |
-| `DIGEST_FROM_EMAIL` | Display/source email address (e.g. `copilot-digest@contoso.com`). |
-| `DIGEST_TO_OVERRIDE` | Optional fallback distribution list for testing or emergency reroutes. |
-| `DIGEST_APP_INSIGHTS_CONNECTION_STRING` | Enables Application Insights traces, events, and exceptions. Optional but recommended in production. |
+| Variable                                    | Purpose                                                                                                           |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `AzureWebJobsStorage`                       | Required by Azure Functions runtime. For local work, the storage emulator (`UseDevelopmentStorage=true`) is fine. |
+| `FUNCTIONS_WORKER_RUNTIME`                  | Should remain `node`.                                                                                             |
+| `DIGEST_SMTP_HOST` / `DIGEST_SMTP_PORT`     | SMTP relay host and port (587 + STARTTLS recommended).                                                            |
+| `DIGEST_SMTP_USER` / `DIGEST_SMTP_PASSWORD` | Credentials or app password of the sending account.                                                               |
+| `DIGEST_FROM_EMAIL`                         | Display/source email address (e.g. `copilot-digest@contoso.com`).                                                 |
+| `DIGEST_TO_OVERRIDE`                        | Optional fallback distribution list for testing or emergency reroutes.                                            |
+| `DIGEST_APP_INSIGHTS_CONNECTION_STRING`     | Enables Application Insights traces, events, and exceptions. Optional but recommended in production.              |
 
 > **Security Tip:** prefer Azure Function App configuration or Key Vault references. Never commit `local.settings.json` – it’s gitignored.
 
@@ -83,13 +83,14 @@ All secrets are sourced from environment variables. Use `local.settings.json` fo
 
 ## 5. Source Scraper Details
 
-| Source | Module | Feed | Notes |
-| --- | --- | --- | --- |
-| GitHub Copilot Changelog | `src/scrapers/copilot.ts` | `https://github.blog/changelog/label/copilot/feed/` | Primary driver for Copilot feature updates.
-| Claude Code Updates | `src/scrapers/claude.ts` | `https://www.anthropic.com/news/rss.xml` | Filtered by `claude|code|enterprise` keywords to avoid non-dev content.
-| Cursor Blog | `src/scrapers/cursor.ts` | `https://cursor.com/blog/rss.xml` | Great for pair-programming features and release notes.
+| Source                   | Module                    | Feed                                                | Notes                                                  |
+| ------------------------ | ------------------------- | --------------------------------------------------- | ------------------------------------------------------ | ---- | ---------------------------------------------- |
+| GitHub Copilot Changelog | `src/scrapers/copilot.ts` | `https://github.blog/changelog/label/copilot/feed/` | Primary driver for Copilot feature updates.            |
+| Claude Code Updates      | `src/scrapers/claude.ts`  | `https://www.anthropic.com/news/rss.xml`            | Filtered by `claude                                    | code | enterprise` keywords to avoid non-dev content. |
+| Cursor Blog              | `src/scrapers/cursor.ts`  | `https://cursor.com/blog/rss.xml`                   | Great for pair-programming features and release notes. |
 
 To add a source:
+
 1. Create a new module in `src/scrapers/` that returns `ToolUpdate[]`.
 2. Import it in `src/scrapers/index.ts` and merge results into the array.
 3. Update `SOURCE_LABELS` in `src/summary.ts` to map the new source to a friendly label.
