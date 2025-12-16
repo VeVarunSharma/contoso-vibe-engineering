@@ -1,0 +1,46 @@
+{
+  "name": "octocat-blog-app",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port 3001",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "npx tsx src/db/seed.ts"
+  },
+  "dependencies": {
+    "@next/swc-win32-x64-msvc": "^16.1.1",
+    "@workspace/ui": "workspace:*",
+    "date-fns": "^4.1.0",
+    "drizzle-orm": "^0.38.0",
+    "lucide-react": "^0.475.0",
+    "next": "15.4.10",
+    "next-themes": "^0.4.6",
+    "pg": "^8.13.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "@tailwindcss/typography": "^0.5.18",
+    "@types/node": "^20.19.9",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/typescript-config": "workspace:*",
+    "dotenv": "^16.4.5",
+    "drizzle-kit": "^0.30.0",
+    "eslint": "^9.32.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.2"
+  }
+}

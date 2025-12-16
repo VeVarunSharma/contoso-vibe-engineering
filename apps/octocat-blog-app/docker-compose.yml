@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: octocat-blog-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: octocat_blog
+    ports:
+      - "5432:5432"
+    volumes:
+      - octocat_blog_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d octocat_blog"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  octocat_blog_data:
