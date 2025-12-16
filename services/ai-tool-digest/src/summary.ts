@@ -1,4 +1,5 @@
 import type { ToolUpdate } from "./types.js";
+import striptags from "striptags";
 
 interface SummaryOptions {
   maxItems?: number;
@@ -77,5 +78,5 @@ function formatDate(date: Date): string {
 }
 
 function stripHtml(value: string): string {
-  return value.replace(/<[^>]*>?/gm, "");
+  return striptags(value);
 }
