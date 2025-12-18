@@ -4,7 +4,7 @@ import { Github, Twitter, Youtube, Rss } from "lucide-react";
 export function SiteFooter() {
   return (
     <footer className="border-t bg-muted/40">
-      <div className="container px-4 md:px-8 py-12">
+      <div className="container mx-auto px-4 md:px-8 py-12">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {/* Product */}
           <div>

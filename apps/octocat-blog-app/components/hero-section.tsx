@@ -10,7 +10,7 @@ export function HeroSection() {
       <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
       <div className="absolute bottom-10 right-10 w-96 h-96 bg-chart-2/10 rounded-full blur-3xl" />
 
-      <div className="container relative px-4 md:px-8">
+      <div className="container mx-auto relative px-4 md:px-8">
         <div className="flex flex-col items-center text-center">
           <div className="inline-flex items-center gap-2 rounded-full border bg-muted/50 px-4 py-1.5 text-sm mb-6">
             <Sparkles className="h-4 w-4 text-yellow-500" />

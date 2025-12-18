@@ -35,7 +35,7 @@ export default async function HomePage() {
 
       <section
         id="latest-posts"
-        className="container px-4 md:px-8 py-12 md:py-20"
+        className="container mx-auto px-4 md:px-8 py-12 md:py-20"
       >
         {/* Categories */}
         <div className="flex flex-wrap gap-2 mb-12">
@@ -107,7 +107,7 @@ export default async function HomePage() {
 
       {/* Newsletter Section */}
       <section className="border-t bg-muted/30 py-16">
-        <div className="container px-4 md:px-8 text-center">
+        <div className="container mx-auto px-4 md:px-8 text-center">
           <h2 className="text-3xl font-bold mb-4">Stay in the Loop</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
             Get the latest GitHub updates, feature announcements, and

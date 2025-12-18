@@ -10,11 +10,11 @@ async function seed() {
   const [octocat] = await db
     .insert(authors)
     .values({
-      name: "The Octocat",
-      username: "octocat",
-      avatarUrl: "https://github.com/octocat.png",
+      name: "Ve",
+      username: "VeVarunSharma",
+      avatarUrl: "https://avatars.githubusercontent.com/u/62218708?v=4",
       bio: "The official GitHub mascot sharing the latest updates from GitHub.",
-      githubUrl: "https://github.com/octocat",
+      githubUrl: "https://github.com/VeVarunSharma",
     })
     .returning();
 
@@ -135,7 +135,7 @@ We can't wait to see what you build with Copilot Extensions!
 *Happy coding!*  
 *The GitHub Team* 🐙`,
       coverImage:
-        "https://github.blog/wp-content/uploads/2024/05/copilot-extensions-header.png",
+        "https://github.blog/wp-content/themes/github-2021-child/assets/img/featured-v3-new-releases.svg",
       authorId: octocat!.id,
       categoryId: releasesCategory!.id,
       published: true,
