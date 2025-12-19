@@ -7,18 +7,27 @@ async function seed() {
   console.log("🌱 Seeding database...");
 
   // Create authors
-  const [octocat] = await db
+  const [octocat, vevarun] = await db
     .insert(authors)
-    .values({
-      name: "Ve",
-      username: "VeVarunSharma",
-      avatarUrl: "https://avatars.githubusercontent.com/u/62218708?v=4",
-      bio: "The official GitHub mascot sharing the latest updates from GitHub.",
-      githubUrl: "https://github.com/VeVarunSharma",
-    })
+    .values([
+      {
+        name: "Octocat",
+        username: "octocat",
+        avatarUrl: "https://avatars.githubusercontent.com/u/583231?v=4",
+        bio: "The official GitHub mascot sharing the latest updates from GitHub.",
+        githubUrl: "https://github.com/octocat",
+      },
+      {
+        name: "Ve Varun Sharma",
+        username: "VeVarunSharma",
+        avatarUrl: "https://avatars.githubusercontent.com/u/62218708?v=4",
+        bio: "Developer and open source enthusiast.",
+        githubUrl: "https://github.com/VeVarunSharma",
+      },
+    ])
     .returning();
 
-  console.log("✅ Created author:", octocat?.name);
+  console.log("✅ Created authors:", octocat?.name, "and", vevarun?.name);
 
   // Create categories
   const [releasesCategory] = await db
@@ -146,10 +155,71 @@ We can't wait to see what you build with Copilot Extensions!
 
   console.log("✅ Created first blog post:", firstPost?.title);
 
-  // Add tags to the post
+  // Create the second blog post about Copilot usage tracking
+  const [secondPost] = await db
+    .insert(posts)
+    .values({
+      title: "Track organization Copilot usage",
+      slug: "track-organization-copilot-usage",
+      excerpt:
+        "You can now access your organization's Copilot usage metrics via the Copilot usage APIs.",
+      content: `# Track organization Copilot usage
+
+You can now access your organization's Copilot usage metrics via the Copilot usage APIs.
+
+The APIs contain reports with aggregated and user-specific metrics, including usage statistics for various Copilot features, user engagement data, and feature adoption metrics.
+
+## Enabling Copilot Usage Metrics
+
+To see these metrics, the Copilot usage metrics policy must be enabled.
+
+### For Enterprise Accounts
+
+To enable this setting for an enterprise account:
+1. Go to the Enterprises page
+2. Select your enterprise
+3. Click on the **AI Controls** tab
+4. In the left sidebar, select **Copilot**
+5. Scroll down to **Metrics**
+6. Select **Enabled everywhere**
+
+### For Standalone Organization Accounts
+
+To enable this setting for a standalone organization account:
+1. Go to the Organization page
+2. Select your organization
+3. Click on the **Settings** tab
+4. In the left sidebar, select **Copilot > Policies**
+5. Scroll down to **Features > Copilot usage metrics**
+6. Select **Enabled**
+
+## Access Permissions
+
+Organization owners and users with an organization custom role that has the **View Organization Copilot Metrics** permission can access the API.
+
+To learn more, see our [documentation](https://docs.github.com/en/copilot).
+
+---
+
+*Happy coding!*  
+*The GitHub Team* 🐙`,
+      coverImage:
+        "https://github.blog/wp-content/themes/github-2021-child/assets/img/featured-v3-new-releases.svg",
+      authorId: octocat!.id,
+      categoryId: releasesCategory!.id,
+      published: true,
+      featured: false,
+      publishedAt: new Date("2025-12-16"),
+    })
+    .returning();
+
+  console.log("✅ Created second blog post:", secondPost?.title);
+
+  // Add tags to the posts
   const copilotTag = createdTags.find((t) => t.slug === "copilot");
   const aiTag = createdTags.find((t) => t.slug === "ai");
   const productivityTag = createdTags.find((t) => t.slug === "productivity");
+  const apiTag = createdTags.find((t) => t.slug === "api");
 
   if (copilotTag && aiTag && productivityTag && firstPost) {
     await db.insert(postTags).values([
@@ -157,7 +227,16 @@ We can't wait to see what you build with Copilot Extensions!
       { postId: firstPost.id, tagId: aiTag.id },
       { postId: firstPost.id, tagId: productivityTag.id },
     ]);
-    console.log("✅ Added tags to post");
+    console.log("✅ Added tags to first post");
+  }
+
+  // Add tags to the second post
+  if (copilotTag && apiTag && secondPost) {
+    await db.insert(postTags).values([
+      { postId: secondPost.id, tagId: copilotTag.id },
+      { postId: secondPost.id, tagId: apiTag.id },
+    ]);
+    console.log("✅ Added tags to second post");
   }
 
   console.log("🎉 Seeding complete!");

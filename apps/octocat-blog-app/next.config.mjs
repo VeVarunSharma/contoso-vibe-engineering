@@ -10,6 +10,7 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "github.blog",
+        pathname: "/**",
       },
       {
         protocol: "https",
