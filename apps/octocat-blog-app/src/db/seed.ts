@@ -30,7 +30,7 @@ async function seed() {
   console.log("✅ Created authors:", octocat?.name, "and", vevarun?.name);
 
   // Create categories
-  const [releasesCategory] = await db
+  const [releasesCategory, _featuresCategory, changelogCategory] = await db
     .insert(categories)
     .values([
       {
@@ -215,6 +215,65 @@ To learn more, see our [documentation](https://docs.github.com/en/copilot).
 
   console.log("✅ Created second blog post:", secondPost?.title);
 
+  // Create the third blog post about Agent Skills
+  const [thirdPost] = await db
+    .insert(posts)
+    .values({
+      title: "GitHub Copilot now supports Agent Skills",
+      slug: "github-copilot-agent-skills",
+      excerpt:
+        "You can now create Agent Skills to teach Copilot how to perform specialized tasks in a specific, repeatable way.",
+      content: `# GitHub Copilot now supports Agent Skills
+
+You can now create Agent Skills to teach Copilot how to perform specialized tasks in a specific, repeatable way.
+
+Agent Skills are folders containing instructions, scripts, and resources that Copilot automatically loads when relevant to your prompt.
+
+## Where Agent Skills Work
+
+They work across:
+- Copilot coding agent
+- Copilot CLI
+- Agent mode in Visual Studio Code Insiders
+
+Skills support is coming to the stable version of VS Code in early January.
+
+## How It Works
+
+When Copilot determines a skill is relevant to your task, it loads the instructions and follows them—including any resources you've included in the skill directory.
+
+## Getting Started with Skills
+
+You can write your own skills, or use skills shared by others, such as those in:
+- The [anthropics/skills repository](https://github.com/anthropics/skills)
+- GitHub's community created [github/awesome-copilot collection](https://github.com/github/awesome-copilot)
+
+## Claude Code Compatibility
+
+If you've already set up skills for Claude Code in the \`.claude/skills\` directory in your repository, Copilot will pick them up automatically.
+
+## Learn More
+
+📚 [Learn more about Agent Skills](https://docs.github.com/en/copilot)
+
+Join the discussion within [GitHub Community](https://github.community).
+
+---
+
+*Happy coding!*  
+*The GitHub Team* 🐙`,
+      coverImage:
+        "https://github.blog/wp-content/themes/github-2021-child/assets/img/featured-v3-new-releases.svg",
+      authorId: octocat!.id,
+      categoryId: changelogCategory!.id,
+      published: true,
+      featured: false,
+      publishedAt: new Date("2025-12-18"),
+    })
+    .returning();
+
+  console.log("✅ Created third blog post:", thirdPost?.title);
+
   // Add tags to the posts
   const copilotTag = createdTags.find((t) => t.slug === "copilot");
   const aiTag = createdTags.find((t) => t.slug === "ai");
@@ -237,6 +296,15 @@ To learn more, see our [documentation](https://docs.github.com/en/copilot).
       { postId: secondPost.id, tagId: apiTag.id },
     ]);
     console.log("✅ Added tags to second post");
+  }
+
+  // Add tags to the third post
+  if (copilotTag && aiTag && thirdPost) {
+    await db.insert(postTags).values([
+      { postId: thirdPost.id, tagId: copilotTag.id },
+      { postId: thirdPost.id, tagId: aiTag.id },
+    ]);
+    console.log("✅ Added tags to third post");
   }
 
   console.log("🎉 Seeding complete!");
