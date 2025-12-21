@@ -7,7 +7,7 @@ async function seed() {
   console.log("🌱 Seeding database...");
 
   // Create authors
-  const [octocat, vevarun] = await db
+  const [octocat, vevarun, andrea] = await db
     .insert(authors)
     .values([
       {
@@ -24,10 +24,25 @@ async function seed() {
         bio: "Developer and open source enthusiast.",
         githubUrl: "https://github.com/VeVarunSharma",
       },
+      {
+        name: "Andrea Griffiths",
+        username: "AndreaGriffiths11",
+        avatarUrl:
+          "https://avatars.githubusercontent.com/u/AndreaGriffiths11?v=4",
+        bio: "Developer advocate passionate about AI-powered developer tools.",
+        githubUrl: "https://github.com/AndreaGriffiths11",
+      },
     ])
     .returning();
 
-  console.log("✅ Created authors:", octocat?.name, "and", vevarun?.name);
+  console.log(
+    "✅ Created authors:",
+    octocat?.name,
+    ",",
+    vevarun?.name,
+    ", and",
+    andrea?.name
+  );
 
   // Create categories
   const [releasesCategory, _featuresCategory, changelogCategory] = await db
@@ -274,6 +289,170 @@ Join the discussion within [GitHub Community](https://github.community).
 
   console.log("✅ Created third blog post:", thirdPost?.title);
 
+  // Create the fourth blog post about GitHub Copilot Spaces
+  const [fourthPost] = await db
+    .insert(posts)
+    .values({
+      title: "How to use GitHub Copilot Spaces to debug issues faster",
+      slug: "how-to-use-github-copilot-spaces-to-debug-issues-faster",
+      excerpt:
+        "Follow this step-by-step guide to learn how to debug your issues using GitHub Copilot Spaces and Copilot coding agent.",
+      content: `# How to use GitHub Copilot Spaces to debug issues faster
+
+Every developer knows this pain: you open an issue, and before you can write a single line of code, you're hunting. You're digging through old pull requests, searching for that design doc from three months ago, trying to remember which file has the security guidelines.
+
+That hunting phase? It takes forever. And it's not even the actual work. And even if you want to bring AI into the picture, GitHub Copilot still needs the same thing you do: context. Without it, you get generic answers that don't understand your codebase.
+
+**GitHub Copilot Spaces fixes that.**
+
+Spaces gives GitHub Copilot the project knowledge it needs—files, pull requests, issues, repos—so its responses are grounded in your actual code, not guesses.
+
+## What is a space, again?
+
+Think of a space as a project knowledge bundle. You curate the files, docs, and decisions that matter for your project, and Copilot uses all of that when generating plans, explanations, or pull requests.
+
+You can:
+
+- Add entire repositories or specific files, pull requests and issues (just paste the URL)
+- Include text content like notes, video transcripts, or Slack messages
+- Add design docs and architecture decisions
+- Trigger Copilot coding agent directly from the space
+- Use the space in your IDE through the GitHub MCP server
+
+The best part? Link it once and forget about it. Spaces automatically stay synced with the linked content. When your codebase updates, your space updates too.
+
+## How to debug issues with spaces
+
+### 1. Start with an issue
+
+A contributor opened an issue reporting an unsafe usage of check_call in your project.
+
+As a maintainer, you might not know the best way to fix it immediately. On your own, you'd start by searching the repo, checking past pull requests, and combing through security guidelines just to figure out where to begin.
+
+With Spaces, you don't have to do that manually. Create a space, add the issue and the key files or docs, and let Copilot reason across everything at once.
+
+### 2. Create a space for your project
+
+Inside the space, add:
+
+- Design patterns (e.g., \`/docs/security/check-patterns.md\`, \`/docs/design/architecture-overview.md\`)
+- Security guidelines
+- Accessibility recommendations
+- The entire repository (for broad coverage) or a curated set of the most relevant files for your specific use case. Spaces work best when you're intentional about what you include.
+- The URL to the issue itself
+
+### 3. Add Instructions for Copilot
+
+Each space includes an Instructions panel. This is where you tell Copilot how you want it to work inside your project.
+
+Here are some example instructions that will help with our task at hand:
+
+\`\`\`
+You are an experienced engineer working on this codebase.
+Always ground your answers in the linked docs and sources in this space.
+Before writing code, produce a 3–5 step plan that includes:
+  - The goal
+  - The approach
+  - The execution steps
+Cite the exact files that justify your recommendations.
+After I approve a plan, use the Copilot coding agent to propose a PR.
+\`\`\`
+
+These instructions keep Copilot consistent. It won't hallucinate patterns that don't exist in your repo because you've told it to cite its sources.
+
+### 4. Ask Copilot to debug the issue
+
+With everything set up, ask Copilot: "Help me debug this issue."
+
+Copilot already knows which issue you mean because it's linked to the space. It parses through all the sources, then returns a clear plan:
+
+**Goal:** Fix unsafe usage of runBinaryCheck to ensure input paths are validated.
+
+**Approach:**
+
+1. Search the repo for usages of runBinaryCheck
+2. Compare each usage to the safe pattern in the security docs
+3. Identify the required refactor
+4. Prepare a diff for each file with unsafe usage
+
+This isn't a generic LLM answer. It's grounded in the actual project context.
+
+### 5. Generate the pull request
+
+Once you approve the plan, tell Copilot: "Propose code changes using Copilot coding agent."
+
+The agent generates a pull request with:
+
+- The before version and the after version
+- An explanation of what changed
+- References to the exact files that informed the fix
+- The instructions that guided its choices
+
+Every file in the pull request shows which source informed the suggestion. You can audit the reasoning before you merge.
+
+### 6. Iterate if you need to
+
+Not happy with something? Mention @copilot in the pull request comments to iterate on the existing pull request, or go back to the space to generate a fresh one. Keep working with Copilot until you get exactly what you need.
+
+### 7. Share your space with your team
+
+Spaces are private by default. But you can share them with specific individuals, your entire team, or your whole organization (if admins allow it).
+
+Enterprise admins control who can share what, so you stay aligned with your company's security policies.
+
+## Use GitHub Copilot Spaces from your IDE
+
+Spaces are now available in your IDE via the GitHub MCP Server.
+
+Install the MCP server, and you can call your spaces directly from your editor. Same curated context, same grounded answers, but right where you're already working.
+
+Being able to call a space from the IDE has been a game changer for me. It lets me stay focused without switching between the browser and my editor, which cuts out a ton of friction in debugging.
+
+## Coming soon
+
+Here's what's on the roadmap:
+
+- Public API
+- Image support
+- Additional file types like doc/docx and PDFs
+
+## Three ways teams are using spaces right now
+
+1. **Code generation and debugging.** Use spaces with Copilot coding agent to generate pull requests aligned with your patterns, security rules, and architecture.
+
+2. **Planning features.** Link issues, design docs, and repos to plan features and draft requirements. Ask Copilot for a technical plan and it generates a pull request.
+
+3. **Knowledge sharing and onboarding.** Spaces become living knowledge bases. New engineers onboard faster. Existing engineers stop answering the same questions repeatedly.
+
+## Try it on your next issue
+
+Here's my challenge to you:
+
+1. Create a GitHub Copilot Space.
+2. Add one issue and three to four key files.
+3. Add simple instructions.
+4. Ask Copilot to analyze the issue and propose a debugging plan.
+5. Approve the plan.
+6. Trigger the coding agent to generate a pull request.
+
+You'll see exactly how much time you save when Copilot actually knows your project. Your AI assistant should never lack the right context. That's what spaces are for.
+
+---
+
+*Happy coding!*  
+*Andrea Griffiths* 🐙`,
+      coverImage:
+        "https://github.blog/wp-content/themes/github-2021-child/assets/img/featured-v3-new-releases.svg",
+      authorId: andrea!.id,
+      categoryId: releasesCategory!.id,
+      published: true,
+      featured: true,
+      publishedAt: new Date("2025-12-04"),
+    })
+    .returning();
+
+  console.log("✅ Created fourth blog post:", fourthPost?.title);
+
   // Add tags to the posts
   const copilotTag = createdTags.find((t) => t.slug === "copilot");
   const aiTag = createdTags.find((t) => t.slug === "ai");
@@ -305,6 +484,16 @@ Join the discussion within [GitHub Community](https://github.community).
       { postId: thirdPost.id, tagId: aiTag.id },
     ]);
     console.log("✅ Added tags to third post");
+  }
+
+  // Add tags to the fourth post (Copilot Spaces)
+  if (copilotTag && aiTag && productivityTag && fourthPost) {
+    await db.insert(postTags).values([
+      { postId: fourthPost.id, tagId: copilotTag.id },
+      { postId: fourthPost.id, tagId: aiTag.id },
+      { postId: fourthPost.id, tagId: productivityTag.id },
+    ]);
+    console.log("✅ Added tags to fourth post");
   }
 
   console.log("🎉 Seeding complete!");
