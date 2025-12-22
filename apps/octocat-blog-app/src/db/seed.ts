@@ -6,6 +6,15 @@ import { authors, categories, tags, posts, postTags } from "./schema";
 async function seed() {
   console.log("🌱 Seeding database...");
 
+  // Clear existing data (in correct order to respect foreign key constraints)
+  console.log("🧹 Clearing existing data...");
+  await db.delete(postTags);
+  await db.delete(posts);
+  await db.delete(tags);
+  await db.delete(categories);
+  await db.delete(authors);
+  console.log("✅ Existing data cleared");
+
   // Create authors
   const [octocat, vevarun, andrea] = await db
     .insert(authors)
