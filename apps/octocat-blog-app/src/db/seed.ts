@@ -53,7 +53,14 @@ async function seed() {
   );
 
   // Create categories
-  const [releasesCategory, _featuresCategory, changelogCategory] = await db
+  const [
+    releasesCategory,
+    _featuresCategory,
+    changelogCategory,
+    _engineeringCategory,
+    _securityCategory,
+    improvementCategory,
+  ] = await db
     .insert(categories)
     .values([
       {
@@ -85,6 +92,12 @@ async function seed() {
         slug: "security",
         description: "Security updates and best practices",
         color: "#da3633",
+      },
+      {
+        name: "Improvement",
+        slug: "improvement",
+        description: "Performance improvements and enhancements",
+        color: "#58a6ff",
       },
     ])
     .returning();
@@ -461,6 +474,44 @@ You'll see exactly how much time you save when Copilot actually knows your proje
 
   console.log("✅ Created fourth blog post:", fourthPost?.title);
 
+  // Create the fifth blog post about GitHub Actions improvements
+  const [fifthPost] = await db
+    .insert(posts)
+    .values({
+      title: "Improved performance for GitHub Actions workflows page",
+      slug: "improved-performance-github-actions-workflows-page",
+      excerpt:
+        "GitHub Actions workflow pages now successfully render workflows with more than 300 jobs. We've implemented lazy loading to smoothly handle large workflows.",
+      content: `# Improved performance for GitHub Actions workflows page
+
+GitHub Actions workflow pages now successfully render workflows with more than 300 jobs. We've implemented lazy loading to smoothly handle large workflows.
+
+## New Features
+
+In addition, you can now filter jobs based on status. This means that you can view only failed jobs or jobs in progress from the workflow pages.
+
+![Screenshot of filter based on job status in the workflow page](https://github.blog/wp-content/uploads/2025/12/workflow-filter-screenshot.png)
+
+## Who Benefits
+
+These improvements help teams view their workflow runs, whether they're running complex workflows with extensive job matrices or large monorepo setups.
+
+---
+
+*Happy coding!*  
+*The GitHub Team* 🐙`,
+      coverImage:
+        "https://github.blog/wp-content/themes/github-2021-child/assets/img/featured-v3-improvements.svg",
+      authorId: octocat!.id,
+      categoryId: improvementCategory!.id,
+      published: true,
+      featured: false,
+      publishedAt: new Date("2025-12-22"),
+    })
+    .returning();
+
+  console.log("✅ Created fifth blog post:", fifthPost?.title);
+
   // Add tags to the posts
   const copilotTag = createdTags.find((t) => t.slug === "copilot");
   const aiTag = createdTags.find((t) => t.slug === "ai");
@@ -502,6 +553,17 @@ You'll see exactly how much time you save when Copilot actually knows your proje
       { postId: fourthPost.id, tagId: productivityTag.id },
     ]);
     console.log("✅ Added tags to fourth post");
+  }
+
+  // Add tags to the fifth post (GitHub Actions improvements)
+  const actionsTag = createdTags.find((t) => t.slug === "github-actions");
+  const devopsTag = createdTags.find((t) => t.slug === "devops");
+  if (actionsTag && devopsTag && fifthPost) {
+    await db.insert(postTags).values([
+      { postId: fifthPost.id, tagId: actionsTag.id },
+      { postId: fifthPost.id, tagId: devopsTag.id },
+    ]);
+    console.log("✅ Added tags to fifth post");
   }
 
   console.log("🎉 Seeding complete!");
