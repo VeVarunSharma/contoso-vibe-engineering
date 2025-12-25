@@ -103,7 +103,7 @@ describe("PostCard", () => {
     it("renders category badge with custom color", () => {
       render(<PostCard post={mockPost} featured={true} />);
       const categoryBadge = screen.getByText("Releases");
-      expect(categoryBadge).toHaveStyle({ backgroundColor: "#238636" });
+      expect(categoryBadge).toHaveStyle("background-color: #238636");
     });
   });
 

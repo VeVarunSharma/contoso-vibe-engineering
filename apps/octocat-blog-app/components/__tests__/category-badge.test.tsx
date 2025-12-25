@@ -27,7 +27,7 @@ describe("CategoryBadge", () => {
   it("applies custom background color from category", () => {
     render(<CategoryBadge category={mockCategory} />);
     const link = screen.getByRole("link");
-    expect(link).toHaveStyle({ backgroundColor: "#238636" });
+    expect(link).toHaveStyle("background-color: #238636");
   });
 
   it("uses default color when category color is null", () => {
@@ -37,7 +37,7 @@ describe("CategoryBadge", () => {
     };
     render(<CategoryBadge category={categoryWithoutColor} />);
     const link = screen.getByRole("link");
-    expect(link).toHaveStyle({ backgroundColor: "#24292f" });
+    expect(link).toHaveStyle("background-color: #24292f");
   });
 
   describe("Size variants", () => {

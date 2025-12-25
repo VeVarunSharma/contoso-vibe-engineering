@@ -2,15 +2,13 @@
  * @jest-environment node
  */
 
-import { mockCategories, createMockDb } from "@test-mocks/db";
+import { mockCategories, mockDb } from "@test-mocks/db";
 
-// Create mock db instance
-const mockDb = createMockDb();
-
-// Mock the database module
-jest.mock("@/src/db", () => ({
-  db: mockDb,
-}));
+// Mock the database module - uses the shared mockDb from @test-mocks/db
+jest.mock("@/src/db", () => {
+  const { mockDb } = jest.requireActual("@test-mocks/db");
+  return { db: mockDb };
+});
 
 // Import after mocking
 import { GET } from "@/app/api/categories/route";
@@ -27,7 +25,8 @@ describe("GET /api/categories", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toEqual(mockCategories);
+    // Compare against JSON-serialized mock to match Date serialization
+    expect(data).toEqual(JSON.parse(JSON.stringify(mockCategories)));
     expect(data).toHaveLength(3);
   });
 
