@@ -93,8 +93,8 @@ export const mockUnpublishedPost = {
   publishedAt: null,
   createdAt: new Date("2025-12-18"),
   updatedAt: new Date("2025-12-18"),
-  author: mockPosts[0].author,
-  category: mockPosts[0].category,
+  author: mockPosts[0]?.author ?? null,
+  category: mockPosts[0]?.category ?? null,
   postTags: [],
 };
 
