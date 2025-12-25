@@ -1,10 +1,8 @@
 name: Contoso Web App Unit Tests
 
 on:
-  push:
-    branches: ["main"]
   pull_request:
-    branches: [main]
+    branches: ["main"]
   workflow_dispatch: # Adds the ability to run manually from CLI or UI
 
 jobs:

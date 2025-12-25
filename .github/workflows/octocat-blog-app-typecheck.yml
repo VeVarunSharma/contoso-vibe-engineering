@@ -1,19 +1,13 @@
 name: Octocat Blog App Type Check
 
 on:
-  push:
+  pull_request:
     branches: ["main", "develop/**"]
     paths:
       - "apps/octocat-blog-app/**"
       - "packages/ui/**"
       - "packages/typescript-config/**"
       - "pnpm-lock.yaml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "apps/octocat-blog-app/**"
-      - "packages/ui/**"
-      - "packages/typescript-config/**"
   workflow_dispatch:
 
 concurrency:

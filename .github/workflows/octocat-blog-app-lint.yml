@@ -1,19 +1,13 @@
 name: Octocat Blog App Lint
 
 on:
-  push:
+  pull_request:
     branches: ["main", "develop/**"]
     paths:
       - "apps/octocat-blog-app/**"
       - "packages/ui/**"
       - "packages/eslint-config/**"
       - "pnpm-lock.yaml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "apps/octocat-blog-app/**"
-      - "packages/ui/**"
-      - "packages/eslint-config/**"
   workflow_dispatch:
 
 concurrency:
