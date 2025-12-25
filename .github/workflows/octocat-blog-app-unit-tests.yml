@@ -1,0 +1,57 @@
+name: Octocat Blog App Unit Tests
+
+on:
+  pull_request:
+    branches: ["main", "develop/**"]
+    paths:
+      - "apps/octocat-blog-app/**"
+      - "packages/ui/**"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit-integration-tests:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.11]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+
+      - name: Disable Corepack
+        run: corepack disable
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run unit and integration tests
+        run: |
+          cd apps/octocat-blog-app
+          pnpm test:ci
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: apps/octocat-blog-app/coverage
+          retention-days: 7

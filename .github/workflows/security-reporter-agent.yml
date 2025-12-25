@@ -3,8 +3,6 @@ name: Security Agent Workflow
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
   workflow_dispatch: # Adds the ability to run manually from CLI or
 
 jobs:
