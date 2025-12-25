@@ -12,6 +12,7 @@ module.exports = {
     "\\.(css|less|scss|sss|styl)$": "<rootDir>/node_modules/identity-obj-proxy",
     "^@components(.*)$": "<rootDir>/components$1",
     "^@/(.*)$": "<rootDir>/$1",
+    "^@test-mocks/(.*)$": "<rootDir>/config/jest/__mocks__/$1",
     "^lucide-react$":
       "<rootDir>/node_modules/lucide-react/dist/cjs/lucide-react.js",
   },
@@ -21,7 +22,8 @@ module.exports = {
   coveragePathIgnorePatterns: [
     "<rootDir>/node_modules/",
     "<rootDir>/config/",
-    "<rootDir>/__tests__/__mocks__/",
+    "__tests__/",
+    "__mocks__/",
   ],
   testPathIgnorePatterns: ["<rootDir>/node_modules/", "<rootDir>/.next/"],
   modulePathIgnorePatterns: ["<rootDir>/.next/"],
@@ -29,4 +31,6 @@ module.exports = {
     `node_modules/(?!(?:.pnpm/)?(${esmModules.join("|")})(?:@|/))`,
   ],
   testEnvironment: "jsdom",
+  // Match test files in co-located __tests__ folders
+  testMatch: ["**/__tests__/**/*.(test|spec).(ts|tsx|js|jsx)"],
 };

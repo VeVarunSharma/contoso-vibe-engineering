@@ -3,11 +3,7 @@
  */
 
 import { NextRequest } from "next/server";
-import {
-  mockPosts,
-  createMockDb,
-  mockUnpublishedPost,
-} from "../__mocks__/db";
+import { mockPosts, createMockDb, mockUnpublishedPost } from "@test-mocks/db";
 
 // Create mock db instance
 const mockDb = createMockDb();
@@ -28,7 +24,9 @@ describe("GET /api/posts/[slug]", () => {
   it("returns a post by slug successfully", async () => {
     mockDb.query.posts.findFirst.mockResolvedValueOnce(mockPosts[0]);
 
-    const request = new NextRequest("http://localhost:3000/api/posts/test-post-1");
+    const request = new NextRequest(
+      "http://localhost:3000/api/posts/test-post-1"
+    );
     const params = Promise.resolve({ slug: "test-post-1" });
 
     const response = await GET(request, { params });
@@ -42,7 +40,9 @@ describe("GET /api/posts/[slug]", () => {
   it("returns 404 when post is not found", async () => {
     mockDb.query.posts.findFirst.mockResolvedValueOnce(null);
 
-    const request = new NextRequest("http://localhost:3000/api/posts/non-existent");
+    const request = new NextRequest(
+      "http://localhost:3000/api/posts/non-existent"
+    );
     const params = Promise.resolve({ slug: "non-existent" });
 
     const response = await GET(request, { params });
@@ -55,7 +55,9 @@ describe("GET /api/posts/[slug]", () => {
   it("returns 404 when post is not published", async () => {
     mockDb.query.posts.findFirst.mockResolvedValueOnce(mockUnpublishedPost);
 
-    const request = new NextRequest("http://localhost:3000/api/posts/unpublished-post");
+    const request = new NextRequest(
+      "http://localhost:3000/api/posts/unpublished-post"
+    );
     const params = Promise.resolve({ slug: "unpublished-post" });
 
     const response = await GET(request, { params });
@@ -68,7 +70,9 @@ describe("GET /api/posts/[slug]", () => {
   it("returns post with all relations", async () => {
     mockDb.query.posts.findFirst.mockResolvedValueOnce(mockPosts[0]);
 
-    const request = new NextRequest("http://localhost:3000/api/posts/test-post-1");
+    const request = new NextRequest(
+      "http://localhost:3000/api/posts/test-post-1"
+    );
     const params = Promise.resolve({ slug: "test-post-1" });
 
     const response = await GET(request, { params });
@@ -84,7 +88,9 @@ describe("GET /api/posts/[slug]", () => {
       new Error("Database error")
     );
 
-    const request = new NextRequest("http://localhost:3000/api/posts/test-post-1");
+    const request = new NextRequest(
+      "http://localhost:3000/api/posts/test-post-1"
+    );
     const params = Promise.resolve({ slug: "test-post-1" });
 
     const response = await GET(request, { params });
