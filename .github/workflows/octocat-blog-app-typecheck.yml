@@ -1,4 +1,4 @@
-name: Octocat Blog App Unit Tests
+name: Octocat Blog App Type Check
 
 on:
   push:
@@ -6,12 +6,14 @@ on:
     paths:
       - "apps/octocat-blog-app/**"
       - "packages/ui/**"
+      - "packages/typescript-config/**"
       - "pnpm-lock.yaml"
   pull_request:
     branches: [main]
     paths:
       - "apps/octocat-blog-app/**"
       - "packages/ui/**"
+      - "packages/typescript-config/**"
   workflow_dispatch:
 
 concurrency:
@@ -22,8 +24,8 @@ permissions:
   contents: read
 
 jobs:
-  unit-integration-tests:
-    name: Unit & Integration Tests
+  typecheck:
+    name: TypeScript Type Check
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -50,15 +52,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run unit and integration tests
+      - name: Run type check
         run: |
           cd apps/octocat-blog-app
-          pnpm test:ci
-
-      - name: Upload coverage reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: apps/octocat-blog-app/coverage
-          retention-days: 7
+          pnpm typecheck
