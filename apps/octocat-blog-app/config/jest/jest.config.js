@@ -5,7 +5,22 @@ module.exports = {
   setupFiles: ["<rootDir>/config/jest/env.setup.js"],
   setupFilesAfterEnv: ["<rootDir>/config/jest/jest.setup.js"],
   transform: {
-    "^.+\\.(ts|tsx|js|jsx)$": "@swc/jest",
+    "^.+\\.(ts|tsx|js|jsx)$": [
+      "@swc/jest",
+      {
+        jsc: {
+          parser: {
+            syntax: "typescript",
+            tsx: true,
+          },
+          transform: {
+            react: {
+              runtime: "automatic",
+            },
+          },
+        },
+      },
+    ],
     "^.+\\.svg$": "<rootDir>/config/jest/svgTransform.js",
   },
   moduleNameMapper: {
@@ -18,19 +33,12 @@ module.exports = {
   },
   verbose: true,
   collectCoverage: true,
-  coverageDirectory: "<rootDir>/coverage",
-  coveragePathIgnorePatterns: [
-    "<rootDir>/node_modules/",
-    "<rootDir>/config/",
-    "__tests__/",
-    "__mocks__/",
-  ],
-  testPathIgnorePatterns: ["<rootDir>/node_modules/", "<rootDir>/.next/"],
-  modulePathIgnorePatterns: ["<rootDir>/.next/"],
+  coveragePathIgnorePatterns: ["<rootDir>/test/test-utils.js"],
+  testPathIgnorePatterns: ["<rootDir>/e2e/", "<rootDir>/e2e/"],
+  // ignore cypress
+  modulePathIgnorePatterns: ["./cypress"],
   transformIgnorePatterns: [
     `node_modules/(?!(?:.pnpm/)?(${esmModules.join("|")})(?:@|/))`,
   ],
   testEnvironment: "jsdom",
-  // Match test files in co-located __tests__ folders
-  testMatch: ["**/__tests__/**/*.(test|spec).(ts|tsx|js|jsx)"],
 };

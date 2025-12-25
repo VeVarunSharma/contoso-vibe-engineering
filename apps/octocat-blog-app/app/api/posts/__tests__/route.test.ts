@@ -3,12 +3,13 @@
  */
 
 import { NextRequest } from "next/server";
-import { mockPosts, createMockDb, mockUnpublishedPost } from "@test-mocks/db";
+import { mockPosts, mockDb, mockUnpublishedPost } from "@test-mocks/db";
 
-// Mock the database module
-jest.mock("@/src/db", () => ({
-  db: createMockDb(),
-}));
+// Mock the database module - uses the shared mockDb from @test-mocks/db
+jest.mock("@/src/db", () => {
+  const { mockDb } = jest.requireActual("@test-mocks/db");
+  return { db: mockDb };
+});
 
 // Import after mocking
 import { GET } from "@/app/api/posts/route";
@@ -23,7 +24,8 @@ describe("GET /api/posts", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toEqual(mockPosts);
+    // Compare against JSON-serialized mock to match Date serialization
+    expect(data).toEqual(JSON.parse(JSON.stringify(mockPosts)));
   });
 
   it("returns posts with author and category relations", async () => {
