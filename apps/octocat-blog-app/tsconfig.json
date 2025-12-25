@@ -4,6 +4,7 @@
     "jsx": "preserve",
     "paths": {
       "@/*": ["./*"],
+      "@test-mocks/*": ["./config/jest/__mocks__/*"],
       "@workspace/ui/globals.css": ["../../packages/ui/src/styles/globals.css"],
       "@workspace/ui/*": ["../../packages/ui/src/*"]
     },
@@ -18,7 +19,8 @@
     "next.config.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "config/jest/jest.d.ts"
   ],
   "exclude": ["node_modules"]
 }
