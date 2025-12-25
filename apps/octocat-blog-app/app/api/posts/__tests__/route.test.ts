@@ -3,7 +3,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { mockPosts, createMockDb, mockUnpublishedPost } from "../__mocks__/db";
+import { mockPosts, createMockDb, mockUnpublishedPost } from "@test-mocks/db";
 
 // Mock the database module
 jest.mock("@/src/db", () => ({

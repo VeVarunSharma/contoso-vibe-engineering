@@ -5,7 +5,7 @@ This repository contains frontend applications, shared packages, and backend mic
 
 ## Repository Structure
 
-- **apps/**: Frontend applications (e.g., `web` - Next.js 15).
+- **apps/**: Frontend applications (e.g., `web` - Next.js 15, `octocat-blog-app` - GitHub-themed blog).
 - **packages/**: Shared libraries and configurations (e.g., `ui`, `eslint-config`, `typescript-config`).
 - **services/**: Backend microservices and APIs (e.g., `platform-api`).
   - These services are deployed **independently** outside of the Turborepo frontend build pipeline.
@@ -18,6 +18,7 @@ This repository contains frontend applications, shared packages, and backend mic
 - **Frontend**: Next.js 15 (App Router), React 19, Tailwind CSS 4.
 - **Backend**: Node.js, Express.js, Drizzle ORM, Zod.
 - **Database**: PostgreSQL.
+- **Testing**: Jest, React Testing Library, @swc/jest.
 
 ## Rule 1: Architecture & Monorepo
 
@@ -40,7 +41,22 @@ This repository contains frontend applications, shared packages, and backend mic
 - **ALWAYS** validate API route inputs using `zod` (if using Next.js API routes).
 - **NEVER** trust `searchParams` or request bodies without parsing.
 
-## Rule 4: General Best Practices
+## Rule 4: Testing Best Practices
+
+- **ALWAYS** write tests for new components and API routes.
+- **ALWAYS** use Jest with `@swc/jest` for fast TypeScript transformation.
+- **ALWAYS** mock external dependencies (database, APIs) in unit tests.
+- **ALWAYS** use React Testing Library for component tests.
+- **ALWAYS** co-locate tests with the code they test using `__tests__/` folders:
+  - `components/__tests__/` - Component unit tests (next to components)
+  - `app/api/[route]/__tests__/` - API route tests (next to route handlers)
+  - `src/db/__tests__/` - Database schema tests (next to schema files)
+  - `config/jest/__mocks__/` - Shared mock implementations
+- **ALWAYS** import shared mocks using the `@test-mocks/` alias (e.g., `@test-mocks/db`).
+- **ALWAYS** run `pnpm test` before submitting pull requests.
+- **NEVER** commit code that breaks existing tests.
+
+## Rule 5: General Best Practices
 
 - **ALWAYS** use TypeScript and ensure strict type safety.
 - **NEVER** use `any`; use `unknown` or specific types.

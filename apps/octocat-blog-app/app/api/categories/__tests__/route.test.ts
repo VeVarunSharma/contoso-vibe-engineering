@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { mockCategories, createMockDb } from "../__mocks__/db";
+import { mockCategories, createMockDb } from "@test-mocks/db";
 
 // Create mock db instance
 const mockDb = createMockDb();
