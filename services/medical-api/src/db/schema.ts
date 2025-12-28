@@ -1,4 +1,11 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  jsonb,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -7,22 +14,20 @@ import { relations } from "drizzle-orm";
  */
 
 // Healthcare staff users (for auth demo)
-export const users = sqliteTable("users", {
-  id: text("id").primaryKey(), // UUID
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   role: text("role", {
     enum: ["physician", "nurse", "admin", "billing", "receptionist"],
   }).notNull(),
   department: text("department"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 // Patient health records with sensitive PHI
-export const patients = sqliteTable("patients", {
-  id: text("id").primaryKey(), // UUID
+export const patients = pgTable("patients", {
+  id: uuid("id").primaryKey().defaultRandom(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   dateOfBirth: text("date_of_birth").notNull(), // ISO date string
@@ -37,42 +42,36 @@ export const patients = sqliteTable("patients", {
   phoneNumber: text("phone_number"),
   email: text("email"),
   // PIPA BC: Sensitive - Medical history (JSON)
-  medicalHistory: text("medical_history", { mode: "json" }),
+  medicalHistory: jsonb("medical_history"),
   // PIPA BC: Sensitive - Current medications (JSON)
-  medications: text("medications", { mode: "json" }),
+  medications: jsonb("medications"),
   // Allergies (JSON)
-  allergies: text("allergies", { mode: "json" }),
+  allergies: jsonb("allergies"),
   // PIPA BC: Sensitive - Insurance information (JSON)
-  insuranceInfo: text("insurance_info", { mode: "json" }),
+  insuranceInfo: jsonb("insurance_info"),
   // Emergency contacts (JSON)
-  emergencyContacts: text("emergency_contacts", { mode: "json" }),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
+  emergencyContacts: jsonb("emergency_contacts"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 /**
  * PIPA BC Requirement: Consent must be obtained before collecting,
  * using, or disclosing personal information.
  */
-export const consentRecords = sqliteTable("consent_records", {
-  id: text("id").primaryKey(), // UUID
-  patientId: text("patient_id")
+export const consentRecords = pgTable("consent_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
     .notNull()
     .references(() => patients.id),
   purpose: text("purpose", {
     enum: ["treatment", "billing", "referral", "research", "emergency"],
   }).notNull(),
   grantedBy: text("granted_by").notNull(), // Who gave consent
-  grantedAt: integer("granted_at", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  expiresAt: integer("expires_at", { mode: "timestamp" }),
-  withdrawnAt: integer("withdrawn_at", { mode: "timestamp" }),
-  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  grantedAt: timestamp("granted_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
+  withdrawnAt: timestamp("withdrawn_at"),
+  isActive: boolean("is_active").notNull().default(true),
 });
 
 /**
@@ -82,8 +81,8 @@ export const consentRecords = sqliteTable("consent_records", {
  * CRITICAL: This table must NEVER store actual PHI values,
  * only metadata about access.
  */
-export const auditLogs = sqliteTable("audit_logs", {
-  id: text("id").primaryKey(), // UUID
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
   action: text("action", {
     enum: [
       "PATIENT_ACCESS",
@@ -98,12 +97,10 @@ export const auditLogs = sqliteTable("audit_logs", {
   userId: text("user_id").notNull(), // Who performed the action
   purpose: text("purpose"), // Why they accessed
   // PIPA BC: Log field names only, NEVER values
-  fieldsAccessed: text("fields_accessed", { mode: "json" }),
+  fieldsAccessed: jsonb("fields_accessed"),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-  timestamp: integer("timestamp", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
 // Relations
