@@ -1,10 +1,43 @@
 # PIPA BC Compliance Documentation
 
+> This document details how the Medical API implements British Columbia's Personal Information Protection Act (PIPA) requirements.
+
 ## What is PIPA BC?
 
 The **Personal Information Protection Act (PIPA)** is British Columbia's private sector privacy legislation. It governs how organizations collect, use, and disclose personal information in the course of commercial activities.
 
 For healthcare applications handling patient data (Protected Health Information - PHI), PIPA BC compliance is critical.
+
+## Database Design for Compliance
+
+This API uses **PostgreSQL** with **Drizzle ORM** for type-safe, auditable data access.
+
+### Schema Highlights
+
+```sql
+-- UUIDs prevent enumeration attacks
+CREATE TABLE patients (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ...
+);
+
+-- Consent is tracked separately for auditability
+CREATE TABLE consent_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id UUID REFERENCES patients(id),
+  purpose TEXT NOT NULL,
+  granted_at TIMESTAMP DEFAULT now(),
+  withdrawn_at TIMESTAMP,  -- Soft delete for audit trail
+  is_active BOOLEAN DEFAULT true
+);
+
+-- Audit logs NEVER contain PHI values
+CREATE TABLE audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fields_accessed JSONB,  -- Field names only, not values
+  ...
+);
+```
 
 ## Key PIPA BC Requirements Implemented in This API
 
@@ -178,3 +211,27 @@ app.get("/patients/:id", requireAuth, async (c) => {
 
 - [PIPA BC Full Text](https://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/03063_01)
 - [OIPC BC Guidance](https://www.oipc.bc.ca/)
+- [PIPA BC Guide for Businesses](https://www.oipc.bc.ca/guidance-documents/1438)
+
+## CI/CD Compliance Gates
+
+This API is designed to demonstrate automated compliance checking in CI pipelines:
+
+### GitHub Copilot CLI Integration
+
+```yaml
+# Example workflow step
+- name: Check PIPA Compliance
+  run: |
+    gh copilot suggest "Review this code for PIPA BC compliance issues" \
+      --type shell < services/medical-api/src/routes/patients.ts
+```
+
+### Compliance Checklist for PR Reviews
+
+- [ ] Consent verified before all PHI access
+- [ ] Purpose parameter required on data endpoints
+- [ ] Data minimization applied via `filterPHI()`
+- [ ] Role-based access enforced
+- [ ] Audit logs contain no PHI values
+- [ ] Consent withdrawal properly implemented
