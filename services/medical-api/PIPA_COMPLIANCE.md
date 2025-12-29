@@ -215,23 +215,107 @@ app.get("/patients/:id", requireAuth, async (c) => {
 
 ## CI/CD Compliance Gates
 
-This API is designed to demonstrate automated compliance checking in CI pipelines:
+This API includes automated PIPA BC compliance checking in the CI pipeline using GitHub Copilot CLI.
 
-### GitHub Copilot CLI Integration
+### GitHub Actions Workflow
+
+The compliance workflow is defined at [`.github/workflows/pipa-bc-compliance.yml`](../../.github/workflows/pipa-bc-compliance.yml).
+
+**Triggers:**
+
+- Pull requests modifying `services/medical-api/**`
+- Manual dispatch for testing
+
+**What it does:**
+
+1. Detects changed TypeScript/JavaScript files in the medical-api
+2. Loads the PIPA BC compliance agent from `.github/agents/pipa-bc-compliance.agent.md`
+3. Analyzes code against all PIPA BC sections
+4. Generates a compliance report with score and violations
+5. Posts the report as a PR comment
+6. Fails the check if compliance score < 80% or critical violations found
+
+### Workflow Configuration
 
 ```yaml
-# Example workflow step
-- name: Check PIPA Compliance
-  run: |
-    gh copilot suggest "Review this code for PIPA BC compliance issues" \
-      --type shell < services/medical-api/src/routes/patients.ts
+name: PIPA BC Compliance Check
+
+on:
+  pull_request:
+    paths:
+      - "services/medical-api/**"
+
+env:
+  COMPLIANCE_THRESHOLD: 80 # Minimum passing score
 ```
+
+### Setup Instructions
+
+1. Navigate to **Settings > Secrets and variables > Actions**
+2. Create a repository secret named `COPILOT_GITHUB_TOKEN`
+3. Use a fine-grained Personal Access Token with:
+   - **Copilot Requests** read-only permission
+4. Ensure the token owner has an active GitHub Copilot license
+
+### Compliance Score Breakdown
+
+| PIPA Section | Requirement            | Max Score |
+| ------------ | ---------------------- | --------- |
+| Section 6    | Consent Verification   | 15        |
+| Section 4    | Data Minimization      | 15        |
+| Section 11   | Purpose Limitation     | 15        |
+| Section 34   | Security Safeguards    | 20        |
+| Section 34   | Audit Logging (no PHI) | 20        |
+| Section 9    | Consent Withdrawal     | 5         |
+| Section 18   | Emergency Access       | 10        |
+| **Total**    |                        | **100**   |
+
+### Severity Levels
+
+**CRITICAL** (Immediate Fail):
+
+- PHI values in logs
+- No authentication on PHI endpoints
+- No consent verification
+- Raw data exposure
+
+**MAJOR**:
+
+- Missing purpose validation
+- Incomplete role-based access
+- Missing audit logs
+
+**MINOR**:
+
+- Missing comments
+- Documentation gaps
+
+### Pass/Fail Criteria
+
+| Score        | Status       | Outcome                 |
+| ------------ | ------------ | ----------------------- |
+| ≥ 80         | PASS         | ✅ PR check passes      |
+| 60-79        | NEEDS_REVIEW | ⚠️ May pass with review |
+| < 60         | FAIL         | ❌ PR check fails       |
+| Any critical | FAIL         | ❌ PR check fails       |
 
 ### Compliance Checklist for PR Reviews
 
-- [ ] Consent verified before all PHI access
+- [ ] Consent verified before all PHI access (`verifyConsent()`)
 - [ ] Purpose parameter required on data endpoints
 - [ ] Data minimization applied via `filterPHI()`
-- [ ] Role-based access enforced
-- [ ] Audit logs contain no PHI values
+- [ ] Role-based access enforced (`ROLE_PERMISSIONS`)
+- [ ] Audit logs contain no PHI values (field names only)
 - [ ] Consent withdrawal properly implemented
+- [ ] Emergency access logged appropriately
+
+### Testing the Workflow Locally
+
+```bash
+# Install GitHub Copilot CLI
+npm i -g @github/copilot
+
+# Run compliance check manually
+copilot --prompt "$(cat .github/agents/pipa-bc-compliance.agent.md)" \
+  --allow-all-tools --allow-all-paths
+```

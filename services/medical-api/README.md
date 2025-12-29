@@ -232,6 +232,47 @@ To create a non-compliant version for testing CI gates:
 
 The CI pipeline should **fail** on the non-compliant branch when GitHub Copilot CLI analyzes the code.
 
+## CI/CD Compliance Pipeline
+
+This service includes an automated PIPA BC compliance check that runs on every pull request.
+
+### GitHub Actions Workflow
+
+The workflow at [`.github/workflows/pipa-bc-compliance.yml`](../../.github/workflows/pipa-bc-compliance.yml) automatically:
+
+1. **Triggers** on PRs that modify `services/medical-api/**`
+2. **Detects** changed TypeScript/JavaScript files
+3. **Analyzes** code using GitHub Copilot CLI with the [PIPA BC compliance agent](../../.github/agents/pipa-bc-compliance.agent.md)
+4. **Posts** a compliance report as a PR comment
+5. **Fails** the check if compliance score < 80% or critical violations found
+
+### Compliance Score Breakdown
+
+| PIPA Section | Requirement            | Weight |
+| ------------ | ---------------------- | ------ |
+| Section 6    | Consent Verification   | 15%    |
+| Section 4    | Data Minimization      | 15%    |
+| Section 11   | Purpose Limitation     | 15%    |
+| Section 34   | Security Safeguards    | 20%    |
+| Section 34   | Audit Logging (no PHI) | 20%    |
+| Section 9    | Consent Withdrawal     | 5%     |
+| Section 18   | Emergency Access       | 10%    |
+
+### Setup Requirements
+
+To enable the compliance workflow:
+
+1. Navigate to **Settings > Secrets and variables > Actions**
+2. Create a secret named `COPILOT_GITHUB_TOKEN`
+3. Use a fine-grained PAT with **Copilot Requests** read-only permission
+4. Ensure the token owner has an active GitHub Copilot license
+
+### Pass/Fail Criteria
+
+- **PASS**: Score ≥ 80 and no critical violations
+- **NEEDS_REVIEW**: Score 60-79 or major violations only
+- **FAIL**: Score < 60 or any critical violations
+
 ## Contributing
 
 1. Follow the monorepo conventions in [copilot-instructions.md](../../.github/copilot-instructions.md)
