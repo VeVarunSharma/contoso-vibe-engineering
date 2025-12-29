@@ -1,0 +1,268 @@
+# PIPA BC Compliance Checker Workflow
+# ====================================
+#
+# This workflow uses GitHub Copilot CLI to analyze code changes in the
+# medical-api service for compliance with British Columbia's Personal
+# Information Protection Act (PIPA BC).
+#
+# SETUP INSTRUCTIONS:
+# -------------------
+# 1. Navigate to your repository Settings > Secrets and variables > Actions
+# 2. Create a new repository secret named 'COPILOT_GITHUB_TOKEN'
+# 3. The COPILOT_GITHUB_TOKEN should be a fine-grained personal access token
+#    with the "Copilot Requests" read-only permission
+# 4. Ensure the token owner has an active GitHub Copilot license
+#
+# PIPA BC Requirements Checked:
+# - Section 6:  Consent Verification
+# - Section 4:  Data Minimization
+# - Section 11: Purpose Limitation
+# - Section 34: Security Safeguards & Audit Logging
+# - Section 9:  Consent Withdrawal
+# - Section 18: Emergency Access
+#
+# For more information on PIPA BC, see:
+# - services/medical-api/PIPA_COMPLIANCE.md
+# - https://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/03063_01
+
+name: PIPA BC Compliance Check
+
+on:
+  pull_request:
+    paths:
+      - "services/medical-api/**"
+    types:
+      - opened
+      - synchronize
+      - reopened
+  workflow_dispatch: # Allows manual trigger for testing
+
+# Ensure only one compliance check runs at a time per PR
+concurrency:
+  group: pipa-compliance-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  COMPLIANCE_THRESHOLD: 80
+
+jobs:
+  pipa-compliance-check:
+    name: PIPA BC Compliance Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for accurate diff
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            services/medical-api/**/*.ts
+            services/medical-api/**/*.tsx
+            services/medical-api/**/*.js
+            services/medical-api/**/*.jsx
+
+      - name: Check if relevant files changed
+        id: check-files
+        run: |
+          if [ -z "${{ steps.changed-files.outputs.all_changed_files }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "No relevant TypeScript/JavaScript files changed in medical-api"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "Files to analyze:"
+            echo "${{ steps.changed-files.outputs.all_changed_files }}"
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-files.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install GitHub Copilot CLI
+        if: steps.check-files.outputs.skip != 'true'
+        run: npm i -g @github/copilot
+
+      - name: Run PIPA BC Compliance Agent
+        if: steps.check-files.outputs.skip != 'true'
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Build the list of changed files
+          CHANGED_FILES="${{ steps.changed-files.outputs.all_changed_files }}"
+
+          # Read the agent prompt
+          AGENT_PROMPT=$(cat .github/agents/pipa-bc-compliance.agent.md)
+
+          # Build the full prompt
+          PROMPT="$AGENT_PROMPT"
+          PROMPT+=$'\n\n## Context\n'
+          PROMPT+="- Repository: $GITHUB_REPOSITORY"
+          PROMPT+=$'\n- Service: services/medical-api'
+          PROMPT+=$'\n- Changed Files: '"$CHANGED_FILES"
+          PROMPT+=$'\n\n## Task\n'
+          PROMPT+='1. Read the PIPA BC compliance documentation at services/medical-api/PIPA_COMPLIANCE.md'
+          PROMPT+=$'\n2. Analyze the changed files for PIPA BC compliance'
+          PROMPT+=$'\n3. Check each file against all PIPA BC requirements (consent, data minimization, purpose limitation, security, audit logging, access control)'
+          PROMPT+=$'\n4. Generate a compliance report at services/medical-api/pipa-compliance-report.md'
+          PROMPT+=$'\n5. The report MUST include a JSON block with compliance_score and status fields'
+
+          # Run Copilot CLI with the agent
+          copilot --prompt "$PROMPT" --allow-all-tools --allow-all-paths < /dev/null
+
+      - name: Parse compliance results
+        if: steps.check-files.outputs.skip != 'true'
+        id: parse-results
+        run: |
+          set -euo pipefail
+          REPORT_PATH="services/medical-api/pipa-compliance-report.md"
+
+          if [ ! -f "$REPORT_PATH" ]; then
+            echo "::warning::No compliance report generated"
+            echo "score=0" >> $GITHUB_OUTPUT
+            echo "status=FAIL" >> $GITHUB_OUTPUT
+            echo "passed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Extract compliance score from report (look for JSON block or score line)
+          SCORE=$(grep -oP '"compliance_score"\s*:\s*\K\d+' "$REPORT_PATH" 2>/dev/null || \
+                  grep -oP 'Compliance Score[:\s]*\K\d+' "$REPORT_PATH" 2>/dev/null || \
+                  echo "0")
+
+          # Extract status
+          STATUS=$(grep -oP '"status"\s*:\s*"\K[^"]+' "$REPORT_PATH" 2>/dev/null || \
+                   grep -oP 'Status[:\s]*\K(PASS|FAIL|NEEDS_REVIEW)' "$REPORT_PATH" 2>/dev/null || \
+                   echo "UNKNOWN")
+
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+
+          # Determine pass/fail
+          if [ "$SCORE" -ge "$COMPLIANCE_THRESHOLD" ] && [ "$STATUS" != "FAIL" ]; then
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+          echo "Compliance Score: $SCORE"
+          echo "Status: $STATUS"
+
+      - name: Output compliance report as summary
+        if: steps.check-files.outputs.skip != 'true' && always()
+        run: |
+          set -euo pipefail
+          REPORT_PATH="services/medical-api/pipa-compliance-report.md"
+
+          if [ ! -f "$REPORT_PATH" ]; then
+            echo "No compliance report generated; skipping summary."
+            exit 0
+          fi
+
+          # Add header to the summary
+          echo "# 🏥 PIPA BC Compliance Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Score:** ${{ steps.parse-results.outputs.score }}/100 | **Threshold:** ${{ env.COMPLIANCE_THRESHOLD }}/100 | **Status:** ${{ steps.parse-results.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Append the full report content
+          cat "$REPORT_PATH" >> $GITHUB_STEP_SUMMARY
+
+      - name: Post compliance report as PR comment
+        if: steps.check-files.outputs.skip != 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const reportPath = 'services/medical-api/pipa-compliance-report.md';
+
+            let report = '## 🏥 PIPA BC Compliance Report\n\n';
+
+            if (fs.existsSync(reportPath)) {
+              const content = fs.readFileSync(reportPath, 'utf8');
+              const score = '${{ steps.parse-results.outputs.score }}';
+              const status = '${{ steps.parse-results.outputs.status }}';
+              const passed = '${{ steps.parse-results.outputs.passed }}' === 'true';
+              const threshold = '${{ env.COMPLIANCE_THRESHOLD }}';
+
+              report += `| Metric | Value |\n`;
+              report += `|--------|-------|\n`;
+              report += `| **Compliance Score** | ${score}/100 |\n`;
+              report += `| **Threshold** | ${threshold}/100 |\n`;
+              report += `| **Status** | ${status} |\n`;
+              report += `| **Result** | ${passed ? '✅ PASSED' : '❌ FAILED'} |\n\n`;
+              report += `---\n\n`;
+              report += content;
+            } else {
+              report += '⚠️ No compliance report was generated.\n';
+            }
+
+            report += '\n\n---\n*Analyzed by GitHub Copilot CLI • [Learn about PIPA BC](https://www.oipc.bc.ca/)*';
+
+            // Find existing comment to update
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('PIPA BC Compliance Report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: report
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+            }
+
+      - name: Skip notification
+        if: steps.check-files.outputs.skip == 'true'
+        run: |
+          echo "::notice::No relevant files changed in services/medical-api. Skipping PIPA BC compliance check."
+
+      - name: Upload compliance report artifact
+        if: steps.check-files.outputs.skip != 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipa-compliance-report-${{ github.run_id }}
+          path: services/medical-api/pipa-compliance-report.md
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Fail if compliance check failed
+        if: steps.check-files.outputs.skip != 'true' && steps.parse-results.outputs.passed != 'true'
+        run: |
+          echo "::error::PIPA BC Compliance check failed!"
+          echo ""
+          echo "Score: ${{ steps.parse-results.outputs.score }}/${{ env.COMPLIANCE_THRESHOLD }}"
+          echo "Status: ${{ steps.parse-results.outputs.status }}"
+          echo ""
+          echo "Please review the compliance report in the PR comments and address all violations."
+          echo "See services/medical-api/PIPA_COMPLIANCE.md for compliance guidance."
+          exit 1
