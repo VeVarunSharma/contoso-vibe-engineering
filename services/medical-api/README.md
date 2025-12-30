@@ -169,7 +169,8 @@ services/medical-api/
 │   │   ├── consent.ts         # PIPA consent verification
 │   │   └── audit.ts           # Audit logging (no PHI values)
 │   ├── routes/
-│   │   └── patients.ts        # Patient CRUD endpoints
+│   │   ├── patients.ts              # ✅ COMPLIANT - Patient CRUD endpoints
+│   │   └── patients-noncompliant.ts # ❌ DEMO ONLY - Intentional violations
 │   ├── utils/
 │   │   └── pii-filter.ts      # Data minimization helper
 │   └── index.ts               # Hono server entry point
@@ -213,7 +214,7 @@ services/medical-api/
 
 This API is designed to demonstrate two scenarios for CI compliance gates:
 
-### ✅ Compliant Version (This Branch)
+### ✅ Compliant Version (`src/routes/patients.ts`)
 
 - Consent verification before all data access
 - Purpose-based data filtering
@@ -221,16 +222,28 @@ This API is designed to demonstrate two scenarios for CI compliance gates:
 - Audit logging without PHI values
 - Consent withdrawal support
 
-### ❌ Non-Compliant Version (For Demo)
+### ❌ Non-Compliant Version (`src/routes/patients-noncompliant.ts`)
 
-To create a non-compliant version for testing CI gates:
+**⚠️ This file exists for demo purposes only! Never use in production.**
 
-1. Remove consent checks from patient routes
-2. Return full patient records without filtering
-3. Log PHI values in audit trails
-4. Skip role verification
+This file intentionally violates PIPA BC requirements to demonstrate what the GitHub Copilot CLI compliance agent should catch:
 
-The CI pipeline should **fail** on the non-compliant branch when GitHub Copilot CLI analyzes the code.
+| Violation # | PIPA BC Section | Description                                       |
+| ----------- | --------------- | ------------------------------------------------- |
+| 1           | Section 34      | No authentication middleware                      |
+| 2           | Section 6       | No consent verification before data access        |
+| 3           | Section 4       | Returns ALL patient fields (no data minimization) |
+| 4           | Section 34      | console.log() statements print actual patient PHI |
+| 5           | Section 34      | Bulk export endpoint with no access controls      |
+| 6           | Section 34      | No audit logging                                  |
+| 7           | Section 11      | No purpose validation                             |
+| 8           | Section 34      | Hardcoded credentials in source code              |
+
+To test the CI compliance gate:
+
+1. Uncomment the non-compliant route in `src/index.ts`
+2. Push changes to trigger the PIPA BC compliance workflow
+3. The CI pipeline should **FAIL** when GitHub Copilot CLI analyzes the code
 
 ## CI/CD Compliance Pipeline
 

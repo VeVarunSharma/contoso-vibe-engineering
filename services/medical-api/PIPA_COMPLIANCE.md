@@ -207,6 +207,75 @@ app.get("/patients/:id", requireAuth, async (c) => {
 });
 ```
 
+### DON'T: Hardcode credentials
+
+```typescript
+// BAD - Credentials in source code
+const API_KEY = "sk-prod-12345-secret";
+const DB_PASSWORD = "super_secret_password";
+```
+
+### DON'T: Create bulk export endpoints without controls
+
+```typescript
+// BAD - No auth, no consent, no filtering
+app.get("/patients/export/all", async (c) => {
+  const allPatients = await db.query.patients.findMany();
+  return c.json(allPatients);
+});
+```
+
+### DON'T: Log PHI values to console
+
+```typescript
+// BAD - Logs sensitive patient data
+console.log(`Patient: ${patient.firstName} ${patient.lastName}`);
+console.log(`SIN: ${patient.socialInsuranceNumber}`);
+console.log(`PHN: ${patient.healthCardNumber}`);
+```
+
+## Non-Compliant Demo File
+
+For demonstration purposes, this API includes a file that intentionally violates PIPA BC:
+
+**File:** [`src/routes/patients-noncompliant.ts`](src/routes/patients-noncompliant.ts)
+
+**Purpose:** To test the GitHub Copilot CLI compliance agent in CI/CD pipelines.
+
+**Violations Included:**
+
+| #   | Violation                                 | PIPA Section |
+| --- | ----------------------------------------- | ------------ |
+| 1   | No authentication middleware              | Section 34   |
+| 2   | No consent verification                   | Section 6    |
+| 3   | No data minimization (returns ALL fields) | Section 4    |
+| 4   | PHI values logged to console              | Section 34   |
+| 5   | Bulk export without access controls       | Section 34   |
+| 6   | No audit logging                          | Section 34   |
+| 7   | No purpose validation                     | Section 11   |
+| 8   | Hardcoded credentials in source           | Section 34   |
+
+**⚠️ WARNING:** This file should NEVER be used in production. It exists solely to demonstrate what the CI compliance gates should catch.
+
+### Testing with Non-Compliant Code
+
+To test that the CI gate properly catches violations:
+
+1. Uncomment the non-compliant route in `src/index.ts`:
+
+   ```typescript
+   import patientsNoncompliantRouter from "./routes/patients-noncompliant.js";
+   app.route("/api/patients-unsafe", patientsNoncompliantRouter);
+   ```
+
+2. Push the changes to a PR branch
+
+3. The PIPA BC compliance workflow should:
+   - Detect all 8 violation types
+   - Generate a compliance score well below 80
+   - Mark the PR check as **FAILED**
+   - List all violations in the workflow summary
+
 ## References
 
 - [PIPA BC Full Text](https://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/03063_01)
@@ -308,6 +377,8 @@ env:
 - [ ] Audit logs contain no PHI values (field names only)
 - [ ] Consent withdrawal properly implemented
 - [ ] Emergency access logged appropriately
+- [ ] No hardcoded credentials or API keys
+- [ ] No console.log() statements with PHI values
 
 ### Testing the Workflow Locally
 
