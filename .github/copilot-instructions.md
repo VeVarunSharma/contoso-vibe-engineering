@@ -7,16 +7,16 @@ This repository contains frontend applications, shared packages, and backend mic
 
 - **apps/**: Frontend applications (e.g., `web` - Next.js 15, `octocat-blog-app` - GitHub-themed blog).
 - **packages/**: Shared libraries and configurations (e.g., `ui`, `eslint-config`, `typescript-config`).
-- **services/**: Backend microservices and APIs (e.g., `platform-api`).
+- **services/**: Backend microservices and APIs (e.g., `platform-api`, `medical-api`).
   - These services are deployed **independently** outside of the Turborepo frontend build pipeline.
-  - They typically use **Express.js**, **Drizzle ORM**, and **PostgreSQL**.
+  - They typically use **Express.js** or **Hono**, **Drizzle ORM**, and **PostgreSQL**.
 
 ## Tech Stack
 
 - **Package Manager**: pnpm
 - **Build System**: Turborepo
 - **Frontend**: Next.js 15 (App Router), React 19, Tailwind CSS 4.
-- **Backend**: Node.js, Express.js, Drizzle ORM, Zod.
+- **Backend**: Node.js, Express.js/Hono, Drizzle ORM, Zod.
 - **Database**: PostgreSQL.
 - **Testing**: Jest, React Testing Library, @swc/jest.
 
@@ -61,3 +61,21 @@ This repository contains frontend applications, shared packages, and backend mic
 - **ALWAYS** use TypeScript and ensure strict type safety.
 - **NEVER** use `any`; use `unknown` or specific types.
 - **ALWAYS** follow the established folder structure for new features.
+
+## Rule 6: Security & Compliance
+
+- **NEVER** log PHI (Protected Health Information) values to console or logs.
+- **NEVER** hardcode credentials, API keys, or secrets in source code.
+- **ALWAYS** use environment variables for sensitive configuration.
+- **ALWAYS** implement proper consent verification for healthcare data access.
+- **ALWAYS** apply data minimization - return only fields needed for the stated purpose.
+
+## Demo Files
+
+The following files exist for **demonstration purposes only** and intentionally violate best practices:
+
+| File                                                       | Purpose                                          |
+| ---------------------------------------------------------- | ------------------------------------------------ |
+| `services/medical-api/src/routes/patients-noncompliant.ts` | PIPA BC violation demo for CI compliance testing |
+
+**⚠️ These files should NEVER be used as reference for production code.**

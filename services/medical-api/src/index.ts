@@ -4,6 +4,8 @@ import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import patientsRouter from "./routes/patients.js";
+// ⚠️ NON-COMPLIANT DEMO ROUTE - Uncomment for testing CI compliance gates
+// import patientsNoncompliantRouter from "./routes/patients-noncompliant.js";
 
 const app = new Hono();
 
@@ -18,6 +20,10 @@ app.get("/health", (c) => {
 
 // Mount routes
 app.route("/api/patients", patientsRouter);
+
+// ⚠️ NON-COMPLIANT DEMO ROUTE - Uncomment for testing CI compliance gates
+// WARNING: This route intentionally violates PIPA BC requirements!
+// app.route("/api/patients-unsafe", patientsNoncompliantRouter);
 
 // Error handling - PIPA BC: Don't expose internal errors
 app.onError((err, c) => {
