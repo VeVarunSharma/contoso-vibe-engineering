@@ -1,7 +1,7 @@
 ---
 name: PIPABCComplianceAgent
 description: PIPA BC Compliance Agent - Analyzes healthcare code for British Columbia Personal Information Protection Act compliance
-model: GPT-5.1 (Preview)
+model: GPT-5.1-Codex-Max (copilot)
 ---
 
 ## Purpose
