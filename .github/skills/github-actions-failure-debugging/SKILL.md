@@ -1,6 +1,6 @@
 ---
 name: github-actions-failure-debugging
-description: Guide for debugging failing GitHub Actions workflows. Use this when asked to debug failing GitHub Actions workflows.
+description: Guide for debugging failing GitHub Actions workflows. Use this skill when debugging failing GitHub Actions workflows.
 ---
 
 To debug failing GitHub Actions workflows in a pull request, follow this process, using tools provided from the GitHub MCP Server:
