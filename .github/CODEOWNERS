@@ -1,0 +1,22 @@
+# Default owners for everything
+
+- @VeVarunSharma
+
+# Frontend apps
+
+/apps/contoso-web-app/ @VeVarunSharma
+/apps/octocat-blog-app/ @VeVarunSharma
+
+# Shared packages
+
+/packages/ui/ @VeVarunSharma
+
+# Services/Backend
+
+/services/ @VeVarunSharma
+
+# CI/CD - require review for pipeline changes
+
+/.github/workflows/ @VeVarunSharma
+/.azuredevops/ @VeVarunSharma
+/azure-pipelines.yml @VeVarunSharma
