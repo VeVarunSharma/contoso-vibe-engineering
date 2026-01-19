@@ -1,0 +1,78 @@
+# Azure DevOps Pipeline: Contoso Web App Unit Tests
+# Equivalent to .github/workflows/contoso-web-app-unit-tests.yml
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - apps/contoso-web-app/**
+      - packages/ui/**
+      - pnpm-lock.yaml
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - apps/contoso-web-app/**
+      - packages/ui/**
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  PNPM_VERSION: "10.26.2"
+  NODE_VERSION: "22"
+
+jobs:
+  - job: UnitTests
+    displayName: "Contoso Web App Unit & Integration Tests"
+    steps:
+      - checkout: self
+
+      - task: NodeTool@0
+        inputs:
+          versionSpec: $(NODE_VERSION)
+        displayName: "Use Node.js $(NODE_VERSION)"
+
+      - script: |
+          corepack disable
+          npm install -g pnpm@$(PNPM_VERSION)
+        displayName: "Install pnpm"
+
+      - task: Cache@2
+        inputs:
+          key: 'pnpm | "$(Agent.OS)" | pnpm-lock.yaml'
+          path: $(Pipeline.Workspace)/.pnpm-store
+          restoreKeys: |
+            pnpm | "$(Agent.OS)"
+        displayName: "Cache pnpm store"
+
+      - script: |
+          pnpm config set store-dir $(Pipeline.Workspace)/.pnpm-store
+          pnpm install --frozen-lockfile
+        displayName: "Install dependencies"
+
+      - script: |
+          cd apps/contoso-web-app
+          pnpm test:ci
+        displayName: "Run unit and integration tests"
+
+      - task: PublishTestResults@2
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFormat: "JUnit"
+          testResultsFiles: "apps/contoso-web-app/**/junit.xml"
+          mergeTestResults: true
+          failTaskOnFailedTests: true
+          testRunTitle: "Contoso Web App Unit Tests"
+        displayName: "Publish test results"
+
+      - task: PublishCodeCoverageResults@2
+        condition: succeededOrFailed()
+        inputs:
+          summaryFileLocation: "apps/contoso-web-app/coverage/cobertura-coverage.xml"
+        displayName: "Publish code coverage"
