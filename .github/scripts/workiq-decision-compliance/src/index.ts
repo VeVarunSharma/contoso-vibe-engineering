@@ -63,17 +63,17 @@ async function main(): Promise<void> {
     const session = await client.createSession({
       model: "claude-sonnet-4-20250514",
 
-      // Configure WorkIQ as an MCP server
-      mcpServers: [
-        {
-          name: "workiq",
+      // Configure WorkIQ as an MCP server (key-value format)
+      mcpServers: {
+        workiq: {
           command: "npx",
           args: ["-y", "@microsoft/workiq", "mcp"],
           env: {
             WORKIQ_TENANT_ID: config.WORKIQ_TENANT_ID,
           },
+          tools: ["*"], // Allow all tools from WorkIQ MCP server
         },
-      ],
+      },
 
       // System prompt defines the agent's behavior
       systemMessage: {
