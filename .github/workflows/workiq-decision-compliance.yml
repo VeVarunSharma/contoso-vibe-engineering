@@ -111,7 +111,8 @@ jobs:
         run: |
           BRANCH="${{ github.head_ref || github.ref_name }}"
           # Extract keywords from branch name (e.g., feature/user-auth -> "user auth")
-          KEYWORDS=$(echo "$BRANCH" | sed 's|.*/||' | tr '-_/' ' ')
+          # Note: tr requires '-' to be last or escaped to avoid being interpreted as an option
+          KEYWORDS=$(echo "$BRANCH" | sed 's|.*/||' | tr '_/-' ' ')
           echo "keywords=$KEYWORDS" >> $GITHUB_OUTPUT
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
           echo "Extracted keywords: $KEYWORDS"
