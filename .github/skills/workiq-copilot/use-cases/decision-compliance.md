@@ -1,23 +1,47 @@
 # Decision Compliance CI Check
 
-This use case demonstrates how to use WorkIQ with GitHub Copilot to validate pull requests against decisions and agreements made in recent team meetings.
+This use case demonstrates how to use WorkIQ with the **GitHub Copilot SDK** (`@github/copilot-sdk`) to validate pull requests against decisions and agreements made in recent team meetings.
 
 ## Overview
 
 When a developer opens a PR, this workflow:
 
 1. Extracts feature keywords from the branch name
-2. Queries WorkIQ for relevant meeting decisions from the past N days
-3. Analyzes the PR diff against those decisions
-4. Reports violations, warnings, and compliance evidence
-5. Fails CI only on clear violations (not ambiguous warnings)
+2. Uses the Copilot SDK to create a session with WorkIQ as an MCP server
+3. Queries WorkIQ for relevant meeting decisions from the past N days
+4. Analyzes the PR diff against those decisions
+5. Reports violations, warnings, and compliance evidence
+6. Fails CI only on clear violations (not ambiguous warnings)
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    GitHub Actions Workflow                      │
+├─────────────────────────────────────────────────────────────────┤
+│  1. Checkout & Get Changed Files                                │
+│  2. npm ci && npm run build (SDK script)                        │
+│  3. node dist/index.js                                          │
+│     ├── CopilotClient.createSession()                           │
+│     │   └── mcpServers: { workiq: { command: 'npx', ... } }     │
+│     ├── session.sendAndWait(prompt)                             │
+│     │   └── WorkIQ queries M365 meetings, emails, Teams         │
+│     └── Parse response → Write report                           │
+│  4. Parse results & Post PR comment                             │
+│  5. Determine CI outcome (PASS/WARN/FAIL)                       │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ## Files
 
-| File                                                                                                      | Purpose                 |
-| --------------------------------------------------------------------------------------------------------- | ----------------------- |
-| [.github/workflows/workiq-decision-compliance.yml](../../../workflows/workiq-decision-compliance.yml)     | GitHub Actions workflow |
-| [.github/agents/workiq-decision-compliance.agent.md](../../../agents/workiq-decision-compliance.agent.md) | Copilot agent prompt    |
+| File                                                                                                                    | Purpose                       |
+| ----------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| [.github/workflows/workiq-decision-compliance.yml](../../../workflows/workiq-decision-compliance.yml)                   | GitHub Actions workflow       |
+| [.github/scripts/workiq-decision-compliance/](../../../scripts/workiq-decision-compliance/)                             | Copilot SDK TypeScript script |
+| [.github/scripts/workiq-decision-compliance/src/index.ts](../../../scripts/workiq-decision-compliance/src/index.ts)     | Main entry point              |
+| [.github/scripts/workiq-decision-compliance/src/config.ts](../../../scripts/workiq-decision-compliance/src/config.ts)   | Zod config validation         |
+| [.github/scripts/workiq-decision-compliance/src/prompts.ts](../../../scripts/workiq-decision-compliance/src/prompts.ts) | System/user prompts           |
+| [.github/scripts/workiq-decision-compliance/src/types.ts](../../../scripts/workiq-decision-compliance/src/types.ts)     | TypeScript interfaces         |
 
 ## Setup
 
@@ -141,7 +165,8 @@ gh workflow run workiq-decision-compliance.yml \
 
 - **WorkIQ auth failed**: Check `WORKIQ_TENANT_ID` secret and admin consent
 - **No meetings found**: Increase `lookback_days` or check keyword matching
-- **Copilot CLI error**: Verify `COPILOT_GITHUB_TOKEN` has correct permissions
+- **Copilot SDK error**: Verify `COPILOT_GITHUB_TOKEN` has correct permissions
+- **Build failure**: Run `npm ci && npm run build` locally in the script directory
 
 ### False Positives
 
@@ -159,6 +184,29 @@ WorkIQ queries depend on:
 - User's access to meeting notes/transcripts
 - Keywords matching meeting titles/content
 
+## SDK Implementation Details
+
+The SDK script uses `@github/copilot-sdk` with WorkIQ configured as an MCP server:
+
+```typescript
+import { CopilotClient } from "@github/copilot-sdk";
+
+const session = await CopilotClient.createSession({
+  token: process.env.COPILOT_GITHUB_TOKEN!,
+  mcpServers: {
+    workiq: {
+      command: "npx",
+      args: ["-y", "@microsoft/workiq", "mcp", "-t", tenantId],
+    },
+  },
+});
+
+const response = await session.sendAndWait([
+  { role: "system", content: systemPrompt },
+  { role: "user", content: userPrompt },
+]);
+```
+
 ## Future Enhancements
 
 - [ ] Support for linked GitHub Issues as context
@@ -166,3 +214,4 @@ WorkIQ queries depend on:
 - [ ] Caching meeting decisions across PRs
 - [ ] Integration with meeting recap summaries
 - [ ] Slack/Teams notifications for violations
+- [ ] Streaming responses for real-time progress
