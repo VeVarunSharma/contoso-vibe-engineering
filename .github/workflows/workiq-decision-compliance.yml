@@ -127,21 +127,28 @@ jobs:
           # Read outputs set by the SDK script (if GITHUB_OUTPUT was written to)
           # Fallback to parsing the report if outputs weren't set
           if [ -f "${{ env.REPORT_PATH }}" ]; then
-            STATUS=$(grep -oP '"status"\s*:\s*"\K[^"]+' "${{ env.REPORT_PATH }}" 2>/dev/null | head -1 || echo "UNKNOWN")
-            VIOLATIONS=$(grep -c '"severity"\s*:\s*"FAIL"' "${{ env.REPORT_PATH }}" 2>/dev/null || echo "0")
-            WARNINGS=$(grep -c '"severity"\s*:\s*"WARN"' "${{ env.REPORT_PATH }}" 2>/dev/null || echo "0")
-            DECISIONS=$(grep -oP '"decisions_checked"\s*:\s*\K\d+' "${{ env.REPORT_PATH }}" 2>/dev/null | head -1 || echo "0")
+            # Extract status using sed (more portable than grep -P)
+            STATUS=$(sed -n 's/.*"status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${{ env.REPORT_PATH }}" 2>/dev/null | head -1)
+            STATUS="${STATUS:-UNKNOWN}"
+            
+            # Count violations and warnings - use separate command to avoid capturing both outputs
+            VIOLATIONS=$(grep -c '"severity"[[:space:]]*:[[:space:]]*"FAIL"' "${{ env.REPORT_PATH }}" 2>/dev/null) || VIOLATIONS=0
+            WARNINGS=$(grep -c '"severity"[[:space:]]*:[[:space:]]*"WARN"' "${{ env.REPORT_PATH }}" 2>/dev/null) || WARNINGS=0
+            
+            # Extract decisions checked
+            DECISIONS=$(sed -n 's/.*"decisions_checked"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p' "${{ env.REPORT_PATH }}" 2>/dev/null | head -1)
+            DECISIONS="${DECISIONS:-0}"
           else
             STATUS="UNKNOWN"
-            VIOLATIONS="0"
-            WARNINGS="0"
-            DECISIONS="0"
+            VIOLATIONS=0
+            WARNINGS=0
+            DECISIONS=0
           fi
 
-          echo "status=${STATUS:-UNKNOWN}" >> $GITHUB_OUTPUT
-          echo "violations=${VIOLATIONS:-0}" >> $GITHUB_OUTPUT
-          echo "warnings=${WARNINGS:-0}" >> $GITHUB_OUTPUT
-          echo "decisions_checked=${DECISIONS:-0}" >> $GITHUB_OUTPUT
+          echo "status=${STATUS}" >> $GITHUB_OUTPUT
+          echo "violations=${VIOLATIONS}" >> $GITHUB_OUTPUT
+          echo "warnings=${WARNINGS}" >> $GITHUB_OUTPUT
+          echo "decisions_checked=${DECISIONS}" >> $GITHUB_OUTPUT
 
           echo "Status: $STATUS"
           echo "Violations: $VIOLATIONS"
