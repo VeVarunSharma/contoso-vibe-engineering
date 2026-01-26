@@ -39,7 +39,7 @@ on:
       fail_on_warn:
         description: "Fail CI on warnings (not just failures)"
         required: false
-        default: "false"
+        default: false
         type: boolean
 
 # Ensure only one compliance check runs at a time per PR
