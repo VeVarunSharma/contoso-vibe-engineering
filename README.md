@@ -21,3 +21,4 @@ Located in `apps/web/app/secure-vibe`.
 ## Configuration
 
 The rules for the AI Agent are defined in `.github/copilot-instructions.md`.
+

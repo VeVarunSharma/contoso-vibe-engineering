@@ -1,0 +1,271 @@
+# WorkIQ Meeting Decision Compliance Check (SDK Version)
+# =======================================================
+#
+# This workflow uses the GitHub Copilot SDK with WorkIQ MCP to analyze PR changes
+# against decisions and agreements made in recent team meetings.
+#
+# SETUP INSTRUCTIONS:
+# -------------------
+# 1. Create repository secrets:
+#    - COPILOT_GITHUB_TOKEN: Fine-grained PAT with "Copilot Requests" read permission
+#    - WORKIQ_TENANT_ID: Your Microsoft 365 tenant ID (optional, defaults to 'common')
+#
+# 2. WorkIQ Authentication:
+#    - First run requires Microsoft 365 admin consent
+#    - See: https://aka.ms/workiq-admin-consent
+#
+# 3. Ensure the token owner has an active GitHub Copilot license
+#
+# STATUS LEVELS:
+# - PASS: Code aligns with all meeting decisions
+# - WARN: Minor deviations found (does not fail CI)
+# - FAIL: Clear violations of team agreements (fails CI)
+
+name: Meeting Decision Compliance
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "Number of days to look back for meeting decisions"
+        required: false
+        default: "7"
+        type: string
+      fail_on_warn:
+        description: "Fail CI on warnings (not just failures)"
+        required: false
+        default: false
+        type: boolean
+
+# Ensure only one compliance check runs at a time per PR
+concurrency:
+  group: workiq-compliance-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '7' }}
+  FAIL_ON_WARN: ${{ github.event.inputs.fail_on_warn || 'false' }}
+  REPORT_PATH: ".github/compliance-reports/meeting-decision-compliance.md"
+  SCRIPT_DIR: ".github/scripts/workiq-decision-compliance"
+
+jobs:
+  decision-compliance-check:
+    name: Meeting Decision Compliance Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v46
+
+      - name: Check if files changed
+        id: check-files
+        run: |
+          if [ -z "${{ steps.changed-files.outputs.all_changed_files }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "No files changed"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "Files to analyze:"
+            echo "${{ steps.changed-files.outputs.all_changed_files }}"
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-files.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install SDK script dependencies
+        if: steps.check-files.outputs.skip != 'true'
+        working-directory: ${{ env.SCRIPT_DIR }}
+        run: npm ci
+
+      - name: Build SDK script
+        if: steps.check-files.outputs.skip != 'true'
+        working-directory: ${{ env.SCRIPT_DIR }}
+        run: npm run build
+
+      - name: Run Decision Compliance Check
+        if: steps.check-files.outputs.skip != 'true'
+        id: compliance
+        working-directory: ${{ env.SCRIPT_DIR }}
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          WORKIQ_TENANT_ID: ${{ secrets.WORKIQ_TENANT_ID }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_TITLE: ${{ github.event.pull_request.title || 'Manual run' }}
+          PR_NUMBER: ${{ github.event.pull_request.number || 'N/A' }}
+          CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+          LOOKBACK_DAYS: ${{ env.LOOKBACK_DAYS }}
+          FAIL_ON_WARN: ${{ env.FAIL_ON_WARN }}
+          REPORT_PATH: ${{ github.workspace }}/${{ env.REPORT_PATH }}
+        run: node dist/index.js
+        continue-on-error: true
+
+      - name: Read compliance outputs
+        if: steps.check-files.outputs.skip != 'true'
+        id: parse-results
+        run: |
+          # Read outputs set by the SDK script (if GITHUB_OUTPUT was written to)
+          # Fallback to parsing the report if outputs weren't set
+          if [ -f "${{ env.REPORT_PATH }}" ]; then
+            # Extract status using sed (more portable than grep -P)
+            STATUS=$(sed -n 's/.*"status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${{ env.REPORT_PATH }}" 2>/dev/null | head -1)
+            STATUS="${STATUS:-UNKNOWN}"
+            
+            # Count violations and warnings - use separate command to avoid capturing both outputs
+            VIOLATIONS=$(grep -c '"severity"[[:space:]]*:[[:space:]]*"FAIL"' "${{ env.REPORT_PATH }}" 2>/dev/null) || VIOLATIONS=0
+            WARNINGS=$(grep -c '"severity"[[:space:]]*:[[:space:]]*"WARN"' "${{ env.REPORT_PATH }}" 2>/dev/null) || WARNINGS=0
+            
+            # Extract decisions checked
+            DECISIONS=$(sed -n 's/.*"decisions_checked"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p' "${{ env.REPORT_PATH }}" 2>/dev/null | head -1)
+            DECISIONS="${DECISIONS:-0}"
+          else
+            STATUS="UNKNOWN"
+            VIOLATIONS=0
+            WARNINGS=0
+            DECISIONS=0
+          fi
+
+          echo "status=${STATUS}" >> $GITHUB_OUTPUT
+          echo "violations=${VIOLATIONS}" >> $GITHUB_OUTPUT
+          echo "warnings=${WARNINGS}" >> $GITHUB_OUTPUT
+          echo "decisions_checked=${DECISIONS}" >> $GITHUB_OUTPUT
+
+          echo "Status: $STATUS"
+          echo "Violations: $VIOLATIONS"
+          echo "Warnings: $WARNINGS"
+          echo "Decisions Checked: $DECISIONS"
+
+      - name: Output compliance report as summary
+        if: steps.check-files.outputs.skip != 'true' && always()
+        run: |
+          if [ ! -f "${{ env.REPORT_PATH }}" ]; then
+            echo "No compliance report generated; skipping summary."
+            exit 0
+          fi
+
+          STATUS="${{ steps.parse-results.outputs.status }}"
+          case "$STATUS" in
+            PASS) BADGE="✅ PASS" ;;
+            WARN) BADGE="⚠️ WARN" ;;
+            FAIL) BADGE="❌ FAIL" ;;
+            *)    BADGE="❓ UNKNOWN" ;;
+          esac
+
+          echo "# 📋 Meeting Decision Compliance Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** $BADGE | **Decisions Checked:** ${{ steps.parse-results.outputs.decisions_checked }} | **Violations:** ${{ steps.parse-results.outputs.violations }} | **Warnings:** ${{ steps.parse-results.outputs.warnings }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat "${{ env.REPORT_PATH }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Post compliance report as PR comment
+        if: steps.check-files.outputs.skip != 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const reportPath = '${{ env.REPORT_PATH }}';
+
+            let comment = '## 📋 Meeting Decision Compliance Report\n\n';
+
+            if (fs.existsSync(reportPath)) {
+              const status = '${{ steps.parse-results.outputs.status }}';
+              const violations = '${{ steps.parse-results.outputs.violations }}';
+              const warnings = '${{ steps.parse-results.outputs.warnings }}';
+              const decisions = '${{ steps.parse-results.outputs.decisions_checked }}';
+
+              const badges = { PASS: '✅ **PASS**', WARN: '⚠️ **WARN**', FAIL: '❌ **FAIL**' };
+              const badge = badges[status] || '❓ **UNKNOWN**';
+
+              comment += `| Status | Decisions Checked | Violations | Warnings |\n`;
+              comment += `|--------|-------------------|------------|----------|\n`;
+              comment += `| ${badge} | ${decisions} | ${violations} | ${warnings} |\n\n`;
+
+              const content = fs.readFileSync(reportPath, 'utf8');
+              comment += content.length > 60000 
+                ? content.substring(0, 60000) + '\n\n*[Report truncated due to length]*'
+                : content;
+
+              comment += `\n\n---\n*Analyzed meetings from the last ${{ env.LOOKBACK_DAYS }} days using GitHub Copilot SDK*`;
+            } else {
+              comment += '⚠️ No compliance report was generated.\n\n';
+              comment += 'This could mean:\n';
+              comment += '- No relevant meeting decisions were found\n';
+              comment += '- WorkIQ authentication failed\n';
+              comment += '- The analysis encountered an error';
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Meeting Decision Compliance Report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }
+
+      - name: Upload compliance report artifact
+        if: steps.check-files.outputs.skip != 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meeting-decision-compliance-${{ github.run_id }}
+          path: ${{ env.REPORT_PATH }}
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Determine CI outcome
+        if: steps.check-files.outputs.skip != 'true'
+        run: |
+          STATUS="${{ steps.parse-results.outputs.status }}"
+          FAIL_ON_WARN="${{ env.FAIL_ON_WARN }}"
+
+          if [ "$STATUS" = "FAIL" ]; then
+            echo "❌ COMPLIANCE FAILURE - Code violates meeting decisions"
+            exit 1
+          elif [ "$STATUS" = "WARN" ] && [ "$FAIL_ON_WARN" = "true" ]; then
+            echo "⚠️ COMPLIANCE WARNING (treated as failure)"
+            exit 1
+          elif [ "$STATUS" = "WARN" ]; then
+            echo "⚠️ COMPLIANCE WARNING - Review recommended (not blocking)"
+          elif [ "$STATUS" = "PASS" ]; then
+            echo "✅ COMPLIANCE PASSED"
+          else
+            echo "❓ COMPLIANCE STATUS UNKNOWN"
+          fi
