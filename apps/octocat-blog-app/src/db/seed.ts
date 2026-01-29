@@ -116,6 +116,7 @@ async function seed() {
       { name: "Security", slug: "security" },
       { name: "Productivity", slug: "productivity" },
       { name: "API", slug: "api" },
+      { name: "CLI", slug: "cli" },
     ])
     .returning();
 
@@ -512,6 +513,151 @@ These improvements help teams view their workflow runs, whether they're running 
 
   console.log("✅ Created fifth blog post:", fifthPost?.title);
 
+  // Create the sixth blog post about GitHub Copilot CLI enhancements
+  const [sixthPost] = await db
+    .insert(posts)
+    .values({
+      title: "GitHub Copilot CLI: Enhanced agents, context management, and new ways to install",
+      slug: "github-copilot-cli-enhanced-agents-context-management",
+      excerpt:
+        "The GitHub Copilot CLI brings powerful enhancements including built-in custom agents, improved context management, and multiple new installation methods.",
+      content: `# GitHub Copilot CLI: Enhanced agents, context management, and new ways to install
+
+The GitHub Copilot CLI continues to evolve with powerful new features that make AI-assisted development even more seamless. This update brings enhanced agents, smarter context management, and flexible installation options.
+
+## Enhanced Agents
+
+The CLI now ships with specialized built-in custom agents designed for specific development tasks:
+
+### Built-in Custom Agents
+
+- **Explore Agent**: Specialized for codebase analysis and answering questions about your code. Perfect for understanding large projects quickly.
+- **Task Agent**: Expert at running tests, builds, and other development tasks. Automates your workflow with intelligent command execution.
+- **Plan Agent**: Creates detailed implementation plans before you start coding, helping you think through solutions systematically.
+- **Code-review Agent**: Provides thorough code reviews, catching potential issues before they reach production.
+
+These agents are auto-invoked when appropriate, but you can also explicitly call them using the \`/agent\` command for more control over your workflow.
+
+### Parallel and Delegate Workflows
+
+Copilot CLI now supports running multiple agents in parallel and can delegate long-running or background tasks using the \`/delegate\` command. This means you can:
+
+- Handle PR creation asynchronously
+- Run code changes in the background
+- Keep working while Copilot manages complex tasks
+
+## Improved Context Management
+
+Context management has received significant improvements to help you work more efficiently:
+
+### Auto-Compaction
+
+As you approach the context (token) limit, Copilot CLI automatically compresses the session history so you can keep working seamlessly. You can also trigger compaction manually with \`/compact\`.
+
+### Project-specific Context (Copilot Spaces)
+
+The CLI now leverages the GitHub MCP server, including support for "Copilot Spaces" for managing project-specific context and tools. This ensures Copilot always has the right information about your project.
+
+### Session Improvements
+
+Conversation management is enhanced with:
+- Session transcripts for reviewing past interactions
+- Context-aware rewinding to revisit earlier decisions
+- Timeline clarity for better understanding of your workflow
+- Memory loading enhancements for faster startup
+
+## New Installation Methods
+
+We've made it easier than ever to install and update the Copilot CLI:
+
+### Windows
+\`\`\`bash
+winget install GitHub.Copilot
+\`\`\`
+
+### macOS/Linux via Homebrew
+\`\`\`bash
+brew install copilot-cli
+\`\`\`
+
+### Universal Install Script
+\`\`\`bash
+curl -fsSL https://gh.io/copilot-install | bash
+\`\`\`
+
+### Automatic Updates
+
+Package manager and install script installations now auto-update as new versions are released, ensuring you always have the latest features.
+
+### Codespaces and Dev Containers
+
+The CLI is included in the default GitHub Codespaces image and is available as a Dev Container Feature, making it instantly accessible in cloud development environments.
+
+### Standalone Executables
+
+Standalone executables are available as release artifacts on GitHub for all major platforms if you prefer a manual installation.
+
+## Additional Enhancements
+
+### Latest AI Models
+
+- GPT-5 mini and GPT-4.1 are now available without consuming premium requests for paid users
+- Check all available models with \`/model\`
+
+### CI/CD & Scripting
+
+New capabilities for automation:
+- Clean/log-free output flags
+- Session export to markdown or gists
+- Tool allowlisting/denylisting
+- Improved authentication for pipelines
+
+### Plugin and MCP Server Integrations
+
+- Plugin marketplace commands (\`/plugin\`)
+- Robust MCP server listing
+- Plugin skill usage
+- Enhanced session context
+
+### UI/UX Improvements
+
+- Clearer prompts and color hierarchies
+- Session search functionality
+- Improved error handling
+- More intuitive command structure
+
+## Getting Started
+
+To start using these new features:
+
+1. Install or update the Copilot CLI using your preferred method
+2. Run \`copilot\` to start a session
+3. Try \`/agent\` to see available agents
+4. Use \`/model\` to explore available AI models
+5. Enable auto-compaction for seamless long conversations
+
+## What's Next?
+
+We're continuously improving the Copilot CLI based on your feedback. Stay tuned for more enhancements to agents, context management, and developer workflows.
+
+For the complete changelog and detailed documentation, visit [github.com/github/copilot-cli](https://github.com/github/copilot-cli).
+
+---
+
+*Happy coding!*  
+*The GitHub Team* 🐙`,
+      coverImage:
+        "https://github.blog/wp-content/themes/github-2021-child/assets/img/featured-v3-improvements.svg",
+      authorId: octocat!.id,
+      categoryId: improvementCategory!.id,
+      published: true,
+      featured: false,
+      publishedAt: new Date("2026-01-14"),
+    })
+    .returning();
+
+  console.log("✅ Created sixth blog post:", sixthPost?.title);
+
   // Add tags to the posts
   const copilotTag = createdTags.find((t) => t.slug === "copilot");
   const aiTag = createdTags.find((t) => t.slug === "ai");
@@ -564,6 +710,18 @@ These improvements help teams view their workflow runs, whether they're running 
       { postId: fifthPost.id, tagId: devopsTag.id },
     ]);
     console.log("✅ Added tags to fifth post");
+  }
+
+  // Add tags to the sixth post (Copilot CLI improvements)
+  const cliTag = createdTags.find((t) => t.slug === "cli");
+  if (copilotTag && aiTag && productivityTag && cliTag && sixthPost) {
+    await db.insert(postTags).values([
+      { postId: sixthPost.id, tagId: copilotTag.id },
+      { postId: sixthPost.id, tagId: aiTag.id },
+      { postId: sixthPost.id, tagId: productivityTag.id },
+      { postId: sixthPost.id, tagId: cliTag.id },
+    ]);
+    console.log("✅ Added tags to sixth post");
   }
 
   console.log("🎉 Seeding complete!");
