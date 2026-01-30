@@ -1,13 +1,116 @@
 {
-  "tailwindCSS.experimental.configFile": "packages/ui/src/styles/globals.css",
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GitHub Actions
+  // ═══════════════════════════════════════════════════════════════════════════
   "github-actions.workflows.pinned.workflows": [
     ".github/workflows/contoso-web-app-unit-tests.yml"
   ],
 
-  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Terminal Configuration
+  // ═══════════════════════════════════════════════════════════════════════════
+  "terminal.integrated.defaultProfile.windows": "Git Bash",
   "terminal.integrated.profiles.windows": {
-    "PowerShell": {
-      "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
+    "Git Bash": {
+      "path": "C:\\Program Files\\Git\\bin\\bash.exe"
     }
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GitHub Copilot - Code Generation Instructions
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Instructions are now loaded from files in .github/instructions/ via
+  // chat.instructionsFilesLocations setting below.
+
+  // Copilot test generation instructions
+  "github.copilot.chat.testGeneration.instructions": [
+    {
+      "text": "Use Jest with @swc/jest for TypeScript. Use React Testing Library for components. Co-locate tests in __tests__/ folders. Import mocks from @test-mocks/ alias."
+    }
+  ],
+
+  // Copilot commit message instructions
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    {
+      "text": "Use conventional commits format: type(scope): description. Types: feat, fix, docs, style, refactor, test, chore. Keep under 72 chars."
+    }
+  ],
+
+  // Copilot code review instructions
+  "github.copilot.chat.reviewSelection.instructions": [
+    {
+      "text": "Review for: TypeScript strict mode compliance, no 'any' types, proper error handling, security issues, and adherence to monorepo patterns with @workspace/* imports."
+    }
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Editor & Formatting
+  // ═══════════════════════════════════════════════════════════════════════════
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TypeScript & JavaScript
+  // ═══════════════════════════════════════════════════════════════════════════
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+  "typescript.tsdk": "node_modules/typescript/lib",
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ESLint
+  // ═══════════════════════════════════════════════════════════════════════════
+  "eslint.workingDirectories": [
+    { "pattern": "apps/*" },
+    { "pattern": "packages/*" },
+    { "pattern": "services/*" }
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Search & Files
+  // ═══════════════════════════════════════════════════════════════════════════
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/coverage": true,
+    "**/.next": true,
+    "**/drizzle": true,
+    "pnpm-lock.yaml": true
+  },
+  "files.exclude": {
+    "**/.git": true,
+    "**/.next": true,
+    "**/node_modules": true
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Copilot Chat - Custom Instructions Location
+  // ═══════════════════════════════════════════════════════════════════════════
+  "chat.instructionsFilesLocations": {
+    ".github/instructions": true,
+    ".github/skills": true
   }
 }
