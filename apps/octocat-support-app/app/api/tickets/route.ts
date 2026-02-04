@@ -1,4 +1,5 @@
 import { triageAndCreateIssue } from "@/lib/copilot-triage";
+import { triageAndCreateIssueDirect } from "@/lib/direct-triage";
 import { ticketFormSchema, type TicketResponse } from "@/lib/types";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -42,12 +43,30 @@ export async function POST(
       );
     }
 
-    // Use Copilot SDK to triage and create the issue
-    const result = await triageAndCreateIssue(ticket, {
+    const config = {
       token: githubToken,
       owner: githubOwner,
       repo: githubRepo,
-    });
+    };
+
+    // Try Copilot SDK triage first, fall back to direct triage
+    let result: TicketResponse;
+    const useCopilotSdk = process.env.USE_COPILOT_SDK === "true";
+
+    if (useCopilotSdk) {
+      try {
+        result = await triageAndCreateIssue(ticket, config);
+      } catch (sdkError) {
+        console.warn(
+          "Copilot SDK triage failed, falling back to direct triage:",
+          sdkError,
+        );
+        result = await triageAndCreateIssueDirect(ticket, config);
+      }
+    } else {
+      // Direct triage mode (default) — no Copilot CLI dependency
+      result = await triageAndCreateIssueDirect(ticket, config);
+    }
 
     if (!result.success) {
       return NextResponse.json(result, { status: 500 });
