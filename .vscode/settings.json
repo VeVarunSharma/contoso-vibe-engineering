@@ -22,13 +22,6 @@
   // Instructions are now loaded from files in .github/instructions/ via
   // chat.instructionsFilesLocations setting below.
 
-  // Copilot test generation instructions
-  "github.copilot.chat.testGeneration.instructions": [
-    {
-      "text": "Use Jest with @swc/jest for TypeScript. Use React Testing Library for components. Co-locate tests in __tests__/ folders. Import mocks from @test-mocks/ alias."
-    }
-  ],
-
   // Copilot commit message instructions
   "github.copilot.chat.commitMessageGeneration.instructions": [
     {
