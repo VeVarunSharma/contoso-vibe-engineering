@@ -1,3 +1,18 @@
 {
-  "recommendations": ["github.vscode-github-actions"]
+  "recommendations": [
+    "aaron-bond.better-comments",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "github.codespaces",
+    "github.copilot",
+    "github.copilot-chat",
+    "github.github-vscode-theme",
+    "github.vscode-github-actions",
+    "github.vscode-pull-request-github",
+    "hashicorp.terraform",
+    "mermaidchart.vscode-mermaid-chart",
+    "oderwat.indent-rainbow",
+    "vscode-icons-team.vscode-icons",
+    "vstirbu.vscode-mermaid-preview"
+  ]
 }
