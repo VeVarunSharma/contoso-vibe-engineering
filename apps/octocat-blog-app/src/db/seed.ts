@@ -512,6 +512,54 @@ These improvements help teams view their workflow runs, whether they're running 
 
   console.log("✅ Created fifth blog post:", fifthPost?.title);
 
+  // Create the sixth blog post about GitHub Copilot OpenCode support
+  const [sixthPost] = await db
+    .insert(posts)
+    .values({
+      title: "GitHub Copilot now supports OpenCode",
+      slug: "github-copilot-now-supports-opencode",
+      excerpt:
+        "GitHub is officially supporting using your Copilot Pro, Pro+, Business, or Enterprise subscription with OpenCode.",
+      content: `# GitHub Copilot now supports OpenCode
+
+GitHub Copilot now fully supports authentication with OpenCode through a formal partnership, allowing you to use your existing Copilot subscription across more of your development workflow.
+
+## What is OpenCode?
+
+OpenCode is an open source agent that helps you write code in your terminal, IDE, or desktop. You can learn more at [OpenCode's site](https://opencode.ai/).
+
+## How it works
+
+Getting started with OpenCode and GitHub Copilot is simple:
+
+1. In OpenCode, run \`/connect\` and select GitHub Copilot.
+2. Complete the GitHub device login flow.
+3. Start using OpenCode powered by Copilot.
+
+## Who can use this feature
+
+All developers with paid GitHub Copilot subscriptions (Pro, Pro+, Business, or Enterprise) can now authenticate into OpenCode using their Copilot credentials—no additional AI license needed.
+
+Learn more about [OpenCode's Copilot provider setup](https://opencode.ai/docs/providers/#github-copilot-support).
+
+Join the discussion within [GitHub Community](https://github.com/orgs/community/discussions/categories/announcements).
+
+---
+
+*Happy coding!*  
+*The GitHub Team* 🐙`,
+      coverImage:
+        "https://github.blog/wp-content/themes/github-2021-child/assets/img/featured-v3-new-releases.svg",
+      authorId: octocat!.id,
+      categoryId: changelogCategory!.id,
+      published: true,
+      featured: false,
+      publishedAt: new Date("2026-01-16"),
+    })
+    .returning();
+
+  console.log("✅ Created sixth blog post:", sixthPost?.title);
+
   // Add tags to the posts
   const copilotTag = createdTags.find((t) => t.slug === "copilot");
   const aiTag = createdTags.find((t) => t.slug === "ai");
@@ -564,6 +612,15 @@ These improvements help teams view their workflow runs, whether they're running 
       { postId: fifthPost.id, tagId: devopsTag.id },
     ]);
     console.log("✅ Added tags to fifth post");
+  }
+
+  // Add tags to the sixth post (OpenCode support)
+  if (copilotTag && aiTag && sixthPost) {
+    await db.insert(postTags).values([
+      { postId: sixthPost.id, tagId: copilotTag.id },
+      { postId: sixthPost.id, tagId: aiTag.id },
+    ]);
+    console.log("✅ Added tags to sixth post");
   }
 
   console.log("🎉 Seeding complete!");
