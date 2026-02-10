@@ -5,9 +5,12 @@ This repository contains frontend applications, shared packages, and backend mic
 
 ## Repository Structure
 
-- **apps/**: Frontend applications (e.g., `web` - Next.js 15, `octocat-blog-app` - GitHub-themed blog).
+- **apps/**: Frontend applications.
+  - `contoso-web-app` — Next.js 15 demo (legacy-vibe vs. secure-vibe).
+  - `octocat-blog-app` — GitHub-themed blog with PostgreSQL and Drizzle ORM.
+  - `octocat-support-app` — AI-powered support ticket portal (GitHub Copilot SDK, Zod, GitHub Issues API).
 - **packages/**: Shared libraries and configurations (e.g., `ui`, `eslint-config`, `typescript-config`).
-- **services/**: Backend microservices and APIs (e.g., `platform-api`).
+- **services/**: Backend microservices and APIs (e.g., `platform-api`, `medical-api`, `ai-tool-digest`).
   - These services are deployed **independently** outside of the Turborepo frontend build pipeline.
   - They typically use **Express.js**, **Drizzle ORM**, and **PostgreSQL**.
 
@@ -17,6 +20,7 @@ This repository contains frontend applications, shared packages, and backend mic
 - **Build System**: Turborepo
 - **Frontend**: Next.js 15 (App Router), React 19, Tailwind CSS 4.
 - **Backend**: Node.js, Express.js, Drizzle ORM, Zod.
+- **AI Integration**: GitHub Copilot SDK (`@github/copilot-sdk`) for AI-powered ticket triage.
 - **Database**: PostgreSQL.
 - **Testing**: Jest, React Testing Library, @swc/jest.
 
@@ -61,3 +65,54 @@ This repository contains frontend applications, shared packages, and backend mic
 - **ALWAYS** use TypeScript and ensure strict type safety.
 - **NEVER** use `any`; use `unknown` or specific types.
 - **ALWAYS** follow the established folder structure for new features.
+
+## WorkIQ Skill (Microsoft 365 Copilot)
+
+Use the WorkIQ CLI/MCP server to pull live Microsoft 365 Copilot insights (meetings, emails, documents, Teams messages, people context, recommendations) whenever a request depends on current organizational knowledge.
+
+### When to Trigger
+
+- User asks about schedules, conflicts, focus blocks, or commute plans.
+- User wants summaries of emails, Teams threads, action items, or stakeholder updates.
+- Need thematic insights (e.g., "What should I prep for Contoso review?", "Summarize blockers from today").
+
+### Setup & Access
+
+1. **Copilot CLI plugin (preferred)**
+   - `copilot`
+   - `/plugin marketplace add github/copilot-plugins`
+   - `/plugin install workiq@copilot-plugins`
+   - Restart Copilot CLI.
+2. **Standalone CLI / MCP server**
+   - `npm install -g @microsoft/workiq` (or `npx -y @microsoft/workiq mcp`).
+   - Accept EULA once: `workiq accept-eula`.
+   - Use `workiq ask` for queries or `workiq mcp` to expose tools.
+3. **Tenant consent** – First run requires Microsoft 365 admin consent; coordinate with tenant admins using the official enablement guide.
+
+### Usage Flow
+
+1. Confirm CLI availability (`Get-Command workiq`) and authentication status.
+2. Clarify the intent/timeframe/topic before crafting the prompt.
+3. Run `workiq ask --question "<precise prompt>"` (add `-t <tenant>` if needed).
+4. Wait for completion (poll with `read_powershell` for long responses) and extract key insights: load, conflicts, tasks, recommendations.
+5. Summarize in ≤3 sentences, referencing meetings/documents generically unless links are explicitly requested.
+6. Offer WorkIQ-style follow-ups (block time, draft reschedules, request recordings, deeper queries).
+
+### Common Commands
+
+| Command                           | Purpose                                                          |
+| --------------------------------- | ---------------------------------------------------------------- |
+| `workiq --help`                   | Show global help/options.                                        |
+| `workiq version`                  | Display installed version.                                       |
+| `workiq accept-eula`              | Accept license (first use).                                      |
+| `workiq ask --question "..."`     | Ask scoped question (agenda, docs, action items, Teams, people). |
+| `workiq ask -t <tenant> -q "..."` | Target specific tenant.                                          |
+| `workiq mcp`                      | Start MCP server for tool integration.                           |
+
+### Best Practices
+
+- Favor narrow prompts (per day/project/person) to minimize noise; combine multiple queries if needed.
+- Record which WorkIQ prompts were used so future steps can reference them.
+- Preserve confidentiality: describe events as "customer sync at 1 PM" rather than pasting links/attendees unless required.
+- Surface WorkIQ's optional next steps (e.g., "WorkIQ can continue with Thu–Sun") and ask whether to proceed.
+- Defer to `.github/skills/workiq-copilot/SKILL.md` for the full procedural guide and troubleshooting playbook.

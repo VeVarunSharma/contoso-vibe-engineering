@@ -512,39 +512,35 @@ These improvements help teams view their workflow runs, whether they're running 
 
   console.log("✅ Created fifth blog post:", fifthPost?.title);
 
-  // Create the sixth blog post about Agentic memory for GitHub Copilot
+  // Create the sixth blog post about GitHub Copilot OpenCode support
   const [sixthPost] = await db
     .insert(posts)
     .values({
-      title: "Agentic memory for GitHub Copilot is in public preview",
-      slug: "agentic-memory-for-github-copilot-is-in-public-preview",
+      title: "GitHub Copilot now supports OpenCode",
+      slug: "github-copilot-now-supports-opencode",
       excerpt:
-        "Copilot memory is now available in public preview for all paid GitHub Copilot plans. Copilot memory enables Copilot to learn and retain useful details about your repositories.",
-      content: `# Agentic memory for GitHub Copilot is in public preview
+        "GitHub is officially supporting using your Copilot Pro, Pro+, Business, or Enterprise subscription with OpenCode.",
+      content: `# GitHub Copilot now supports OpenCode
 
-Copilot memory is now available in public preview for all paid GitHub Copilot plans.
+GitHub Copilot now fully supports authentication with OpenCode through a formal partnership, allowing you to use your existing Copilot subscription across more of your development workflow.
 
-Copilot memory enables Copilot to learn and retain useful details about your repositories. As you work with Copilot coding agent, Copilot code review, or Copilot CLI, it builds a repository-specific understanding that improves the quality of its assistance over time.
+## What is OpenCode?
+
+OpenCode is an open source agent that helps you write code in your terminal, IDE, or desktop. You can learn more at [OpenCode's site](https://opencode.ai/).
 
 ## How it works
 
-Copilot automatically captures tightly scoped insights called "memories" as it works in your repositories. These memories are:
+Getting started with OpenCode and GitHub Copilot is simple:
 
-- **Repository-specific** and validated against the current codebase before use.
-- **Shared across Copilot features**, so what coding agent learns can help code review.
-- **Automatically expired after 28 days** to prevent stale information.
+1. In OpenCode, run \`/connect\` and select GitHub Copilot.
+2. Complete the GitHub device login flow.
+3. Start using OpenCode powered by Copilot.
 
-For more details on how exactly Copilot memory works, check out [our engineering blog post on Copilot memory](https://github.blog/ai-and-ml/github-copilot/building-an-agentic-memory-system-for-github-copilot/).
+## Who can use this feature
 
-## Get started
+All developers with paid GitHub Copilot subscriptions (Pro, Pro+, Business, or Enterprise) can now authenticate into OpenCode using their Copilot credentials—no additional AI license needed.
 
-**Individual users (Copilot Pro or Pro+):** Enable Copilot memory in your [personal Copilot settings](https://github.com/settings/copilot).
-
-**Organizations and enterprises:** Enable through policy settings in your organization or enterprise settings.
-
-**Repository owners** can review and delete stored memories in Repository Settings > Copilot > Memory.
-
-To learn more about how to use this feature, check out [our Copilot memory documentation](https://docs.github.com/copilot/concepts/agents/copilot-memory).
+Learn more about [OpenCode's Copilot provider setup](https://opencode.ai/docs/providers/#github-copilot-support).
 
 Join the discussion within [GitHub Community](https://github.com/orgs/community/discussions/categories/announcements).
 
@@ -618,7 +614,7 @@ Join the discussion within [GitHub Community](https://github.com/orgs/community/
     console.log("✅ Added tags to fifth post");
   }
 
-  // Add tags to the sixth post (Agentic memory for Copilot)
+  // Add tags to the sixth post (OpenCode support)
   if (copilotTag && aiTag && sixthPost) {
     await db.insert(postTags).values([
       { postId: sixthPost.id, tagId: copilotTag.id },
