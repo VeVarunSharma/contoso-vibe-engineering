@@ -425,16 +425,16 @@ importers:
     dependencies:
       '@hono/node-server':
         specifier: ^1.11.0
-        version: 1.19.6(hono@4.11.4)
+        version: 1.19.6(hono@4.11.9)
       '@hono/zod-validator':
         specifier: ^0.2.0
-        version: 0.2.2(hono@4.11.4)(zod@3.25.76)
+        version: 0.2.2(hono@4.11.9)(zod@3.25.76)
       drizzle-orm:
         specifier: ^0.45.1
         version: 0.45.1(@libsql/client@0.15.15)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@11.10.0)(gel@2.2.0)(pg@8.16.3)
       hono:
-        specifier: ^4.11.4
-        version: 4.11.4
+        specifier: ^4.11.7
+        version: 4.11.9
       pg:
         specifier: ^8.11.0
         version: 8.16.3
@@ -4860,8 +4860,8 @@ packages:
   heap@0.2.7:
     resolution: {integrity: sha512-2bsegYkkHO+h/9MGbn6KWcE45cHZgPANo5LXF7EvWdT0yT2EguSVO1nDgU5c8+ZOPwp2vMNa7YFsJhVcDR9Sdg==}
 
-  hono@4.11.4:
-    resolution: {integrity: sha512-U7tt8JsyrxSRKspfhtLET79pU8K+tInj5QZXs1jSugO1Vq5dFj3kmZsRldo29mTBfcjDRVRXrEZ6LS63Cog9ZA==}
+  hono@4.11.9:
+    resolution: {integrity: sha512-Eaw2YTGM6WOxA6CXbckaEvslr2Ne4NFsKrvc0v97JD5awbmeBLO5w9Ho9L9kmKonrwF9RJlW6BxT1PVv/agBHQ==}
     engines: {node: '>=16.9.0'}
 
   html-encoding-sniffer@3.0.0:
@@ -11005,8 +11005,8 @@ snapshots:
   drizzle-kit@0.20.18:
     dependencies:
       '@esbuild-kit/esm-loader': 2.6.5
-      '@hono/node-server': 1.19.6(hono@4.11.4)
-      '@hono/zod-validator': 0.2.2(hono@4.11.4)(zod@3.25.76)
+      '@hono/node-server': 1.19.6(hono@4.11.9)
+      '@hono/zod-validator': 0.2.2(hono@4.11.9)(zod@3.25.76)
       camelcase: 7.0.1
       chalk: 5.6.2
       commander: 9.5.0
@@ -11015,7 +11015,7 @@ snapshots:
       esbuild-register: 3.6.0(esbuild@0.19.12)
       glob: 8.1.0
       hanji: 0.0.5
-      hono: 4.11.4
+      hono: 4.11.9
       json-diff: 0.9.0
       minimatch: 7.4.6
       semver: 7.7.2
@@ -11880,7 +11880,7 @@ snapshots:
 
   heap@0.2.7: {}
 
-  hono@4.11.4: {}
+  hono@4.11.9: {}
 
   html-encoding-sniffer@3.0.0:
     dependencies:
