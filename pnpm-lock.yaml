@@ -8181,13 +8181,13 @@ snapshots:
       '@github/copilot-win32-arm64': 0.0.403
       '@github/copilot-win32-x64': 0.0.403
 
-  '@hono/node-server@1.19.6(hono@4.11.4)':
+  '@hono/node-server@1.19.6(hono@4.11.9)':
     dependencies:
-      hono: 4.11.4
+      hono: 4.11.9
 
-  '@hono/zod-validator@0.2.2(hono@4.11.4)(zod@3.25.76)':
+  '@hono/zod-validator@0.2.2(hono@4.11.9)(zod@3.25.76)':
     dependencies:
-      hono: 4.11.4
+      hono: 4.11.9
       zod: 3.25.76
 
   '@humanfs/core@0.19.1': {}
