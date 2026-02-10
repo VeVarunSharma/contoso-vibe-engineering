@@ -5,9 +5,12 @@ This repository contains frontend applications, shared packages, and backend mic
 
 ## Repository Structure
 
-- **apps/**: Frontend applications (e.g., `web` - Next.js 15, `octocat-blog-app` - GitHub-themed blog).
+- **apps/**: Frontend applications.
+  - `contoso-web-app` — Next.js 15 demo (legacy-vibe vs. secure-vibe).
+  - `octocat-blog-app` — GitHub-themed blog with PostgreSQL and Drizzle ORM.
+  - `octocat-support-app` — AI-powered support ticket portal (GitHub Copilot SDK, Zod, GitHub Issues API).
 - **packages/**: Shared libraries and configurations (e.g., `ui`, `eslint-config`, `typescript-config`).
-- **services/**: Backend microservices and APIs (e.g., `platform-api`).
+- **services/**: Backend microservices and APIs (e.g., `platform-api`, `medical-api`, `ai-tool-digest`).
   - These services are deployed **independently** outside of the Turborepo frontend build pipeline.
   - They typically use **Express.js**, **Drizzle ORM**, and **PostgreSQL**.
 
@@ -17,6 +20,7 @@ This repository contains frontend applications, shared packages, and backend mic
 - **Build System**: Turborepo
 - **Frontend**: Next.js 15 (App Router), React 19, Tailwind CSS 4.
 - **Backend**: Node.js, Express.js, Drizzle ORM, Zod.
+- **AI Integration**: GitHub Copilot SDK (`@github/copilot-sdk`) for AI-powered ticket triage.
 - **Database**: PostgreSQL.
 - **Testing**: Jest, React Testing Library, @swc/jest.
 

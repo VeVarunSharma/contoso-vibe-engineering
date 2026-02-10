@@ -1,0 +1,24 @@
+{
+  "extends": "@workspace/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "paths": {
+      "@/*": ["./*"],
+      "@workspace/ui/globals.css": ["../../packages/ui/src/styles/globals.css"],
+      "@workspace/ui/*": ["../../packages/ui/src/*"]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "next.config.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}
