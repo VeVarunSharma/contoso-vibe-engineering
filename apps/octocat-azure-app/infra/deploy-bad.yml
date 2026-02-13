@@ -1,0 +1,51 @@
+# ============================================================================
+# ❌ BAD WORKFLOW — What happens WITHOUT the SRE Agent
+# ============================================================================
+# Direct-to-production, no validation, no rollback, no monitoring
+# ============================================================================
+
+name: "Deploy Octocat Azure App (BAD)"
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 🚩 No environment protection rules
+      # 🚩 No approval gates
+
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+        # 🚩 Using npm instead of pnpm — inconsistent with monorepo
+        # 🚩 No frozen lockfile — non-deterministic installs
+
+      - run: npm run build
+        # 🚩 No typecheck or lint step before build
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          # 🚩 Using a service principal secret instead of OIDC
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 🚩 Deploying DIRECTLY to production — no staging slot
+      - name: Deploy to Production
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: octocat-azure-app
+          package: .next/standalone
+
+      # 🚩 No health check after deployment
+      # 🚩 No smoke tests
+      # 🚩 No monitoring wait period
+      # 🚩 No rollback step
+      # 🚩 No deployment notification

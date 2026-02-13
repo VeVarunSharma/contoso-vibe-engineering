@@ -1,0 +1,182 @@
+# ============================================================================
+# ✅ GOOD WORKFLOW — Built with the Azure SRE Agent
+# ============================================================================
+# Slot-based deployment, validation, health checks, rollback, monitoring
+# ============================================================================
+
+name: "Deploy Octocat Azure App (SRE)"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/octocat-azure-app/**"
+
+permissions:
+  id-token: write # ✅ OIDC authentication — no stored secrets
+  contents: read
+
+env:
+  APP_NAME: octocat-azure-app
+  RESOURCE_GROUP: octocat-rg
+  SLOT_NAME: staging
+
+jobs:
+  # ── Step 1: Build & Test ──────────────────────────────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # ✅ Frozen lockfile for deterministic installs
+      - run: pnpm install --frozen-lockfile
+
+      # ✅ Type checking before build
+      - name: Typecheck
+        run: pnpm --filter octocat-azure-app typecheck
+
+      # ✅ Lint checking before build
+      - name: Lint
+        run: pnpm --filter octocat-azure-app lint
+
+      # ✅ Build the application
+      - name: Build
+        run: pnpm --filter octocat-azure-app build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-build
+          path: apps/octocat-azure-app/.next/standalone
+
+  # ── Step 2: Validate Infrastructure ───────────────────────────────────────
+  validate-infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          # ✅ OIDC — no secret credentials stored in GitHub
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # ✅ What-if analysis — preview changes before applying
+      - name: Bicep What-If
+        run: |
+          az deployment group what-if \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --template-file apps/octocat-azure-app/infra/good-deployment.bicep \
+            --no-prompt
+
+  # ── Step 3: Deploy to Staging Slot ────────────────────────────────────────
+  deploy-staging:
+    needs: [build, validate-infra]
+    runs-on: ubuntu-latest
+    environment: staging # ✅ Environment protection rules
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build
+          path: ./app
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # ✅ Deploy to STAGING slot — never directly to production
+      - name: Deploy to Staging Slot
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.APP_NAME }}
+          slot-name: ${{ env.SLOT_NAME }}
+          package: ./app
+
+      # ✅ Wait for slot to warm up before health check
+      - name: Warm Up Staging
+        run: |
+          STAGING_URL="https://${{ env.APP_NAME }}-${{ env.SLOT_NAME }}.azurewebsites.net"
+          echo "Warming up: $STAGING_URL"
+          for i in {1..5}; do
+            curl -sf "$STAGING_URL/health" && break
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+
+      # ✅ Run health check against staging
+      - name: Health Check — Staging
+        run: |
+          STAGING_URL="https://${{ env.APP_NAME }}-${{ env.SLOT_NAME }}.azurewebsites.net"
+          RESPONSE=$(curl -sf "$STAGING_URL/health")
+          STATUS=$(echo "$RESPONSE" | jq -r '.status')
+          if [ "$STATUS" != "healthy" ]; then
+            echo "❌ Health check failed: $RESPONSE"
+            exit 1
+          fi
+          echo "✅ Staging is healthy: $RESPONSE"
+
+  # ── Step 4: Swap to Production ────────────────────────────────────────────
+  swap-to-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production # ✅ Requires manual approval for production
+    steps:
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # ✅ Zero-downtime swap from staging to production
+      - name: Swap Staging → Production
+        run: |
+          echo "🔄 Swapping staging to production..."
+          az webapp deployment slot swap \
+            --name ${{ env.APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --slot ${{ env.SLOT_NAME }} \
+            --target-slot production
+          echo "✅ Swap complete"
+
+      # ✅ Verify production health post-swap with auto-rollback
+      - name: Health Check — Production (with auto-rollback)
+        run: |
+          PROD_URL="https://${{ env.APP_NAME }}.azurewebsites.net"
+          RESPONSE=$(curl -sf "$PROD_URL/health")
+          STATUS=$(echo "$RESPONSE" | jq -r '.status')
+          if [ "$STATUS" != "healthy" ]; then
+            echo "❌ Production health check failed — initiating rollback"
+            az webapp deployment slot swap \
+              --name ${{ env.APP_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --slot production \
+              --target-slot ${{ env.SLOT_NAME }}
+            echo "🔙 Rollback complete — previous version restored"
+            exit 1
+          fi
+          echo "✅ Production is healthy: $RESPONSE"
+
+      # ✅ Post-deployment monitoring reminder
+      - name: Post-deploy Monitoring
+        run: |
+          echo "──────────────────────────────────────────────"
+          echo "👀 Monitor production for the next 15 minutes"
+          echo "Check Application Insights for:"
+          echo "  • Error rate spikes"
+          echo "  • Response time degradation"
+          echo "  • Availability drops"
+          echo "──────────────────────────────────────────────"
