@@ -551,10 +551,10 @@ Join the discussion within [GitHub Community](https://github.com/orgs/community/
       coverImage:
         "https://github.blog/wp-content/themes/github-2021-child/assets/img/featured-v3-new-releases.svg",
       authorId: octocat!.id,
-      categoryId: changelogCategory!.id,
+      categoryId: releasesCategory!.id,
       published: true,
       featured: false,
-      publishedAt: new Date("2026-01-16"),
+      publishedAt: new Date("2026-01-15"),
     })
     .returning();
 

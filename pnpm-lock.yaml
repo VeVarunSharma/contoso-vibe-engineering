@@ -146,8 +146,8 @@ importers:
   apps/octocat-blog-app:
     dependencies:
       '@next/swc-win32-x64-msvc':
-        specifier: ^16.1.1
-        version: 16.1.1
+        specifier: ^16.1.5
+        version: 16.1.6
       '@workspace/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -161,8 +161,8 @@ importers:
         specifier: ^0.475.0
         version: 0.475.0(react@19.1.1)
       next:
-        specifier: 15.5.10
-        version: 15.5.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+        specifier: 16.1.5
+        version: 16.1.5(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
@@ -421,8 +421,8 @@ importers:
         specifier: ^1.0.0
         version: 1.1.2
       nodemailer:
-        specifier: ^6.9.13
-        version: 6.10.1
+        specifier: ^7.0.11
+        version: 7.0.11
       rss-parser:
         specifier: ^3.12.0
         version: 3.13.0
@@ -468,16 +468,16 @@ importers:
     dependencies:
       '@hono/node-server':
         specifier: ^1.11.0
-        version: 1.19.6(hono@4.11.4)
+        version: 1.19.6(hono@4.11.9)
       '@hono/zod-validator':
         specifier: ^0.2.0
-        version: 0.2.2(hono@4.11.4)(zod@3.25.76)
+        version: 0.2.2(hono@4.11.9)(zod@3.25.76)
       drizzle-orm:
         specifier: ^0.45.1
         version: 0.45.1(@libsql/client@0.15.15)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@11.10.0)(gel@2.2.0)(pg@8.16.3)
       hono:
-        specifier: ^4.11.4
-        version: 4.11.4
+        specifier: ^4.11.7
+        version: 4.11.9
       pg:
         specifier: ^8.11.0
         version: 8.16.3
@@ -1971,8 +1971,8 @@ packages:
   '@next/env@15.5.10':
     resolution: {integrity: sha512-plg+9A/KoZcTS26fe15LHg+QxReTazrIOoKKUC3Uz4leGGeNPgLHdevVraAAOX0snnUs3WkRx3eUQpj9mreG6A==}
 
-  '@next/env@16.1.6':
-    resolution: {integrity: sha512-N1ySLuZjnAtN3kFnwhAwPvZah8RJxKasD7x1f8shFqhncnWZn4JMfg37diLNuoHsLAlrDfM3g4mawVdtAG8XLQ==}
+  '@next/env@16.1.5':
+    resolution: {integrity: sha512-CRSCPJiSZoi4Pn69RYBDI9R7YK2g59vLexPQFXY0eyw+ILevIenCywzg+DqmlBik9zszEnw2HLFOUlLAcJbL7g==}
 
   '@next/eslint-plugin-next@15.4.5':
     resolution: {integrity: sha512-YhbrlbEt0m4jJnXHMY/cCUDBAWgd5SaTa5mJjzOt82QwflAFfW/h3+COp2TfVSzhmscIZ5sg2WXt3MLziqCSCw==}
@@ -1983,8 +1983,8 @@ packages:
     cpu: [arm64]
     os: [darwin]
 
-  '@next/swc-darwin-arm64@16.1.6':
-    resolution: {integrity: sha512-wTzYulosJr/6nFnqGW7FrG3jfUUlEf8UjGA0/pyypJl42ExdVgC6xJgcXQ+V8QFn6niSG2Pb8+MIG1mZr2vczw==}
+  '@next/swc-darwin-arm64@16.1.5':
+    resolution: {integrity: sha512-eK7Wdm3Hjy/SCL7TevlH0C9chrpeOYWx2iR7guJDaz4zEQKWcS1IMVfMb9UKBFMg1XgzcPTYPIp1Vcpukkjg6Q==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [darwin]
@@ -1995,8 +1995,8 @@ packages:
     cpu: [x64]
     os: [darwin]
 
-  '@next/swc-darwin-x64@16.1.6':
-    resolution: {integrity: sha512-BLFPYPDO+MNJsiDWbeVzqvYd4NyuRrEYVB5k2N3JfWncuHAy2IVwMAOlVQDFjj+krkWzhY2apvmekMkfQR0CUQ==}
+  '@next/swc-darwin-x64@16.1.5':
+    resolution: {integrity: sha512-foQscSHD1dCuxBmGkbIr6ScAUF6pRoDZP6czajyvmXPAOFNnQUJu2Os1SGELODjKp/ULa4fulnBWoHV3XdPLfA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [darwin]
@@ -2007,8 +2007,8 @@ packages:
     cpu: [arm64]
     os: [linux]
 
-  '@next/swc-linux-arm64-gnu@16.1.6':
-    resolution: {integrity: sha512-OJYkCd5pj/QloBvoEcJ2XiMnlJkRv9idWA/j0ugSuA34gMT6f5b7vOiCQHVRpvStoZUknhl6/UxOXL4OwtdaBw==}
+  '@next/swc-linux-arm64-gnu@16.1.5':
+    resolution: {integrity: sha512-qNIb42o3C02ccIeSeKjacF3HXotGsxh/FMk/rSRmCzOVMtoWH88odn2uZqF8RLsSUWHcAqTgYmPD3pZ03L9ZAA==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
@@ -2019,8 +2019,8 @@ packages:
     cpu: [arm64]
     os: [linux]
 
-  '@next/swc-linux-arm64-musl@16.1.6':
-    resolution: {integrity: sha512-S4J2v+8tT3NIO9u2q+S0G5KdvNDjXfAv06OhfOzNDaBn5rw84DGXWndOEB7d5/x852A20sW1M56vhC/tRVbccQ==}
+  '@next/swc-linux-arm64-musl@16.1.5':
+    resolution: {integrity: sha512-U+kBxGUY1xMAzDTXmuVMfhaWUZQAwzRaHJ/I6ihtR5SbTVUEaDRiEU9YMjy1obBWpdOBuk1bcm+tsmifYSygfw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
@@ -2031,8 +2031,8 @@ packages:
     cpu: [x64]
     os: [linux]
 
-  '@next/swc-linux-x64-gnu@16.1.6':
-    resolution: {integrity: sha512-2eEBDkFlMMNQnkTyPBhQOAyn2qMxyG2eE7GPH2WIDGEpEILcBPI/jdSv4t6xupSP+ot/jkfrCShLAa7+ZUPcJQ==}
+  '@next/swc-linux-x64-gnu@16.1.5':
+    resolution: {integrity: sha512-gq2UtoCpN7Ke/7tKaU7i/1L7eFLfhMbXjNghSv0MVGF1dmuoaPeEVDvkDuO/9LVa44h5gqpWeJ4mRRznjDv7LA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
@@ -2043,8 +2043,8 @@ packages:
     cpu: [x64]
     os: [linux]
 
-  '@next/swc-linux-x64-musl@16.1.6':
-    resolution: {integrity: sha512-oicJwRlyOoZXVlxmIMaTq7f8pN9QNbdes0q2FXfRsPhfCi8n8JmOZJm5oo1pwDaFbnnD421rVU409M3evFbIqg==}
+  '@next/swc-linux-x64-musl@16.1.5':
+    resolution: {integrity: sha512-bQWSE729PbXT6mMklWLf8dotislPle2L70E9q6iwETYEOt092GDn0c+TTNj26AjmeceSsC4ndyGsK5nKqHYXjQ==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
@@ -2055,8 +2055,8 @@ packages:
     cpu: [arm64]
     os: [win32]
 
-  '@next/swc-win32-arm64-msvc@16.1.6':
-    resolution: {integrity: sha512-gQmm8izDTPgs+DCWH22kcDmuUp7NyiJgEl18bcr8irXA5N2m2O+JQIr6f3ct42GOs9c0h8QF3L5SzIxcYAAXXw==}
+  '@next/swc-win32-arm64-msvc@16.1.5':
+    resolution: {integrity: sha512-LZli0anutkIllMtTAWZlDqdfvjWX/ch8AFK5WgkNTvaqwlouiD1oHM+WW8RXMiL0+vAkAJyAGEzPPjO+hnrSNQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [win32]
@@ -2067,8 +2067,14 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@next/swc-win32-x64-msvc@16.1.1':
-    resolution: {integrity: sha512-Ncwbw2WJ57Al5OX0k4chM68DKhEPlrXBaSXDCi2kPi5f4d8b3ejr3RRJGfKBLrn2YJL5ezNS7w2TZLHSti8CMw==}
+  '@next/swc-win32-x64-msvc@16.1.5':
+    resolution: {integrity: sha512-7is37HJTNQGhjPpQbkKjKEboHYQnCgpVt/4rBrrln0D9nderNxZ8ZWs8w1fAtzUx7wEyYjQ+/13myFgFj6K2Ng==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+
+  '@next/swc-win32-x64-msvc@16.1.6':
+    resolution: {integrity: sha512-NRfO39AIrzBnixKbjuo2YiYhB6o9d8v/ymU9m/Xk8cyVk+k7XylniXkHwjs4s70wedVffc6bQNbufk5v0xEm0A==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
@@ -4954,8 +4960,8 @@ packages:
   heap@0.2.7:
     resolution: {integrity: sha512-2bsegYkkHO+h/9MGbn6KWcE45cHZgPANo5LXF7EvWdT0yT2EguSVO1nDgU5c8+ZOPwp2vMNa7YFsJhVcDR9Sdg==}
 
-  hono@4.11.4:
-    resolution: {integrity: sha512-U7tt8JsyrxSRKspfhtLET79pU8K+tInj5QZXs1jSugO1Vq5dFj3kmZsRldo29mTBfcjDRVRXrEZ6LS63Cog9ZA==}
+  hono@4.11.9:
+    resolution: {integrity: sha512-Eaw2YTGM6WOxA6CXbckaEvslr2Ne4NFsKrvc0v97JD5awbmeBLO5w9Ho9L9kmKonrwF9RJlW6BxT1PVv/agBHQ==}
     engines: {node: '>=16.9.0'}
 
   html-encoding-sniffer@3.0.0:
@@ -5805,8 +5811,8 @@ packages:
       sass:
         optional: true
 
-  next@16.1.6:
-    resolution: {integrity: sha512-hkyRkcu5x/41KoqnROkfTm2pZVbKxvbZRuNvKXLRXxs3VfyO0WhY50TQS40EuKO9SW3rBj/sF3WbVwDACeMZyw==}
+  next@16.1.5:
+    resolution: {integrity: sha512-f+wE+NSbiQgh3DSAlTaw2FwY5yGdVViAtp8TotNQj4kk4Q8Bh1sC/aL9aH+Rg1YAVn18OYXsRDT7U/079jgP7w==}
     engines: {node: '>=20.9.0'}
     hasBin: true
     peerDependencies:
@@ -5852,8 +5858,8 @@ packages:
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
 
-  nodemailer@6.10.1:
-    resolution: {integrity: sha512-Z+iLaBGVaSjbIzQ4pX6XV41HrooLsQ10ZWPUehGmuantvzWoDVBnmsdUcOIDM1t+yPor5pDhVlDESgOMEGxhHA==}
+  nodemailer@7.0.11:
+    resolution: {integrity: sha512-gnXhNRE0FNhD7wPSCGhdNh46Hs6nm+uTyg+Kq0cZukNQiYdnCsoQjodNP9BQVG9XrcK/v6/MgpAPBUFyzh9pvw==}
     engines: {node: '>=6.0.0'}
 
   normalize-path@3.0.0:
@@ -8224,13 +8230,13 @@ snapshots:
       '@github/copilot-win32-arm64': 0.0.403
       '@github/copilot-win32-x64': 0.0.403
 
-  '@hono/node-server@1.19.6(hono@4.11.4)':
+  '@hono/node-server@1.19.6(hono@4.11.9)':
     dependencies:
-      hono: 4.11.4
+      hono: 4.11.9
 
-  '@hono/zod-validator@0.2.2(hono@4.11.4)(zod@3.25.76)':
+  '@hono/zod-validator@0.2.2(hono@4.11.9)(zod@3.25.76)':
     dependencies:
-      hono: 4.11.4
+      hono: 4.11.9
       zod: 3.25.76
 
   '@humanfs/core@0.19.1': {}
@@ -8681,7 +8687,7 @@ snapshots:
 
   '@next/env@15.5.10': {}
 
-  '@next/env@16.1.6': {}
+  '@next/env@16.1.5': {}
 
   '@next/eslint-plugin-next@15.4.5':
     dependencies:
@@ -8690,49 +8696,52 @@ snapshots:
   '@next/swc-darwin-arm64@15.5.7':
     optional: true
 
-  '@next/swc-darwin-arm64@16.1.6':
+  '@next/swc-darwin-arm64@16.1.5':
     optional: true
 
   '@next/swc-darwin-x64@15.5.7':
     optional: true
 
-  '@next/swc-darwin-x64@16.1.6':
+  '@next/swc-darwin-x64@16.1.5':
     optional: true
 
   '@next/swc-linux-arm64-gnu@15.5.7':
     optional: true
 
-  '@next/swc-linux-arm64-gnu@16.1.6':
+  '@next/swc-linux-arm64-gnu@16.1.5':
     optional: true
 
   '@next/swc-linux-arm64-musl@15.5.7':
     optional: true
 
-  '@next/swc-linux-arm64-musl@16.1.6':
+  '@next/swc-linux-arm64-musl@16.1.5':
     optional: true
 
   '@next/swc-linux-x64-gnu@15.5.7':
     optional: true
 
-  '@next/swc-linux-x64-gnu@16.1.6':
+  '@next/swc-linux-x64-gnu@16.1.5':
     optional: true
 
   '@next/swc-linux-x64-musl@15.5.7':
     optional: true
 
-  '@next/swc-linux-x64-musl@16.1.6':
+  '@next/swc-linux-x64-musl@16.1.5':
     optional: true
 
   '@next/swc-win32-arm64-msvc@15.5.7':
     optional: true
 
-  '@next/swc-win32-arm64-msvc@16.1.6':
+  '@next/swc-win32-arm64-msvc@16.1.5':
     optional: true
 
   '@next/swc-win32-x64-msvc@15.5.7':
     optional: true
 
-  '@next/swc-win32-x64-msvc@16.1.1': {}
+  '@next/swc-win32-x64-msvc@16.1.5':
+    optional: true
+
+  '@next/swc-win32-x64-msvc@16.1.6': {}
 
   '@next/swc-win32-x64-msvc@16.1.6':
     optional: true
@@ -11144,8 +11153,8 @@ snapshots:
   drizzle-kit@0.20.18:
     dependencies:
       '@esbuild-kit/esm-loader': 2.6.5
-      '@hono/node-server': 1.19.6(hono@4.11.4)
-      '@hono/zod-validator': 0.2.2(hono@4.11.4)(zod@3.25.76)
+      '@hono/node-server': 1.19.6(hono@4.11.9)
+      '@hono/zod-validator': 0.2.2(hono@4.11.9)(zod@3.25.76)
       camelcase: 7.0.1
       chalk: 5.6.2
       commander: 9.5.0
@@ -11154,7 +11163,7 @@ snapshots:
       esbuild-register: 3.6.0(esbuild@0.19.12)
       glob: 8.1.0
       hanji: 0.0.5
-      hono: 4.11.4
+      hono: 4.11.9
       json-diff: 0.9.0
       minimatch: 7.4.6
       semver: 7.7.2
@@ -12019,7 +12028,7 @@ snapshots:
 
   heap@0.2.7: {}
 
-  hono@4.11.4: {}
+  hono@4.11.9: {}
 
   html-encoding-sniffer@3.0.0:
     dependencies:
@@ -13203,9 +13212,9 @@ snapshots:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
+  next@16.1.5(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
     dependencies:
-      '@next/env': 16.1.6
+      '@next/env': 16.1.5
       '@swc/helpers': 0.5.15
       baseline-browser-mapping: 2.8.32
       caniuse-lite: 1.0.30001769
@@ -13214,14 +13223,14 @@ snapshots:
       react-dom: 19.1.1(react@19.1.1)
       styled-jsx: 5.1.6(@babel/core@7.28.5)(react@19.1.1)
     optionalDependencies:
-      '@next/swc-darwin-arm64': 16.1.6
-      '@next/swc-darwin-x64': 16.1.6
-      '@next/swc-linux-arm64-gnu': 16.1.6
-      '@next/swc-linux-arm64-musl': 16.1.6
-      '@next/swc-linux-x64-gnu': 16.1.6
-      '@next/swc-linux-x64-musl': 16.1.6
-      '@next/swc-win32-arm64-msvc': 16.1.6
-      '@next/swc-win32-x64-msvc': 16.1.6
+      '@next/swc-darwin-arm64': 16.1.5
+      '@next/swc-darwin-x64': 16.1.5
+      '@next/swc-linux-arm64-gnu': 16.1.5
+      '@next/swc-linux-arm64-musl': 16.1.5
+      '@next/swc-linux-x64-gnu': 16.1.5
+      '@next/swc-linux-x64-musl': 16.1.5
+      '@next/swc-win32-arm64-msvc': 16.1.5
+      '@next/swc-win32-x64-msvc': 16.1.5
       '@opentelemetry/api': 1.9.0
       sharp: 0.34.5
     transitivePeerDependencies:
@@ -13265,7 +13274,7 @@ snapshots:
 
   node-releases@2.0.27: {}
 
-  nodemailer@6.10.1: {}
+  nodemailer@7.0.11: {}
 
   normalize-path@3.0.0: {}
 
