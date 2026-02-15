@@ -76,6 +76,30 @@ resource apiTokenSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   }
 }
 
+// ── Key Vault Role Assignments ─────────────────────────────────────────────
+// ✅ Grant Web App's Managed Identity access to Key Vault secrets
+// Role: Key Vault Secrets User (4633458b-17de-408a-b874-0445c86b69e6)
+resource keyVaultRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.id, webApp.id, 'Key Vault Secrets User')
+  scope: keyVault
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+    principalId: webApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ✅ Grant Staging Slot's Managed Identity access to Key Vault secrets
+resource keyVaultRoleAssignmentStaging 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.id, stagingSlot.id, 'Key Vault Secrets User')
+  scope: keyVault
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+    principalId: stagingSlot.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // ── App Service Plan (Production-grade) ────────────────────────────────────
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   name: '${appName}-plan'
