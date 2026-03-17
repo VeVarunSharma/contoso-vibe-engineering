@@ -62,7 +62,7 @@ Push protection blocks secrets in:
 - GitHub UI commits
 - File uploads
 - REST API requests
-- GitHub MCP server interactions (public repos only)
+- REST API content creation endpoints
 
 ### Step 3: Configure Exclusions (Optional)
 
