@@ -75,6 +75,9 @@ async function main(): Promise<void> {
         },
       },
 
+      // Auto-approve permission requests in CI (non-interactive)
+      onPermissionRequest: async () => ({ kind: "approved" as const }),
+
       // System prompt defines the agent's behavior
       systemMessage: {
         mode: "replace",

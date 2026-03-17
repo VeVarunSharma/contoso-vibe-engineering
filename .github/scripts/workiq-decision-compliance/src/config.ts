@@ -25,8 +25,8 @@ export const configSchema = z.object({
   LOOKBACK_DAYS: z.coerce.number().default(7),
   FAIL_ON_WARN: z
     .string()
-    .transform((v) => v === "true")
-    .default("false"),
+    .default("false")
+    .transform((v) => v === "true"),
 
   // Output path for the compliance report
   REPORT_PATH: z

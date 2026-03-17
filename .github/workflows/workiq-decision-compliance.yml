@@ -7,14 +7,20 @@
 # SETUP INSTRUCTIONS:
 # -------------------
 # 1. Create repository secrets:
-#    - COPILOT_GITHUB_TOKEN: Fine-grained PAT with "Copilot Requests" read permission
+#    - COPILOT_GITHUB_TOKEN: Fine-grained PAT with "Copilot Requests" read permission.
+#      The token owner must have an active GitHub Copilot license.
 #    - WORKIQ_TENANT_ID: Your Microsoft 365 tenant ID (optional, defaults to 'common')
 #
 # 2. WorkIQ Authentication:
-#    - First run requires Microsoft 365 admin consent
-#    - See: https://aka.ms/workiq-admin-consent
+#    - Requires Microsoft 365 admin consent (tenant-wide, one-time):
+#      https://login.microsoftonline.com/<tenant-id>/adminconsent?client_id=ba081686-5d24-4bc6-a0d6-d034ecffed87
+#    - WorkIQ uses OAuth 2.0 delegated permissions — the initial sign-in is interactive.
+#    - For CI, a self-hosted runner with a pre-authenticated WorkIQ session is recommended
+#      (run `npx @microsoft/workiq accept-eula && npx @microsoft/workiq login` on the runner).
+#    - Service principal / client credentials auth is NOT supported by WorkIQ at this time.
 #
-# 3. Ensure the token owner has an active GitHub Copilot license
+# 3. Required M365 licenses:
+#    - The authenticated user must have a Microsoft 365 Copilot license.
 #
 # STATUS LEVELS:
 # - PASS: Code aligns with all meeting decisions
@@ -91,6 +97,10 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install Copilot CLI
+        if: steps.check-files.outputs.skip != 'true'
+        run: npm install -g @github/copilot
+
       - name: Install SDK script dependencies
         if: steps.check-files.outputs.skip != 'true'
         working-directory: ${{ env.SCRIPT_DIR }}
@@ -118,7 +128,6 @@ jobs:
           FAIL_ON_WARN: ${{ env.FAIL_ON_WARN }}
           REPORT_PATH: ${{ github.workspace }}/${{ env.REPORT_PATH }}
         run: node dist/index.js
-        continue-on-error: true
 
       - name: Read compliance outputs
         if: steps.check-files.outputs.skip != 'true'
