@@ -1,0 +1,56 @@
+{
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MCP Server Configuration for GitHub Copilot Coding Agent
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // This file configures MCP servers for the Copilot Coding Agent (the agent
+  // that runs in GitHub Actions to implement issues and PRs autonomously).
+  //
+  // KEY DIFFERENCE from .vscode/mcp.json:
+  //   - .vscode/mcp.json  → Used by Copilot Chat in VS Code (interactive)
+  //   - .copilot/mcp.json → Used by the Copilot Coding Agent (automated)
+  //
+  // The Coding Agent runs headlessly in CI, so servers here should:
+  //   1. Not require interactive prompts (no ${input:...} variables)
+  //   2. Use environment variables or secrets for authentication
+  //   3. Be scoped to only the tools the agent needs
+  //
+  // Docs: https://docs.github.com/en/copilot/customizing-copilot/extending-the-copilot-coding-agent-with-mcp
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  "servers": {
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GitHub MCP Server
+    // ─────────────────────────────────────────────────────────────────────────
+    // The Coding Agent already has GitHub access via GITHUB_TOKEN, but this
+    // MCP server provides additional structured tools for repo interactions.
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"]
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Fetch MCP Server
+    // ─────────────────────────────────────────────────────────────────────────
+    // Allows the agent to fetch documentation pages or API specs when
+    // implementing features that require external reference material.
+    "fetch": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch"]
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Playwright MCP Server
+    // ─────────────────────────────────────────────────────────────────────────
+    // Enables the agent to test web applications by navigating pages,
+    // clicking elements, and taking screenshots for verification.
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--headless"]
+    }
+  }
+}

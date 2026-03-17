@@ -1,16 +1,100 @@
 {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MCP (Model Context Protocol) Server Configuration for VS Code
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // This file configures MCP servers available to GitHub Copilot in VS Code.
+  // Each server exposes tools that Copilot can invoke during chat sessions.
+  //
+  // How it works:
+  //   1. VS Code reads this file on startup
+  //   2. Copilot Chat discovers available MCP servers and their tools
+  //   3. When you chat, Copilot can call these tools to fetch data or perform actions
+  //   4. VS Code prompts you to approve tool calls before execution
+  //
+  // Security: VS Code will ask for your confirmation before any tool is invoked.
+  //           You can approve tools individually or for the entire session.
+  //
+  // Docs: https://code.visualstudio.com/docs/copilot/chat/mcp-servers
+  // ═══════════════════════════════════════════════════════════════════════════
+
   "servers": {
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GitHub MCP Server
+    // ─────────────────────────────────────────────────────────────────────────
+    // Provides tools for interacting with GitHub: repos, issues, PRs, actions.
+    // Auth: Uses your GitHub CLI token (run `gh auth login` first).
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${input:github_token}"
+      }
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Azure DevOps MCP Server
+    // ─────────────────────────────────────────────────────────────────────────
+    // Provides tools for Azure DevOps: work items, repos, pipelines.
+    // Used by teams that manage work in Azure Boards alongside GitHub.
     "ado": {
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@azure-devops/mcp", "${input:ado_org}"]
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Playwright MCP Server
+    // ─────────────────────────────────────────────────────────────────────────
+    // Provides browser automation tools for testing web apps.
+    // Useful for debugging UI issues by navigating, clicking, and screenshotting.
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Fetch MCP Server
+    // ─────────────────────────────────────────────────────────────────────────
+    // Provides a tool to fetch web pages and convert them to markdown.
+    // Useful for pulling documentation, API references, or release notes.
+    "fetch": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch"]
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Filesystem MCP Server (Read-Only)
+    // ─────────────────────────────────────────────────────────────────────────
+    // Provides file read/search tools scoped to this workspace.
+    // The allowed directories below restrict what paths the server can access.
+    // This is an example of path-based guardrails for MCP servers.
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${workspaceFolder}"
+      ]
     }
   },
+
   "inputs": [
+    {
+      "id": "github_token",
+      "type": "promptString",
+      "description": "GitHub Personal Access Token (classic or fine-grained)",
+      "password": true
+    },
     {
       "id": "ado_org",
       "type": "promptString",
-      "description": "Azure DevOps organization name  (e.g. 'contoso')"
+      "description": "Azure DevOps organization name (e.g. 'contoso')"
     }
   ]
 }

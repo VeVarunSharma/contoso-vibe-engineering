@@ -96,6 +96,17 @@ pnpm dev
 
 The rules for the AI Agent are defined in [.github/copilot-instructions.md](.github/copilot-instructions.md).
 
+### MCP (Model Context Protocol)
+
+This repository includes pre-configured MCP servers for GitHub Copilot with guardrails and governance examples:
+
+| Config File | Purpose |
+|---|---|
+| [`.vscode/mcp.json`](.vscode/mcp.json) | MCP servers for Copilot Chat in VS Code (interactive) |
+| [`.copilot/mcp.json`](.copilot/mcp.json) | MCP servers for the Copilot Coding Agent (automated) |
+
+See the **[MCP Setup Guide](docs/mcp-setup-guide.md)** for a full walkthrough of how MCP configs work, how to manage tool allowlists, and governance best practices for your team.
+
 ## Contributing
 
 1. Create a new branch for your feature
