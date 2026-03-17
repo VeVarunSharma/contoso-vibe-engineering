@@ -33,6 +33,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Disable CodeQL default setup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api \
+            --method PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/code-scanning/default-setup" \
+            -f state=not-configured; then
+            echo "Default setup disabled successfully"
+          else
+            echo "Note: Failed to disable default setup — it may already be disabled or this step may lack sufficient permissions. Proceeding anyway."
+          fi
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
