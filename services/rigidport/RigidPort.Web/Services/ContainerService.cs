@@ -31,7 +31,10 @@ public class ContainerService
         await _db.Containers.Where(c => c.Status == ContainerStatus.Available)
             .OrderBy(c => c.ContainerNumber).ToListAsync();
 
-    public async Task<Dictionary<ContainerStatus, int>> GetStatusCountsAsync() =>
-        await _db.Containers.GroupBy(c => c.Status)
-            .ToDictionaryAsync(g => g.Key, g => g.Count());
+    public async Task<Dictionary<ContainerStatus, int>> GetStatusCountsAsync()
+    {
+        var containers = await _db.Containers.ToListAsync();
+        return containers.GroupBy(c => c.Status)
+            .ToDictionary(g => g.Key, g => g.Count());
+    }
 }

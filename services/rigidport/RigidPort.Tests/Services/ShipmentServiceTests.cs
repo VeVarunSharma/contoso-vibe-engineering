@@ -130,4 +130,84 @@ public class ShipmentServiceTests
 
         Assert.Single(result);
     }
+
+    [Fact]
+    public async Task GetAllAsync_WithSortByTracking_ReturnsSorted()
+    {
+        using var db = TestDbHelper.CreateContext();
+        var service = new ShipmentService(db);
+
+        // Add a second shipment with a different tracking number
+        var s2 = new Shipment { OriginPortId = 2, DestinationPortId = 1, CustomerId = 1, WeightKg = 100, Value = 1m, CargoDescription = "B" };
+        await service.CreateAsync(s2);
+
+        var ascending = await service.GetAllAsync(sortBy: "tracking");
+        Assert.True(string.Compare(ascending[0].TrackingNumber, ascending[1].TrackingNumber, StringComparison.Ordinal) <= 0);
+
+        var descending = await service.GetAllAsync(sortBy: "tracking", descending: true);
+        Assert.True(string.Compare(descending[0].TrackingNumber, descending[1].TrackingNumber, StringComparison.Ordinal) >= 0);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_DefaultSort_OrdersByUpdatedAtDesc()
+    {
+        using var db = TestDbHelper.CreateContext();
+        var service = new ShipmentService(db);
+
+        // Add a second shipment so we can verify ordering
+        var s2 = new Shipment { OriginPortId = 1, DestinationPortId = 2, CustomerId = 1, WeightKg = 500, Value = 500m, CargoDescription = "Second" };
+        await service.CreateAsync(s2);
+
+        var result = await service.GetAllAsync();
+
+        Assert.Equal(2, result.Count);
+        // Default sort: UpdatedAt descending — most recently updated first
+        Assert.True(result[0].UpdatedAt >= result[1].UpdatedAt);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_PersistsChangesAndSetsUpdatedAt()
+    {
+        using var db = TestDbHelper.CreateContext();
+        var service = new ShipmentService(db);
+
+        var shipment = await service.GetByIdAsync(1);
+        Assert.NotNull(shipment);
+
+        var before = DateTime.UtcNow.AddSeconds(-1);
+        shipment.CargoDescription = "Updated cargo";
+        await service.UpdateAsync(shipment);
+
+        var updated = await service.GetByIdAsync(1);
+        Assert.NotNull(updated);
+        Assert.Equal("Updated cargo", updated.CargoDescription);
+        Assert.True(updated.UpdatedAt >= before);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_InvalidId_DoesNothing()
+    {
+        using var db = TestDbHelper.CreateContext();
+        var service = new ShipmentService(db);
+
+        var exception = await Record.ExceptionAsync(() =>
+            service.UpdateStatusAsync(999, ShipmentStatus.Delivered, "Loc", "Desc"));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task CreateAsync_GeneratesUniqueTrackingNumbers()
+    {
+        using var db = TestDbHelper.CreateContext();
+        var service = new ShipmentService(db);
+
+        var s1 = new Shipment { OriginPortId = 1, DestinationPortId = 2, CustomerId = 1, WeightKg = 1000, Value = 100m, CargoDescription = "Cargo A" };
+        var s2 = new Shipment { OriginPortId = 1, DestinationPortId = 2, CustomerId = 1, WeightKg = 2000, Value = 200m, CargoDescription = "Cargo B" };
+
+        var r1 = await service.CreateAsync(s1);
+        var r2 = await service.CreateAsync(s2);
+
+        Assert.NotEqual(r1.TrackingNumber, r2.TrackingNumber);
+    }
 }

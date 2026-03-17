@@ -18,12 +18,15 @@ builder.Services.AddScoped<TrackingService>();
 
 var app = builder.Build();
 
-// Auto-migrate and seed
-using (var scope = app.Services.CreateScope())
+// Auto-migrate and seed (skipped in Testing environment)
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
-    SeedData.Initialize(db);
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+        SeedData.Initialize(db);
+    }
 }
 
 if (!app.Environment.IsDevelopment())
@@ -80,3 +83,5 @@ app.MapGet("/api/tracking/{trackingNumber}", async (string trackingNumber, Track
 
 app.MapRazorPages();
 app.Run();
+
+public partial class Program { }
