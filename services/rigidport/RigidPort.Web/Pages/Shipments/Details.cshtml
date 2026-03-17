@@ -1,0 +1,126 @@
+@page
+@model RigidPort.Web.Pages.Shipments.DetailsModel
+@{
+    ViewData["Title"] = $"Shipment {Model.Shipment.TrackingNumber}";
+    var allStatuses = Enum.GetValues<ShipmentStatus>().Where(s => s != ShipmentStatus.Cancelled).ToArray();
+    var currentIndex = Array.IndexOf(allStatuses, Model.Shipment.Status);
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a asp-page="Index" class="text-decoration-none text-muted small">
+            <i class="bi bi-arrow-left me-1"></i> Back to Shipments
+        </a>
+        <h4 class="fw-bold mt-1 mb-0">
+            <i class="bi bi-box-seam me-2"></i>@Model.Shipment.TrackingNumber
+            <span class="status-badge ms-2 status-@Model.Shipment.Status.ToString().ToLower()">@Model.Shipment.Status</span>
+        </h4>
+    </div>
+    <a asp-page="Edit" asp-route-id="@Model.Shipment.Id" class="btn btn-outline-teal">
+        <i class="bi bi-pencil me-1"></i> Edit
+    </a>
+</div>
+
+<!-- Progress Steps -->
+<div class="content-card p-4 mb-4">
+    <div class="d-flex justify-content-between position-relative" style="z-index:1;">
+        @for (int i = 0; i < allStatuses.Length; i++)
+        {
+            var isCompleted = i <= currentIndex;
+            var isCurrent = i == currentIndex;
+            <div class="text-center" style="flex:1;">
+                <div class="mx-auto mb-2 rounded-circle d-flex align-items-center justify-content-center @(isCompleted ? "bg-teal text-white" : "bg-light text-muted")" 
+                     style="width:36px;height:36px; @(isCurrent ? "box-shadow: 0 0 0 4px rgba(13,148,136,0.25);" : "")">
+                    @if (isCompleted && !isCurrent)
+                    {
+                        <i class="bi bi-check"></i>
+                    }
+                    else
+                    {
+                        <small>@(i + 1)</small>
+                    }
+                </div>
+                <small class="@(isCompleted ? "fw-semibold text-teal" : "text-muted")" style="font-size:0.7rem;">@allStatuses[i]</small>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Details -->
+    <div class="col-lg-7">
+        <div class="content-card p-4 mb-4">
+            <h6 class="fw-bold mb-3">Shipment Details</h6>
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <div class="small text-muted">Origin</div>
+                    <div class="fw-semibold">@Model.Shipment.OriginPort.Name (@Model.Shipment.OriginPort.Code)</div>
+                    <div class="small text-muted">@Model.Shipment.OriginPort.City, @Model.Shipment.OriginPort.Country</div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="small text-muted">Destination</div>
+                    <div class="fw-semibold">@Model.Shipment.DestinationPort.Name (@Model.Shipment.DestinationPort.Code)</div>
+                    <div class="small text-muted">@Model.Shipment.DestinationPort.City, @Model.Shipment.DestinationPort.Country</div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="small text-muted">Customer</div>
+                    <div class="fw-semibold">@Model.Shipment.Customer.CompanyName</div>
+                    <div class="small text-muted">@Model.Shipment.Customer.ContactName</div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="small text-muted">Container</div>
+                    <div class="fw-semibold">@(Model.Shipment.Container?.ContainerNumber ?? "Not Assigned")</div>
+                    @if (Model.Shipment.Container != null)
+                    {
+                        <div class="small text-muted">@Model.Shipment.Container.Type</div>
+                    }
+                </div>
+                <div class="col-sm-4">
+                    <div class="small text-muted">Weight</div>
+                    <div class="fw-semibold">@Model.Shipment.WeightKg.ToString("N1") kg</div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="small text-muted">Value</div>
+                    <div class="fw-semibold">@Model.Shipment.Value.ToString("C2")</div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="small text-muted">ETA</div>
+                    <div class="fw-semibold">@(Model.Shipment.EstimatedArrival?.ToString("MMM dd, yyyy") ?? "—")</div>
+                </div>
+                @if (Model.Shipment.CargoDescription != null)
+                {
+                    <div class="col-12">
+                        <div class="small text-muted">Cargo Description</div>
+                        <div>@Model.Shipment.CargoDescription</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Tracking Timeline -->
+    <div class="col-lg-5">
+        <div class="content-card p-4">
+            <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-2"></i>Tracking Timeline</h6>
+            <div class="tracking-timeline">
+                @{var events = Model.Shipment.TrackingEvents.OrderByDescending(e => e.Timestamp).ToList();}
+                @for (int i = 0; i < events.Count; i++)
+                {
+                    var e = events[i];
+                    var isFirst = i == 0;
+                    <div class="timeline-item @(isFirst ? "active" : "completed")">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <span class="status-badge status-@e.Status.ToString().ToLower()" style="font-size:0.65rem;">@e.Status</span>
+                                <small class="text-muted">@e.Timestamp.ToString("MMM dd, HH:mm")</small>
+                            </div>
+                            <div class="small mt-1">@e.Description</div>
+                            <div class="small text-muted"><i class="bi bi-geo-alt me-1"></i>@e.Location</div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

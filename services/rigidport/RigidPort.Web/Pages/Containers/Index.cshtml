@@ -1,0 +1,91 @@
+@page
+@model RigidPort.Web.Pages.Containers.IndexModel
+@{
+    ViewData["Title"] = "Containers";
+    var total = Model.StatusCounts.Values.Sum();
+}
+
+<div class="mb-4">
+    <h4 class="fw-bold mb-1"><i class="bi bi-grid-3x3-gap me-2"></i>Container Inventory</h4>
+    <p class="text-muted mb-0">@total containers total</p>
+</div>
+
+<!-- Status Summary Cards -->
+<div class="row g-3 mb-4">
+    @{ var statusConfigs = new[] {
+        (ContainerStatus.Available, "success", "bi-check-circle"),
+        (ContainerStatus.InUse, "warning", "bi-arrow-repeat"),
+        (ContainerStatus.Maintenance, "danger", "bi-wrench") }; }
+    @foreach (var (status, color, icon) in statusConfigs)
+    {
+        var count = Model.StatusCounts.GetValueOrDefault(status);
+        <div class="col-md-4">
+            <a asp-page="Index" asp-route-StatusFilter="@status" class="text-decoration-none">
+                <div class="kpi-card p-3 @(Model.StatusFilter == status ? $"border-{color} border-2" : "")">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="kpi-label">@status</div>
+                            <div class="kpi-value text-@color">@count</div>
+                        </div>
+                        <div class="kpi-icon bg-@color bg-opacity-10 text-@color">
+                            <i class="bi @icon"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    }
+</div>
+
+@if (Model.StatusFilter.HasValue)
+{
+    <div class="mb-3">
+        <a asp-page="Index" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x me-1"></i>Clear Filter</a>
+    </div>
+}
+
+<!-- Container List -->
+<div class="content-card">
+    <div class="table-responsive">
+        <table class="table table-rp">
+            <thead>
+                <tr>
+                    <th>Container #</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Max Weight</th>
+                    <th>Location</th>
+                    <th>Shipments</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Model.Containers)
+                {
+                    var typeLabel = c.Type switch {
+                        ContainerType.Standard20ft => "20' Standard",
+                        ContainerType.Standard40ft => "40' Standard",
+                        ContainerType.HighCube40ft => "40' High Cube",
+                        ContainerType.Reefer => "Reefer",
+                        _ => c.Type.ToString()
+                    };
+                    var statusColor = c.Status switch {
+                        ContainerStatus.Available => "success",
+                        ContainerStatus.InUse => "warning",
+                        ContainerStatus.Maintenance => "danger",
+                        _ => "secondary"
+                    };
+                    <tr>
+                        <td class="fw-semibold">@c.ContainerNumber</td>
+                        <td><span class="container-type">@typeLabel</span></td>
+                        <td><span class="badge bg-@statusColor">@c.Status</span></td>
+                        <td>@c.MaxWeightKg.ToString("N0") kg</td>
+                        <td>@(c.CurrentLocation ?? "—")</td>
+                        <td>@c.Shipments.Count</td>
+                        <td><a asp-page="Details" asp-route-id="@c.Id" class="btn btn-sm btn-outline-teal"><i class="bi bi-eye"></i></a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

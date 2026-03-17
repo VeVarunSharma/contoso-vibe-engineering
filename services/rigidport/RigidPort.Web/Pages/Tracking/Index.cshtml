@@ -1,0 +1,102 @@
+@page
+@model RigidPort.Web.Pages.Tracking.IndexModel
+@{
+    ViewData["Title"] = "Track Shipment";
+}
+
+<div class="text-center mb-5 mt-3">
+    <h2 class="fw-bold"><i class="bi bi-geo-alt me-2 text-teal"></i>Track Your Shipment</h2>
+    <p class="text-muted">Enter your tracking number to see real-time status updates</p>
+</div>
+
+<div class="row justify-content-center mb-5">
+    <div class="col-md-8 col-lg-6">
+        <form method="get" class="d-flex gap-2">
+            <div class="search-box flex-grow-1">
+                <i class="bi bi-search"></i>
+                <input type="text" name="TrackingNumber" value="@Model.TrackingNumber" class="form-control form-control-lg"
+                       placeholder="e.g. RP-202600001" />
+            </div>
+            <button type="submit" class="btn btn-teal btn-lg px-4"><i class="bi bi-search"></i></button>
+        </form>
+    </div>
+</div>
+
+@if (Model.Searched && Model.Shipment == null)
+{
+    <div class="text-center">
+        <div class="content-card p-5 d-inline-block">
+            <i class="bi bi-question-circle text-muted" style="font-size: 3rem;"></i>
+            <h5 class="mt-3">Shipment Not Found</h5>
+            <p class="text-muted">No shipment found with tracking number <strong>@Model.TrackingNumber</strong></p>
+        </div>
+    </div>
+}
+else if (Model.Shipment != null)
+{
+    var s = Model.Shipment;
+    var allStatuses = Enum.GetValues<ShipmentStatus>().Where(st => st != ShipmentStatus.Cancelled).ToArray();
+    var currentIndex = Array.IndexOf(allStatuses, s.Status);
+
+    <!-- Status Overview -->
+    <div class="row justify-content-center mb-4">
+        <div class="col-lg-10">
+            <div class="content-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0">@s.TrackingNumber</h5>
+                    <span class="status-badge status-@s.Status.ToString().ToLower()" style="font-size:0.85rem;">@s.Status</span>
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-3"><div class="small text-muted">From</div><div class="fw-semibold">@s.OriginPort.Name</div></div>
+                    <div class="col-sm-3"><div class="small text-muted">To</div><div class="fw-semibold">@s.DestinationPort.Name</div></div>
+                    <div class="col-sm-3"><div class="small text-muted">ETA</div><div class="fw-semibold">@(s.EstimatedArrival?.ToString("MMM dd, yyyy") ?? "—")</div></div>
+                    <div class="col-sm-3"><div class="small text-muted">Delivered</div><div class="fw-semibold">@(s.ActualArrival?.ToString("MMM dd, yyyy") ?? "—")</div></div>
+                </div>
+
+                <!-- Progress Steps -->
+                <div class="d-flex justify-content-between">
+                    @for (int i = 0; i < allStatuses.Length; i++)
+                    {
+                        var done = i <= currentIndex;
+                        var current = i == currentIndex;
+                        <div class="text-center" style="flex:1;">
+                            <div class="mx-auto mb-2 rounded-circle d-flex align-items-center justify-content-center @(done ? "bg-teal text-white" : "bg-light text-muted")"
+                                 style="width:32px;height:32px; @(current ? "box-shadow:0 0 0 4px rgba(13,148,136,0.25);" : "")">
+                                @if (done && !current) { <i class="bi bi-check" style="font-size:0.8rem;"></i> }
+                                else { <small style="font-size:0.7rem;">@(i+1)</small> }
+                            </div>
+                            <small class="@(done ? "fw-semibold text-teal" : "text-muted")" style="font-size:0.65rem;">@allStatuses[i]</small>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="content-card p-4">
+                <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-2"></i>Tracking History</h6>
+                <div class="tracking-timeline">
+                    @{ var events = s.TrackingEvents.OrderByDescending(e => e.Timestamp).ToList(); }
+                    @for (int i = 0; i < events.Count; i++)
+                    {
+                        var e = events[i];
+                        <div class="timeline-item @(i == 0 ? "active" : "completed")">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-content">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <span class="status-badge status-@e.Status.ToString().ToLower()" style="font-size:0.65rem;">@e.Status</span>
+                                    <small class="text-muted">@e.Timestamp.ToString("MMM dd, yyyy HH:mm")</small>
+                                </div>
+                                <div class="small mt-1 fw-semibold">@e.Description</div>
+                                <div class="small text-muted"><i class="bi bi-geo-alt me-1"></i>@e.Location</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
