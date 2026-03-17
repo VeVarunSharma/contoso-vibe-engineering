@@ -33,6 +33,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Disable Default Code Scanning Setup
+        # Default Setup and advanced (custom) CodeQL workflows cannot coexist.
+        # This step disables Default Setup so the advanced workflow can upload SARIF results.
+        # Requires security-events: write permission (already declared in the permissions block).
+        run: |
+          response=$(gh api \
+            --method PUT \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/code-scanning/default-setup \
+            -f state=not-configured 2>&1) && \
+            echo "Default Setup disabled successfully." || \
+            echo "Note: Could not disable Default Setup (may already be disabled or not enabled): $response"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
