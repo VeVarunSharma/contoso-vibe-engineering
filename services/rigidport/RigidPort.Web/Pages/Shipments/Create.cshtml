@@ -1,0 +1,68 @@
+@page
+@model RigidPort.Web.Pages.Shipments.CreateModel
+@{
+    ViewData["Title"] = "New Shipment";
+}
+
+<div class="mb-4">
+    <a asp-page="Index" class="text-decoration-none text-muted small">
+        <i class="bi bi-arrow-left me-1"></i> Back to Shipments
+    </a>
+    <h4 class="fw-bold mt-1"><i class="bi bi-plus-circle me-2"></i>Create New Shipment</h4>
+</div>
+
+<div class="content-card p-4" style="max-width: 800px;">
+    <form method="post">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Origin Port</label>
+                <select asp-for="Shipment.OriginPortId" asp-items="Model.Ports" class="form-select">
+                    <option value="">Select origin port...</option>
+                </select>
+                <span asp-validation-for="Shipment.OriginPortId" class="text-danger small"></span>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Destination Port</label>
+                <select asp-for="Shipment.DestinationPortId" asp-items="Model.Ports" class="form-select">
+                    <option value="">Select destination port...</option>
+                </select>
+                <span asp-validation-for="Shipment.DestinationPortId" class="text-danger small"></span>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Customer</label>
+                <select asp-for="Shipment.CustomerId" asp-items="Model.Customers" class="form-select">
+                    <option value="">Select customer...</option>
+                </select>
+                <span asp-validation-for="Shipment.CustomerId" class="text-danger small"></span>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Container (Optional)</label>
+                <select asp-for="Shipment.ContainerId" asp-items="Model.Containers" class="form-select">
+                    <option value="">No container</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Weight (kg)</label>
+                <input asp-for="Shipment.WeightKg" class="form-control" type="number" step="0.1" />
+                <span asp-validation-for="Shipment.WeightKg" class="text-danger small"></span>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Value (USD)</label>
+                <input asp-for="Shipment.Value" class="form-control" type="number" step="0.01" />
+                <span asp-validation-for="Shipment.Value" class="text-danger small"></span>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Estimated Arrival</label>
+                <input asp-for="Shipment.EstimatedArrival" class="form-control" type="date" />
+            </div>
+            <div class="col-12">
+                <label class="form-label fw-semibold">Cargo Description</label>
+                <textarea asp-for="Shipment.CargoDescription" class="form-control" rows="3" placeholder="Describe the cargo..."></textarea>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-teal me-2"><i class="bi bi-check-lg me-1"></i> Create Shipment</button>
+                <a asp-page="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </div>
+    </form>
+</div>

@@ -44,3 +44,12 @@ __pycache__/
 
 
 **/security-reports/**
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.db

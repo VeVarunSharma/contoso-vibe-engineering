@@ -1,0 +1,60 @@
+@page
+@model RigidPort.Web.Pages.Containers.DetailsModel
+@{
+    ViewData["Title"] = $"Container {Model.Container.ContainerNumber}";
+    var typeLabel = Model.Container.Type switch {
+        ContainerType.Standard20ft => "20' Standard",
+        ContainerType.Standard40ft => "40' Standard",
+        ContainerType.HighCube40ft => "40' High Cube",
+        ContainerType.Reefer => "Reefer",
+        _ => Model.Container.Type.ToString()
+    };
+    var statusColor = Model.Container.Status switch {
+        ContainerStatus.Available => "success",
+        ContainerStatus.InUse => "warning",
+        ContainerStatus.Maintenance => "danger",
+        _ => "secondary"
+    };
+}
+
+<div class="mb-4">
+    <a asp-page="Index" class="text-decoration-none text-muted small"><i class="bi bi-arrow-left me-1"></i>Back to Containers</a>
+    <h4 class="fw-bold mt-1"><i class="bi bi-grid-3x3-gap me-2"></i>@Model.Container.ContainerNumber
+        <span class="badge bg-@statusColor ms-2">@Model.Container.Status</span>
+    </h4>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="content-card p-4">
+            <h6 class="fw-bold mb-3">Container Info</h6>
+            <div class="mb-2"><span class="text-muted small">Type:</span><br/><span class="fw-semibold">@typeLabel</span></div>
+            <div class="mb-2"><span class="text-muted small">Max Weight:</span><br/><span class="fw-semibold">@Model.Container.MaxWeightKg.ToString("N0") kg</span></div>
+            <div class="mb-2"><span class="text-muted small">Location:</span><br/><span class="fw-semibold">@(Model.Container.CurrentLocation ?? "Unknown")</span></div>
+            <div><span class="text-muted small">Total Shipments:</span><br/><span class="fw-semibold">@Model.Container.Shipments.Count</span></div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="content-card">
+            <div class="card-header">Shipment History</div>
+            <div class="table-responsive">
+                <table class="table table-rp">
+                    <thead><tr><th>Tracking #</th><th>Route</th><th>Customer</th><th>Status</th></tr></thead>
+                    <tbody>
+                        @foreach (var s in Model.Container.Shipments)
+                        {
+                            <tr>
+                                <td class="fw-semibold text-teal">
+                                    <a asp-page="/Shipments/Details" asp-route-id="@s.Id" class="text-decoration-none text-teal">@s.TrackingNumber</a>
+                                </td>
+                                <td>@s.OriginPort.Code → @s.DestinationPort.Code</td>
+                                <td>@s.Customer.CompanyName</td>
+                                <td><span class="status-badge status-@s.Status.ToString().ToLower()">@s.Status</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

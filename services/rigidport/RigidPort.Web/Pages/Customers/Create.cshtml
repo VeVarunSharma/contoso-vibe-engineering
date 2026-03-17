@@ -1,0 +1,44 @@
+@page
+@model RigidPort.Web.Pages.Customers.CreateModel
+@{
+    ViewData["Title"] = "New Customer";
+}
+
+<div class="mb-4">
+    <a asp-page="Index" class="text-decoration-none text-muted small"><i class="bi bi-arrow-left me-1"></i>Back to Customers</a>
+    <h4 class="fw-bold mt-1"><i class="bi bi-person-plus me-2"></i>Add New Customer</h4>
+</div>
+
+<div class="content-card p-4" style="max-width: 600px;">
+    <form method="post">
+        <div class="row g-3">
+            <div class="col-12">
+                <label asp-for="Customer.CompanyName" class="form-label fw-semibold"></label>
+                <input asp-for="Customer.CompanyName" class="form-control" />
+                <span asp-validation-for="Customer.CompanyName" class="text-danger small"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Customer.ContactName" class="form-label fw-semibold"></label>
+                <input asp-for="Customer.ContactName" class="form-control" />
+                <span asp-validation-for="Customer.ContactName" class="text-danger small"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Customer.Email" class="form-label fw-semibold"></label>
+                <input asp-for="Customer.Email" class="form-control" type="email" />
+                <span asp-validation-for="Customer.Email" class="text-danger small"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Customer.Phone" class="form-label fw-semibold"></label>
+                <input asp-for="Customer.Phone" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label asp-for="Customer.Address" class="form-label fw-semibold"></label>
+                <textarea asp-for="Customer.Address" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-teal me-2"><i class="bi bi-check-lg me-1"></i>Create Customer</button>
+                <a asp-page="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </div>
+    </form>
+</div>
