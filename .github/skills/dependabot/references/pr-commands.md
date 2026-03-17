@@ -2,17 +2,17 @@
 
 Interact with Dependabot pull requests by commenting `@dependabot <command>`. Dependabot acknowledges commands with a thumbs-up reaction.
 
+> **Deprecation Notice (January 27, 2026):** The following commands have been removed:
+> `@dependabot merge`, `@dependabot squash and merge`, `@dependabot cancel merge`,
+> `@dependabot close`, and `@dependabot reopen`.
+> Use GitHub's native UI, CLI (`gh pr merge`), API, or auto-merge feature instead.
+
 ## Commands for Individual PRs
 
 | Command | Description |
 |---|---|
-| `@dependabot merge` | Merge the PR once CI tests pass |
-| `@dependabot squash and merge` | Squash and merge the PR once CI tests pass |
-| `@dependabot cancel merge` | Cancel a previously requested merge |
 | `@dependabot rebase` | Rebase the PR against the target branch |
 | `@dependabot recreate` | Recreate the PR from scratch, overwriting any manual edits |
-| `@dependabot reopen` | Reopen a closed PR |
-| `@dependabot close` | Close the PR and prevent Dependabot from recreating it |
 | `@dependabot ignore this dependency` | Close the PR and stop all future updates for this dependency |
 | `@dependabot ignore this major version` | Close and stop updates for this major version |
 | `@dependabot ignore this minor version` | Close and stop updates for this minor version |
@@ -80,5 +80,6 @@ Clears only the specified version range ignore for `express`.
 - **Rebase vs Recreate**: Use `rebase` to resolve conflicts while keeping your review state. Use `recreate` to start fresh if the PR has diverged significantly.
 - **Force push over extra commits**: If you've pushed commits to a Dependabot branch and want Dependabot to rebase over them, include `[dependabot skip]` in your commit message.
 - **Persistent ignores**: Ignore commands via PR comments are stored centrally. For transparency in team repos, prefer using `ignore` in `dependabot.yml` instead.
-- **Reopening**: Reopening a closed Dependabot PR reverses any associated `ignore` commands.
+- **Merging Dependabot PRs**: Use GitHub's native auto-merge feature, the CLI (`gh pr merge`), or the web UI. The old `@dependabot merge` commands were deprecated in January 2026.
+- **Closing/Reopening**: Use the GitHub UI or CLI. The old `@dependabot close` and `@dependabot reopen` commands were deprecated in January 2026.
 - **Grouped commands**: When using `@dependabot unignore`, Dependabot closes the current PR and opens a fresh one with the updated dependency set.
