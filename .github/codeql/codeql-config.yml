@@ -1,0 +1,29 @@
+name: "CodeQL Configuration"
+
+# Scope analysis to application source code only
+paths:
+  - apps
+  - services
+  - packages
+
+# Exclude non-source directories and test fixtures
+paths-ignore:
+  - node_modules
+  - "**/node_modules"
+  - "**/.next"
+  - "**/.turbo"
+  - "**/dist"
+  - "**/coverage"
+  - "**/__mocks__"
+  - "**/config/jest"
+  - infra
+  - security-reports
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+
+# Use security-extended queries for broader coverage
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
