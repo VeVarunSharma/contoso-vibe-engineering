@@ -13,8 +13,7 @@ Push protection scans for secrets during the push process and blocks pushes cont
 | Command line pushes | ✅ |
 | GitHub UI commits | ✅ |
 | File uploads to repo | ✅ |
-| REST API requests | ✅ |
-| GitHub MCP server | ✅ (public repos only) |
+| REST API content creation requests | ✅ |
 
 ### Types of Push Protection
 
