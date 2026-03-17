@@ -262,6 +262,87 @@ codeql execute cli-server
 
 > For detailed CLI command reference, search `references/cli-commands.md`.
 
+## Alert Management
+
+### Severity Levels
+
+Alerts have two severity dimensions:
+- **Standard severity:** `Error`, `Warning`, `Note`
+- **Security severity:** `Critical`, `High`, `Medium`, `Low` (derived from CVSS scores; takes display precedence)
+
+### Copilot Autofix
+
+GitHub Copilot Autofix generates fix suggestions for CodeQL alerts in pull requests automatically — no Copilot subscription required. Review suggestions carefully before committing.
+
+### Alert Triage in PRs
+
+- Alerts appear as check annotations on changed lines
+- Check fails by default for `error`/`critical`/`high` severity alerts
+- Configure merge protection rulesets to customize the threshold
+- Dismiss false positives with a documented reason for audit trail
+
+> For detailed alert management guidance, search `references/alert-management.md`.
+
+## Custom Queries and Packs
+
+### Using Custom Query Packs
+
+```yaml
+- uses: github/codeql-action/init@v4
+  with:
+    packs: |
+      my-org/my-security-queries@1.0.0
+      codeql/javascript-queries:AlertSuppression.ql
+```
+
+### Creating Custom Query Packs
+
+Use the CodeQL CLI to create and publish packs:
+
+```bash
+# Initialize a new pack
+codeql pack init my-org/my-queries
+
+# Install dependencies
+codeql pack install
+
+# Publish to GitHub Container Registry
+codeql pack publish
+```
+
+### CodeQL Configuration File
+
+For advanced query and path configuration, create `.github/codeql/codeql-config.yml`:
+
+```yaml
+paths:
+  - apps/
+  - services/
+paths-ignore:
+  - '**/test/**'
+  - node_modules/
+queries:
+  - uses: security-extended
+packs:
+  javascript-typescript:
+    - my-org/my-custom-queries
+```
+
+## Code Scanning Logs
+
+### Summary Metrics
+
+Workflow logs include key metrics:
+- **Lines of code in codebase** — baseline before extraction
+- **Lines extracted** — including external libraries and auto-generated files
+- **Extraction errors/warnings** — files that failed or produced warnings during extraction
+
+### Debug Logging
+
+To enable detailed diagnostics:
+- **GitHub Actions:** re-run the workflow with "Enable debug logging" checked
+- **CodeQL CLI:** use `--verbosity=progress++` and `--logdir=codeql-logs`
+
 ## Troubleshooting
 
 ### Common Issues
@@ -271,9 +352,18 @@ codeql execute cli-server
 | Workflow not triggering | Verify `on:` triggers match event; check `paths`/`branches` filters; ensure workflow exists on target branch |
 | `Resource not accessible` error | Add `security-events: write` and `contents: read` permissions |
 | Autobuild failure | Switch to `build-mode: manual` and add explicit build commands |
-| Cache miss every run | Verify `dependency-caching: true` on `init` action; check cache key includes lockfile hash |
-| SARIF upload fails | Ensure `GITHUB_TOKEN` has `security-events: write`; verify `--ref` and `--commit` match |
-| Slow analysis on self-hosted runners | Check hardware meets minimums (see table below); use SSD with ≥14 GB disk |
+| No source code seen | Verify `--source-root`, build command, and language identifier |
+| C# compiler failure | Check for `/p:EmitCompilerGeneratedFiles=true` conflicts with `.sqlproj` or legacy projects |
+| Fewer lines scanned than expected | Switch from `none` to `autobuild`/`manual`; verify build compiles all source |
+| Kotlin in no-build mode | Disable and re-enable default setup to switch to `autobuild` |
+| Cache miss every run | Verify `dependency-caching: true` on `init` action |
+| Out of disk/memory | Use larger runners; reduce analysis scope via `paths` config; use `build-mode: none` |
+| SARIF upload fails | Ensure token has `security-events: write`; check 10 MB file size limit |
+| SARIF results exceed limits | Split across multiple uploads with different `--sarif-category`; reduce query scope |
+| Two CodeQL workflows | Disable default setup if using advanced setup, or remove old workflow file |
+| Slow analysis | Enable dependency caching; use `--threads=0`; reduce query suite scope |
+
+> For comprehensive troubleshooting with detailed solutions, search `references/troubleshooting.md`.
 
 ### Hardware Requirements (Self-Hosted Runners)
 
@@ -302,10 +392,14 @@ For maximum security, pin to a full commit SHA instead of a version tag.
 For detailed documentation, load the following reference files as needed:
 
 - `references/workflow-configuration.md` — Full workflow trigger, runner, and configuration options
-  - Search patterns: `trigger`, `schedule`, `paths-ignore`, `db-location`, `model packs`, `alert severity`, `merge protection`
+  - Search patterns: `trigger`, `schedule`, `paths-ignore`, `db-location`, `model packs`, `alert severity`, `merge protection`, `concurrency`, `config file`
 - `references/cli-commands.md` — Complete CodeQL CLI command reference
-  - Search patterns: `database create`, `database analyze`, `upload-results`, `resolve packs`, `cli-server`, `installation`
-- `references/sarif-output.md` — SARIF v2.1.0 object model and schema
-  - Search patterns: `sarifLog`, `result`, `location`, `region`, `codeFlow`, `fingerprint`, `suppression`
+  - Search patterns: `database create`, `database analyze`, `upload-results`, `resolve packs`, `cli-server`, `installation`, `CI integration`
+- `references/sarif-output.md` — SARIF v2.1.0 object model, upload limits, and third-party support
+  - Search patterns: `sarifLog`, `result`, `location`, `region`, `codeFlow`, `fingerprint`, `suppression`, `upload limits`, `third-party`, `precision`, `security-severity`
 - `references/compiled-languages.md` — Build modes and autobuild behavior per language
-  - Search patterns: `C/C++`, `C#`, `Java`, `Go`, `Rust`, `Swift`, `autobuild`, `build-mode`, `hardware`
+  - Search patterns: `C/C++`, `C#`, `Java`, `Go`, `Rust`, `Swift`, `autobuild`, `build-mode`, `hardware`, `dependency caching`
+- `references/troubleshooting.md` — Comprehensive error diagnosis and resolution
+  - Search patterns: `no source code`, `out of disk`, `out of memory`, `403`, `C# compiler`, `analysis too long`, `fewer lines`, `Kotlin`, `extraction errors`, `debug logging`, `SARIF upload`, `SARIF limits`
+- `references/alert-management.md` — Alert severity, triage, Copilot Autofix, and dismissal
+  - Search patterns: `severity`, `security severity`, `CVSS`, `Copilot Autofix`, `dismiss`, `triage`, `PR alerts`, `data flow`, `merge protection`, `REST API`

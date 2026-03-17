@@ -195,6 +195,68 @@ Example:
 | `--ungroup-results` | Report every occurrence separately (no deduplication by location + message) |
 | `--output=<file>` | Write SARIF to specified file |
 
+## Third-Party SARIF Support
+
+When uploading SARIF from non-CodeQL tools, ensure these properties are populated for best results on GitHub.
+
+### Recommended `reportingDescriptor` Properties
+
+| Property | Required | Description |
+|---|:---:|---|
+| `id` | ✅ | Unique rule identifier |
+| `name` | ❌ | Rule name (max 255 chars) |
+| `shortDescription.text` | ✅ | Concise description (max 1024 chars) |
+| `fullDescription.text` | ✅ | Full description (max 1024 chars) |
+| `defaultConfiguration.level` | ❌ | Default severity: `note`, `warning`, `error` |
+| `help.text` | ✅ | Documentation in text format |
+| `help.markdown` | ❌ | Documentation in Markdown (displayed if available) |
+| `properties.tags[]` | ❌ | Tags for filtering (e.g., `security`) |
+| `properties.precision` | ❌ | `very-high`, `high`, `medium`, `low` — affects display ordering |
+| `properties.problem.severity` | ❌ | Non-security severity: `error`, `warning`, `recommendation` |
+| `properties.security-severity` | ❌ | Score 0.0–10.0 for security queries. Maps to: >9.0=critical, 7.0–8.9=high, 4.0–6.9=medium, 0.1–3.9=low |
+
+### Source File Location Requirements
+
+- Use relative paths (relative to repository root) when possible
+- Absolute URIs are converted to relative using the source root
+- Source root can be set via:
+  - `checkout_path` input to `github/codeql-action/analyze`
+  - `checkout_uri` parameter to SARIF upload API
+  - `invocations[0].workingDirectory.uri` in the SARIF file
+- Consistent file paths are required across runs for fingerprint stability
+- Symlinked files must use resolved (non-symlink) URIs
+
+### Fingerprint Requirements
+
+- `partialFingerprints` with `primaryLocationLineHash` prevents duplicate alerts across commits
+- CodeQL SARIF automatically includes fingerprints
+- Third-party SARIF: the `upload-sarif` action computes fingerprints if missing
+- API uploads without fingerprints may produce duplicate alerts
+
+## Upload Limits
+
+### File Size
+- Maximum: **10 MB** (gzip-compressed)
+- If too large: reduce query scope, remove `--sarif-add-file-contents`, or split into multiple uploads
+
+### Object Count Limits
+
+| Object | Maximum |
+|---|---|
+| Runs per file | 20 |
+| Results per run | 25,000 |
+| Rules per run | 25,000 |
+| Tool extensions per run | 100 |
+| Thread flow locations per result | 10,000 |
+| Locations per result | 1,000 |
+| Tags per rule | 20 |
+
+Files exceeding these limits are rejected. Split analysis across multiple SARIF uploads with different `--sarif-category` values.
+
+### Validation
+
+Validate SARIF files before upload using the [Microsoft SARIF validator](https://sarifweb.azurewebsites.net/).
+
 ## Backwards Compatibility
 
 - Fields marked "always generated" will never be removed in future versions
