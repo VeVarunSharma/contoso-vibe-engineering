@@ -43,8 +43,7 @@ Scan the repository for dependency manifests. Look for:
 | .NET SDK | `dotnet-sdk` | `global.json` |
 | Maven (Java) | `maven` | `pom.xml` |
 | Gradle (Java) | `gradle` | `build.gradle` |
-| Terraform | `terraform` | `*.tf` |
-| OpenTofu | `opentofu` | `*.tf` |
+| Terraform / OpenTofu | `terraform` | `*.tf` |
 | Helm | `helm` | `Chart.yaml` |
 | Hex (Elixir) | `mix` | `mix.exs` |
 | Swift | `swift` | `Package.swift` |
