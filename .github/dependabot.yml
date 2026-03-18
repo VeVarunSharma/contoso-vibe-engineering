@@ -77,6 +77,10 @@ updates:
       github-actions:
         patterns:
           - "*"
+      security-patches:
+        applies-to: security-updates
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "github-actions"
@@ -90,6 +94,14 @@ updates:
     directory: "/services/ai-tool-digest"
     schedule:
       interval: "weekly"
+    groups:
+      security-patches:
+        applies-to: security-updates
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
     labels:
       - "dependencies"
       - "docker"
@@ -116,8 +128,59 @@ updates:
     directory: "/.github/skills/mcp-builder/scripts"
     schedule:
       interval: "monthly"
+    groups:
+      security-patches:
+        applies-to: security-updates
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
     labels:
       - "dependencies"
       - "python"
     commit-message:
       prefix: "deps"
+
+  # ──────────────────────────────────────────────
+  # NuGet — .NET service dependencies
+  # ──────────────────────────────────────────────
+  - package-ecosystem: "nuget"
+    directory: "/services/rigidport"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      nuget-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      security-patches:
+        applies-to: security-updates
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+    labels:
+      - "dependencies"
+      - "nuget"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # ──────────────────────────────────────────────
+  # Terraform — infrastructure provider versions
+  # ──────────────────────────────────────────────
+  - package-ecosystem: "terraform"
+    directory: "/infra/terraform/azure-vancouver-example"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "terraform"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
