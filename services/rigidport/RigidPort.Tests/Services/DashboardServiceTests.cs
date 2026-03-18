@@ -62,4 +62,30 @@ public class DashboardServiceTests
         Assert.Equal(3, result.Count);
         Assert.True(result[0].Timestamp >= result[1].Timestamp);
     }
+
+    [Fact]
+    public async Task GetTotalShipmentsAsync_EmptyDb_ReturnsZero()
+    {
+        using var db = TestDbHelper.CreateContext();
+        db.Shipments.RemoveRange(db.Shipments);
+        db.TrackingEvents.RemoveRange(db.TrackingEvents);
+        await db.SaveChangesAsync();
+
+        var service = new DashboardService(db);
+        var result = await service.GetTotalShipmentsAsync();
+
+        Assert.Equal(0, result);
+    }
+
+    [Fact]
+    public async Task GetOnTimeDeliveryRateAsync_NoDeliveredShipments_Returns100()
+    {
+        using var db = TestDbHelper.CreateContext();
+        var service = new DashboardService(db);
+
+        // No delivered shipments in seed data — service returns 100 when none delivered
+        var result = await service.GetOnTimeDeliveryRateAsync();
+
+        Assert.Equal(100, result);
+    }
 }

@@ -1,0 +1,46 @@
+name: RigidPort .NET Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/rigidport/**'
+      - '.github/workflows/rigidport-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/rigidport/**'
+      - '.github/workflows/rigidport-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: services/rigidport
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Run tests with coverage
+        run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: services/rigidport/TestResults/**/coverage.cobertura.xml
