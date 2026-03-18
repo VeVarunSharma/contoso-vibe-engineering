@@ -1,0 +1,156 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-sm-6">
+        <div class="kpi-card p-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="kpi-label">Total Shipments</div>
+                    <div class="kpi-value">@Model.TotalShipments</div>
+                </div>
+                <div class="kpi-icon bg-info bg-opacity-10 text-info">
+                    <i class="bi bi-box-seam"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="kpi-card p-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="kpi-label">In Transit</div>
+                    <div class="kpi-value text-warning">@Model.InTransitCount</div>
+                </div>
+                <div class="kpi-icon bg-warning bg-opacity-10 text-warning">
+                    <i class="bi bi-truck"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="kpi-card p-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="kpi-label">Delivered This Month</div>
+                    <div class="kpi-value text-success">@Model.DeliveredThisMonth</div>
+                </div>
+                <div class="kpi-icon bg-success bg-opacity-10 text-success">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="kpi-card p-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="kpi-label">On-Time Delivery</div>
+                    <div class="kpi-value text-teal">@Model.OnTimeRate%</div>
+                </div>
+                <div class="kpi-icon bg-teal bg-opacity-10 text-teal" style="background: rgba(13,148,136,0.1) !important;">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-5">
+        <div class="content-card p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart me-2"></i>Shipments by Status</h6>
+            <div style="height: 280px;">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="content-card p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-bar-chart me-2"></i>Monthly Volume</h6>
+            <div style="height: 280px;">
+                <canvas id="volumeChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Shipments & Activity -->
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history me-2"></i>Recent Shipments</span>
+                <a asp-page="/Shipments/Index" class="btn btn-sm btn-outline-teal">View All</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-rp">
+                    <thead>
+                        <tr>
+                            <th>Tracking #</th>
+                            <th>Route</th>
+                            <th>Customer</th>
+                            <th>Status</th>
+                            <th>ETA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in Model.RecentShipments)
+                        {
+                            <tr style="cursor:pointer" onclick="window.location='/Shipments/Details?id=@s.Id'">
+                                <td class="fw-semibold text-teal">@s.TrackingNumber</td>
+                                <td>@s.OriginPort.Code → @s.DestinationPort.Code</td>
+                                <td>@s.Customer.CompanyName</td>
+                                <td><span class="status-badge status-@s.Status.ToString().ToLower()">@s.Status</span></td>
+                                <td>@(s.EstimatedArrival?.ToString("MMM dd, yyyy") ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="content-card">
+            <div class="card-header">
+                <i class="bi bi-activity me-2"></i>Recent Activity
+            </div>
+            <div class="p-3">
+                @foreach (var e in Model.RecentActivity)
+                {
+                    <div class="d-flex align-items-start mb-3">
+                        <div class="me-3">
+                            <span class="status-badge status-@e.Status.ToString().ToLower()" style="font-size:0.65rem;">@e.Status</span>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="small fw-semibold">@e.Shipment.TrackingNumber</div>
+                            <div class="small text-muted">@e.Description</div>
+                            <div class="small text-muted">@e.Timestamp.ToString("MMM dd, HH:mm")</div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Status distribution chart
+        createDoughnutChart('statusChart',
+            [@Html.Raw(string.Join(",", Model.StatusDistribution.Select(kv => $"'{kv.Key}'")))],
+            [@Html.Raw(string.Join(",", Model.StatusDistribution.Values))]);
+
+        // Monthly volume chart
+        createBarChart('volumeChart',
+            [@Html.Raw(string.Join(",", Model.MonthlyVolume.Select(kv => $"'{kv.Key}'")))],
+            [@Html.Raw(string.Join(",", Model.MonthlyVolume.Values))]);
+    });
+</script>
+}

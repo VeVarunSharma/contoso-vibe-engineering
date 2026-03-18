@@ -60,3 +60,7 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
+          # Prevent upload conflict: repo has default CodeQL setup enabled in settings.
+          # Advanced configuration SARIF uploads are rejected when default setup is active.
+          # Default setup continues to provide security scanning independently.
+          upload: never

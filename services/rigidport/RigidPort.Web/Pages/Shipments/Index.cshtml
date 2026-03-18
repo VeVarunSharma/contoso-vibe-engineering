@@ -1,0 +1,97 @@
+@page
+@model RigidPort.Web.Pages.Shipments.IndexModel
+@{
+    ViewData["Title"] = "Shipments";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-1"><i class="bi bi-box-seam me-2"></i>Shipments</h4>
+        <p class="text-muted mb-0">Manage and track all shipments</p>
+    </div>
+    <a asp-page="Create" class="btn btn-teal">
+        <i class="bi bi-plus-lg me-1"></i> New Shipment
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="content-card p-3 mb-4">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label small fw-semibold">Search</label>
+            <div class="search-box">
+                <i class="bi bi-search"></i>
+                <input type="text" class="form-control" name="Search" value="@Model.Search"
+                       placeholder="Tracking #, cargo, customer, port..." />
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold">Status</label>
+            <select class="form-select" name="StatusFilter">
+                <option value="">All Statuses</option>
+                @foreach (var status in Enum.GetValues<ShipmentStatus>())
+                {
+                    <option value="@status" selected="@(Model.StatusFilter == status)">@status</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold">Sort By</label>
+            <select class="form-select" name="SortBy">
+                <option value="">Last Updated</option>
+                <option value="tracking" selected="@(Model.SortBy == "tracking")">Tracking #</option>
+                <option value="status" selected="@(Model.SortBy == "status")">Status</option>
+                <option value="eta" selected="@(Model.SortBy == "eta")">ETA</option>
+                <option value="value" selected="@(Model.SortBy == "value")">Value</option>
+                <option value="created" selected="@(Model.SortBy == "created")">Created</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-teal w-100"><i class="bi bi-funnel me-1"></i> Filter</button>
+        </div>
+    </form>
+</div>
+
+<!-- Results -->
+<div class="content-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>@Model.Shipments.Count shipment(s) found</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-rp">
+            <thead>
+                <tr>
+                    <th>Tracking #</th>
+                    <th>Origin</th>
+                    <th>Destination</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Weight (kg)</th>
+                    <th>Value</th>
+                    <th>ETA</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Model.Shipments)
+                {
+                    <tr>
+                        <td class="fw-semibold text-teal">@s.TrackingNumber</td>
+                        <td><span title="@s.OriginPort.Name">@s.OriginPort.Code</span></td>
+                        <td><span title="@s.DestinationPort.Name">@s.DestinationPort.Code</span></td>
+                        <td>@s.Customer.CompanyName</td>
+                        <td><span class="status-badge status-@s.Status.ToString().ToLower()">@s.Status</span></td>
+                        <td>@s.WeightKg.ToString("N1")</td>
+                        <td>@s.Value.ToString("C0")</td>
+                        <td>@(s.EstimatedArrival?.ToString("MMM dd") ?? "—")</td>
+                        <td>
+                            <a asp-page="Details" asp-route-id="@s.Id" class="btn btn-sm btn-outline-teal">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
