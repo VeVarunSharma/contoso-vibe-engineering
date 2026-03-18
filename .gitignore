@@ -45,11 +45,19 @@ __pycache__/
 
 **/security-reports/**
 
-# .NET
-bin/
-obj/
+# .NET / C# build artifacts
+**/bin/
+**/obj/
 *.user
 *.suo
-*.userosscache
-*.sln.docstates
-*.db
+.vs/
+**/.vs/
+*.nupkg
+*.snupkg
+# NuGet
+*.nuget.props
+*.nuget.targets
+project.nuget.cache
+project.assets.json
+# Generated assembly info
+AssemblyInfo.cs
