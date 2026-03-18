@@ -23,12 +23,14 @@
 
 name: Meeting Decision Compliance
 
+# DISABLED: Automatic CI/CD triggers have been removed.
+# To re-enable, uncomment the pull_request trigger below.
 on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
+  # pull_request:
+  #   types:
+  #     - opened
+  #     - synchronize
+  #     - reopened
   workflow_dispatch:
     inputs:
       lookback_days:
