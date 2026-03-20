@@ -560,6 +560,58 @@ Join the discussion within [GitHub Community](https://github.com/orgs/community/
 
   console.log("✅ Created sixth blog post:", sixthPost?.title);
 
+  // Create the seventh blog post about Agentic memory for GitHub Copilot
+  const [seventhPost] = await db
+    .insert(posts)
+    .values({
+      title: "Agentic memory for GitHub Copilot is in public preview",
+      slug: "agentic-memory-for-github-copilot-public-preview",
+      excerpt:
+        "Copilot memory is now available in public preview for all paid GitHub Copilot plans. Copilot memory enables Copilot to learn and retain useful details about your repositories.",
+      content: `# Agentic memory for GitHub Copilot is in public preview
+
+Copilot memory is now available in public preview for all paid GitHub Copilot plans.
+
+Copilot memory enables Copilot to learn and retain useful details about your repositories. As you work with Copilot coding agent, Copilot code review, or Copilot CLI, it builds a repository-specific understanding that improves the quality of its assistance over time.
+
+## How it works
+
+Copilot automatically captures tightly scoped insights called "memories" as it works in your repositories. These memories are:
+
+- Repository-specific and validated against the current codebase before use.
+- Shared across Copilot features, so what coding agent learns can help code review.
+- Automatically expired after 28 days to prevent stale information.
+
+For more details on how exactly Copilot memory works, check out [our engineering blog post on Copilot memory](https://github.blog/ai-and-ml/github-copilot/building-an-agentic-memory-system-for-github-copilot/).
+
+## Get started
+
+**Individual users (Copilot Pro or Pro+):** Enable Copilot memory in your [personal Copilot settings](https://github.com/settings/copilot).
+
+**Organizations and enterprises:** Enable through policy settings in your organization or enterprise settings.
+
+**Repository owners** can review and delete stored memories in Repository Settings > Copilot > Memory.
+
+To learn more about how to use this feature, check out [our Copilot memory documentation](https://docs.github.com/copilot/concepts/agents/copilot-memory).
+
+Join the discussion within [GitHub Community](https://github.com/orgs/community/discussions/categories/announcements).
+
+---
+
+*Happy coding!*
+*The GitHub Team* 🐙`,
+      coverImage:
+        "https://github.blog/wp-content/themes/github-2021-child/assets/img/featured-v3-new-releases.svg",
+      authorId: octocat!.id,
+      categoryId: releasesCategory!.id,
+      published: true,
+      featured: false,
+      publishedAt: new Date("2026-01-15"),
+    })
+    .returning();
+
+  console.log("✅ Created seventh blog post:", seventhPost?.title);
+
   // Add tags to the posts
   const copilotTag = createdTags.find((t) => t.slug === "copilot");
   const aiTag = createdTags.find((t) => t.slug === "ai");
@@ -621,6 +673,15 @@ Join the discussion within [GitHub Community](https://github.com/orgs/community/
       { postId: sixthPost.id, tagId: aiTag.id },
     ]);
     console.log("✅ Added tags to sixth post");
+  }
+
+  // Add tags to the seventh post (Agentic memory)
+  if (copilotTag && aiTag && seventhPost) {
+    await db.insert(postTags).values([
+      { postId: seventhPost.id, tagId: copilotTag.id },
+      { postId: seventhPost.id, tagId: aiTag.id },
+    ]);
+    console.log("✅ Added tags to seventh post");
   }
 
   console.log("🎉 Seeding complete!");
