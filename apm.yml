@@ -1,0 +1,10 @@
+name: contoso-vibe-engineering
+version: 1.0.0
+description: Contoso Vibe Engineering monorepo with APM agent dependency management
+author: Ve Sharma
+dependencies:
+  apm:
+    - microsoft/apm-sample-package#v1.0.0
+    - github/awesome-copilot/skills/review-and-refactor
+  mcp: []
+scripts: {}
