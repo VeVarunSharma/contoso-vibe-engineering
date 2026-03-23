@@ -100,17 +100,17 @@ jobs:
           {
             cat .github/agents/code-reviewer.agent.md
             printf '\n\n## Context\n'
-            printf '- Repository: %s\n' "$GITHUB_REPOSITORY"
-            printf '- Model: %s\n' "${{ matrix.model }}"
+            printf '%s\n' "- Repository: $GITHUB_REPOSITORY"
+            printf '%s\n' "- Model: ${{ matrix.model }}"
             printf '\n## PR Diff\n\n```diff\n'
             cat /tmp/pr-diff.patch
             printf '\n```\n'
             printf '\n## Task\n'
-            printf '1. Read and understand the full repository codebase for context.\n'
-            printf '2. Analyze the PR diff above for issues.\n'
-            printf '3. Produce your review as a single JSON code block following the output schema in the agent instructions.\n'
-            printf '4. Write the JSON output to a file at /tmp/review-output.json\n'
-            printf '5. IMPORTANT: The "model" field in the JSON must be set to "%s"\n' "${{ matrix.model }}"
+            printf '%s\n' '1. Read and understand the full repository codebase for context.'
+            printf '%s\n' '2. Analyze the PR diff above for issues.'
+            printf '%s\n' '3. Produce your review as a single JSON code block following the output schema in the agent instructions.'
+            printf '%s\n' '4. Write the JSON output to a file at /tmp/review-output.json'
+            printf '%s\n' "5. IMPORTANT: The \"model\" field in the JSON must be set to \"${{ matrix.model }}\""
           } > /tmp/prompt.txt
 
           # Run Copilot CLI with the specified model
