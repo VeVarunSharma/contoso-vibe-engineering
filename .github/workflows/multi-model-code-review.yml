@@ -12,6 +12,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -52,11 +53,20 @@ jobs:
           set -euo pipefail
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr-diff.patch || true
-            echo "diff_available=true" >> "$GITHUB_OUTPUT"
+            if ! gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr-diff.patch 2>/tmp/diff-error.log; then
+              echo "::warning::Failed to get PR diff: $(cat /tmp/diff-error.log)"
+              touch /tmp/pr-diff.patch
+            fi
           else
             echo "No PR context — running against HEAD commit diff"
-            git diff HEAD~1 > /tmp/pr-diff.patch || true
+            git diff HEAD~1 > /tmp/pr-diff.patch 2>/dev/null || touch /tmp/pr-diff.patch
+          fi
+
+          # Validate diff is non-empty
+          if [ ! -s /tmp/pr-diff.patch ]; then
+            echo "::warning::PR diff is empty — review will be based on repo context only"
+            echo "diff_available=false" >> "$GITHUB_OUTPUT"
+          else
             echo "diff_available=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -64,43 +74,54 @@ jobs:
           if [ "$(wc -c < /tmp/pr-diff.patch)" -gt 200000 ]; then
             head -c 200000 /tmp/pr-diff.patch > /tmp/pr-diff-truncated.patch
             mv /tmp/pr-diff-truncated.patch /tmp/pr-diff.patch
-            echo "⚠️ Diff truncated to 200KB to stay within model context limits"
+            echo "::notice::Diff truncated to 200KB to stay within model context limits"
+          fi
+
+      - name: Check fork safety
+        id: fork-check
+        run: |
+          IS_FORK="${{ github.event.pull_request.head.repo.fork }}"
+          if [ "$IS_FORK" = "true" ]; then
+            echo "::warning::Skipping Copilot CLI review for fork PR — secrets not available"
+            echo "is_fork=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_fork=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run Copilot CLI code review
+        if: steps.fork-check.outputs.is_fork != 'true'
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
 
-          # Read the code reviewer agent prompt
-          AGENT_PROMPT=$(cat .github/agents/code-reviewer.agent.md)
-
-          # Read the PR diff
-          PR_DIFF=$(cat /tmp/pr-diff.patch)
-
-          # Build the full prompt
-          PROMPT="$AGENT_PROMPT"
-          PROMPT+=$'\n\n## Context\n'
-          PROMPT+="- Repository: $GITHUB_REPOSITORY"
-          PROMPT+="- Model: ${{ matrix.model }}"
-          PROMPT+=$'\n\n## PR Diff\n'
-          PROMPT+=$'\n```diff\n'"$PR_DIFF"$'\n```\n'
-          PROMPT+=$'\n## Task\n'
-          PROMPT+='1. Read and understand the full repository codebase for context.'
-          PROMPT+=$'\n2. Analyze the PR diff above for issues.'
-          PROMPT+=$'\n3. Produce your review as a single JSON code block following the output schema in the agent instructions.'
-          PROMPT+=$'\n4. Write the JSON output to a file at /tmp/review-output.json'
-          PROMPT+=$'\n5. IMPORTANT: The "model" field in the JSON must be set to "${{ matrix.model }}"'
+          # Build prompt via file to avoid shell injection from diff content
+          {
+            cat .github/agents/code-reviewer.agent.md
+            printf '\n\n## Context\n'
+            printf '- Repository: %s\n' "$GITHUB_REPOSITORY"
+            printf '- Model: %s\n' "${{ matrix.model }}"
+            printf '\n## PR Diff\n\n```diff\n'
+            cat /tmp/pr-diff.patch
+            printf '\n```\n'
+            printf '\n## Task\n'
+            printf '1. Read and understand the full repository codebase for context.\n'
+            printf '2. Analyze the PR diff above for issues.\n'
+            printf '3. Produce your review as a single JSON code block following the output schema in the agent instructions.\n'
+            printf '4. Write the JSON output to a file at /tmp/review-output.json\n'
+            printf '5. IMPORTANT: The "model" field in the JSON must be set to "%s"\n' "${{ matrix.model }}"
+          } > /tmp/prompt.txt
 
           # Run Copilot CLI with the specified model
-          copilot \
+          if ! copilot \
             --model "${{ matrix.model }}" \
-            --prompt "$PROMPT" \
+            --prompt "$(cat /tmp/prompt.txt)" \
             --allow-all-tools \
             --allow-all-paths \
-            < /dev/null || true
+            < /dev/null 2>&1 | tee /tmp/copilot-output.log; then
+            echo "::warning::Copilot CLI exited with non-zero status for model ${{ matrix.model }}"
+          fi
 
       - name: Extract and validate review JSON
         id: extract-review
@@ -117,35 +138,33 @@ jobs:
               if (!r.verdict || !['approve','request_changes'].includes(r.verdict)) {
                 process.exit(1);
               }
-              // Ensure model field is set
               r.model = r.model || '${{ matrix.model }}';
               require('fs').writeFileSync('$OUTPUT_FILE', JSON.stringify(r, null, 2));
             "; then
               echo "✅ Valid review JSON extracted"
               echo "valid=true" >> "$GITHUB_OUTPUT"
             else
-              echo "⚠️ Review JSON validation failed, creating fallback"
+              echo "::warning::Review JSON validation failed for ${{ matrix.model }}"
               echo "valid=false" >> "$GITHUB_OUTPUT"
             fi
           else
-            echo "⚠️ No review file found, creating fallback"
+            echo "::warning::No review file produced by ${{ matrix.model }}"
             echo "valid=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Create fallback review if extraction failed
+          # Create fallback review if extraction failed — defaults to error, NOT approve
           if [ ! -f "$OUTPUT_FILE" ]; then
-            cat > "$OUTPUT_FILE" << 'FALLBACK'
-          {
-            "model": "${{ matrix.model }}",
-            "verdict": "approve",
-            "confidence": 10,
-            "summary": "Model failed to produce a structured review. Defaulting to low-confidence approval.",
-            "findings": [],
-            "strengths": []
-          }
-          FALLBACK
-            # Fix the model name in fallback (heredoc doesn't expand in single-quoted delimiter)
-            sed -i "s/\${{ matrix.model }}/${{ matrix.model }}/g" "$OUTPUT_FILE"
+            node -e "
+              const review = {
+                model: '${{ matrix.model }}',
+                verdict: 'error',
+                confidence: 0,
+                summary: 'Model failed to produce a structured review. Marked as error — excluded from consensus vote.',
+                findings: [],
+                strengths: []
+              };
+              require('fs').writeFileSync('$OUTPUT_FILE', JSON.stringify(review, null, 2));
+            "
           fi
 
       - name: Post individual model review as PR comment
@@ -399,9 +418,11 @@ jobs:
             exit 1
           fi
 
-          VERDICT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$RESULT_FILE','utf-8')).verdict)")
-          APPROVALS=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$RESULT_FILE','utf-8')).approvals)")
-          TOTAL=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$RESULT_FILE','utf-8')).total)")
+          # Parse once, extract all values
+          read -r VERDICT APPROVALS TOTAL <<< "$(node -e "
+            const r = JSON.parse(require('fs').readFileSync('$RESULT_FILE', 'utf-8'));
+            console.log(r.verdict + ' ' + r.approvals + ' ' + r.total);
+          ")"
 
           echo "Verdict: $VERDICT ($APPROVALS/$TOTAL models approved)"
 

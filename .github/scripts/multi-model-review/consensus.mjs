@@ -11,10 +11,19 @@
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
 
-const APPROVAL_THRESHOLD_RATIO = 0.75; // ≥75% must approve (3/4, or 2/3 if one fails)
+const APPROVAL_THRESHOLD_RATIO = 0.75;
+
+// Explicit thresholds per reviewer count for correct majority behavior
+const THRESHOLD_MAP = {
+  1: 1, // 1/1 must approve
+  2: 2, // 2/2 must approve
+  3: 2, // 2/3 must approve (graceful degradation)
+  4: 3, // 3/4 must approve
+};
 
 function loadReviews(reviewsDir) {
-  const reviews = [];
+  const allReviews = [];
+  const errorReviews = [];
   const files = readdirSync(reviewsDir).filter((f) => f.endsWith(".json"));
 
   for (const file of files) {
@@ -22,43 +31,56 @@ function loadReviews(reviewsDir) {
       const raw = readFileSync(join(reviewsDir, file), "utf-8");
       const review = JSON.parse(raw);
 
-      if (!review.verdict || !["approve", "request_changes"].includes(review.verdict)) {
-        console.warn(`⚠️  Skipping ${file}: invalid verdict "${review.verdict}"`);
+      review._sourceFile = basename(file, ".json");
+
+      // Separate error/failed reviews from valid ones
+      if (review.verdict === "error") {
+        console.warn(`⚠️  ${file}: model failed (verdict: error) — excluded from consensus vote`);
+        errorReviews.push(review);
         continue;
       }
 
-      review._sourceFile = basename(file, ".json");
-      reviews.push(review);
+      if (!review.verdict || !["approve", "request_changes"].includes(review.verdict)) {
+        console.warn(`⚠️  Skipping ${file}: invalid verdict "${review.verdict}"`);
+        errorReviews.push({ ...review, verdict: "error" });
+        continue;
+      }
+
+      allReviews.push(review);
       console.log(`✅ Loaded review from ${file} — verdict: ${review.verdict}`);
     } catch (err) {
       console.warn(`⚠️  Failed to parse ${file}: ${err.message}`);
     }
   }
 
-  return reviews;
+  return { validReviews: allReviews, errorReviews };
 }
 
-function computeConsensus(reviews) {
-  const total = reviews.length;
+function computeConsensus(validReviews, errorReviews) {
+  const total = validReviews.length;
+  const errored = errorReviews.length;
+
   if (total === 0) {
-    return { verdict: "error", approvals: 0, rejections: 0, total: 0, threshold: 0 };
+    return { verdict: "error", approvals: 0, rejections: 0, total: 0, errored, threshold: 0 };
   }
 
-  const approvals = reviews.filter((r) => r.verdict === "approve").length;
+  const approvals = validReviews.filter((r) => r.verdict === "approve").length;
   const rejections = total - approvals;
-  const threshold = Math.ceil(total * APPROVAL_THRESHOLD_RATIO);
+  const threshold = THRESHOLD_MAP[total] ?? Math.ceil(total * APPROVAL_THRESHOLD_RATIO);
 
   return {
     verdict: approvals >= threshold ? "approve" : "request_changes",
     approvals,
     rejections,
     total,
+    errored,
     threshold,
   };
 }
 
 function findingKey(f) {
-  return `${f.file}:${f.line ?? "?"}:${f.category}:${f.severity}`.toLowerCase();
+  const descSnippet = (f.description ?? "").slice(0, 50).toLowerCase().replace(/\s+/g, " ");
+  return `${f.file}:${f.line ?? "?"}:${f.category}:${f.severity}:${descSnippet}`;
 }
 
 function deduplicateFindings(reviews) {
@@ -100,7 +122,7 @@ function verdictEmoji(verdict) {
   return verdict === "approve" ? "✅" : "❌";
 }
 
-function generateMarkdownReport(reviews, consensus, findings) {
+function generateMarkdownReport(reviews, errorReviews, consensus, findings) {
   const lines = [];
 
   lines.push("# 🤖 Multi-Model AI Code Review\n");
@@ -129,7 +151,17 @@ function generateMarkdownReport(reviews, consensus, findings) {
     const verdictLabel = r.verdict === "approve" ? "Approve" : "Request Changes";
     lines.push(`| ${model} | ${emoji} ${verdictLabel} | ${conf} |`);
   }
+  for (const r of errorReviews) {
+    const model = r.model ?? r._sourceFile;
+    lines.push(`| ${model} | ⚠️ Error (excluded) | N/A |`);
+  }
   lines.push("");
+
+  if (consensus.errored > 0) {
+    lines.push(
+      `> ⚠️ **${consensus.errored}** model(s) failed and were excluded from the vote. Threshold adjusted to ${consensus.threshold}/${consensus.total}.\n`
+    );
+  }
 
   // Cross-model findings
   if (findings.crossModel.length > 0) {
@@ -182,8 +214,9 @@ function generateMarkdownReport(reviews, consensus, findings) {
 
   // Footer
   lines.push("---");
+  const totalModels = reviews.length + errorReviews.length;
   lines.push(
-    `*Reviewed by ${reviews.length} AI models via GitHub Copilot CLI • Majority vote (≥${Math.round(APPROVAL_THRESHOLD_RATIO * 100)}%)*`
+    `*Reviewed by ${totalModels} AI models via GitHub Copilot CLI • Majority vote (${consensus.threshold}/${consensus.total} required)*`
   );
 
   return lines.join("\n");
@@ -206,31 +239,31 @@ function main() {
     mkdirSync(outputDir, { recursive: true });
   }
 
-  // Load reviews
-  const reviews = loadReviews(reviewsDir);
+  // Load reviews (separates valid from errored)
+  const { validReviews, errorReviews } = loadReviews(reviewsDir);
 
-  if (reviews.length === 0) {
+  if (validReviews.length === 0) {
     console.error("❌ No valid reviews found. Cannot produce consensus.");
     writeFileSync(
       join(outputDir, "consensus-result.json"),
-      JSON.stringify({ verdict: "error", approvals: 0, rejections: 0, total: 0 }, null, 2)
+      JSON.stringify({ verdict: "error", approvals: 0, rejections: 0, total: 0, errored: errorReviews.length }, null, 2)
     );
     process.exit(1);
   }
 
-  // Compute consensus
-  const consensus = computeConsensus(reviews);
+  // Compute consensus (only valid reviews count toward vote)
+  const consensus = computeConsensus(validReviews, errorReviews);
   console.log(
-    `\n📊 Consensus: ${consensus.verdict.toUpperCase()} (${consensus.approvals}/${consensus.total} approve, threshold: ${consensus.threshold})`
+    `\n📊 Consensus: ${consensus.verdict.toUpperCase()} (${consensus.approvals}/${consensus.total} approve, threshold: ${consensus.threshold}, errored: ${consensus.errored})`
   );
 
   // Deduplicate findings
-  const findings = deduplicateFindings(reviews);
+  const findings = deduplicateFindings(validReviews);
   console.log(`📋 Total unique findings: ${findings.all.length}`);
   console.log(`🔴 Cross-model findings: ${findings.crossModel.length}`);
 
   // Generate report
-  const report = generateMarkdownReport(reviews, consensus, findings);
+  const report = generateMarkdownReport(validReviews, errorReviews, consensus, findings);
   writeFileSync(join(outputDir, "consensus-report.md"), report);
   console.log(`📝 Report written to ${join(outputDir, "consensus-report.md")}`);
 
@@ -240,15 +273,24 @@ function main() {
     approvals: consensus.approvals,
     rejections: consensus.rejections,
     total: consensus.total,
+    errored: consensus.errored,
     threshold: consensus.threshold,
     crossModelFindingsCount: findings.crossModel.length,
     totalFindingsCount: findings.all.length,
-    models: reviews.map((r) => ({
-      model: r.model ?? r._sourceFile,
-      verdict: r.verdict,
-      confidence: r.confidence ?? null,
-      findingsCount: (r.findings ?? []).length,
-    })),
+    models: [
+      ...validReviews.map((r) => ({
+        model: r.model ?? r._sourceFile,
+        verdict: r.verdict,
+        confidence: r.confidence ?? null,
+        findingsCount: (r.findings ?? []).length,
+      })),
+      ...errorReviews.map((r) => ({
+        model: r.model ?? r._sourceFile,
+        verdict: "error",
+        confidence: null,
+        findingsCount: 0,
+      })),
+    ],
   };
   writeFileSync(join(outputDir, "consensus-result.json"), JSON.stringify(result, null, 2));
 
