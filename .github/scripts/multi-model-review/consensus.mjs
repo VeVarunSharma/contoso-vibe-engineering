@@ -12,10 +12,10 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 
 import { join, basename } from "node:path";
 
 const APPROVAL_THRESHOLD_RATIO = 0.75;
+const MIN_QUORUM = 2; // At least 2 valid reviews required for consensus
 
 // Explicit thresholds per reviewer count for correct majority behavior
 const THRESHOLD_MAP = {
-  1: 1, // 1/1 must approve
   2: 2, // 2/2 must approve
   3: 2, // 2/3 must approve (graceful degradation)
   4: 3, // 3/4 must approve
@@ -62,6 +62,14 @@ function computeConsensus(validReviews, errorReviews) {
 
   if (total === 0) {
     return { verdict: "error", approvals: 0, rejections: 0, total: 0, errored, threshold: 0 };
+  }
+
+  // Require minimum quorum — too many failures means we can't trust the result
+  if (total < MIN_QUORUM) {
+    console.warn(
+      `⚠️  Only ${total} valid review(s) — below minimum quorum of ${MIN_QUORUM}. Treating as insufficient.`
+    );
+    return { verdict: "error", approvals: 0, rejections: 0, total, errored, threshold: MIN_QUORUM };
   }
 
   const approvals = validReviews.filter((r) => r.verdict === "approve").length;
