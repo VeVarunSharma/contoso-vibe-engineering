@@ -1,0 +1,296 @@
+name: Multi-Model AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+concurrency:
+  group: multi-model-review-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Fan-Out: Run 4 parallel code review agents, one per model
+  # ---------------------------------------------------------------------------
+  review:
+    name: Review (${{ matrix.model }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false # Let all models finish even if one fails
+      matrix:
+        model:
+          - gpt-5.3-codex
+          - gpt-5.4
+          - claude-opus-4.6
+          - gemini-3-pro-preview
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install GitHub Copilot CLI
+        run: npm i -g @github/copilot
+
+      - name: Get PR diff
+        id: pr-diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr-diff.patch || true
+            echo "diff_available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No PR context — running against HEAD commit diff"
+            git diff HEAD~1 > /tmp/pr-diff.patch || true
+            echo "diff_available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Truncate extremely large diffs to avoid token limits
+          if [ "$(wc -c < /tmp/pr-diff.patch)" -gt 200000 ]; then
+            head -c 200000 /tmp/pr-diff.patch > /tmp/pr-diff-truncated.patch
+            mv /tmp/pr-diff-truncated.patch /tmp/pr-diff.patch
+            echo "⚠️ Diff truncated to 200KB to stay within model context limits"
+          fi
+
+      - name: Run Copilot CLI code review
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Read the code reviewer agent prompt
+          AGENT_PROMPT=$(cat .github/agents/code-reviewer.agent.md)
+
+          # Read the PR diff
+          PR_DIFF=$(cat /tmp/pr-diff.patch)
+
+          # Build the full prompt
+          PROMPT="$AGENT_PROMPT"
+          PROMPT+=$'\n\n## Context\n'
+          PROMPT+="- Repository: $GITHUB_REPOSITORY"
+          PROMPT+="- Model: ${{ matrix.model }}"
+          PROMPT+=$'\n\n## PR Diff\n'
+          PROMPT+=$'\n```diff\n'"$PR_DIFF"$'\n```\n'
+          PROMPT+=$'\n## Task\n'
+          PROMPT+='1. Read and understand the full repository codebase for context.'
+          PROMPT+=$'\n2. Analyze the PR diff above for issues.'
+          PROMPT+=$'\n3. Produce your review as a single JSON code block following the output schema in the agent instructions.'
+          PROMPT+=$'\n4. Write the JSON output to a file at /tmp/review-output.json'
+          PROMPT+=$'\n5. IMPORTANT: The "model" field in the JSON must be set to "${{ matrix.model }}"'
+
+          # Run Copilot CLI with the specified model
+          copilot \
+            --model "${{ matrix.model }}" \
+            --prompt "$PROMPT" \
+            --allow-all-tools \
+            --allow-all-paths \
+            < /dev/null || true
+
+      - name: Extract and validate review JSON
+        id: extract-review
+        run: |
+          set -euo pipefail
+
+          REVIEW_FILE="/tmp/review-output.json"
+          OUTPUT_FILE="/tmp/review-${{ matrix.model }}.json"
+
+          if [ -f "$REVIEW_FILE" ]; then
+            # Validate it's valid JSON with required fields
+            if node -e "
+              const r = JSON.parse(require('fs').readFileSync('$REVIEW_FILE','utf-8'));
+              if (!r.verdict || !['approve','request_changes'].includes(r.verdict)) {
+                process.exit(1);
+              }
+              // Ensure model field is set
+              r.model = r.model || '${{ matrix.model }}';
+              require('fs').writeFileSync('$OUTPUT_FILE', JSON.stringify(r, null, 2));
+            "; then
+              echo "✅ Valid review JSON extracted"
+              echo "valid=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "⚠️ Review JSON validation failed, creating fallback"
+              echo "valid=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "⚠️ No review file found, creating fallback"
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Create fallback review if extraction failed
+          if [ ! -f "$OUTPUT_FILE" ]; then
+            cat > "$OUTPUT_FILE" << 'FALLBACK'
+          {
+            "model": "${{ matrix.model }}",
+            "verdict": "approve",
+            "confidence": 10,
+            "summary": "Model failed to produce a structured review. Defaulting to low-confidence approval.",
+            "findings": [],
+            "strengths": []
+          }
+          FALLBACK
+            # Fix the model name in fallback (heredoc doesn't expand in single-quoted delimiter)
+            sed -i "s/\${{ matrix.model }}/${{ matrix.model }}/g" "$OUTPUT_FILE"
+          fi
+
+      - name: Upload review artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: review-${{ matrix.model }}
+          path: /tmp/review-${{ matrix.model }}.json
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Fan-In: Consensus engine — aggregate verdicts, post PR comment
+  # ---------------------------------------------------------------------------
+  consensus:
+    name: Consensus Decision
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: review
+    if: always() && !cancelled()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Download all review artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: /tmp/reviews
+          pattern: review-*
+          merge-multiple: true
+
+      - name: List downloaded reviews
+        run: |
+          echo "📁 Downloaded review files:"
+          ls -la /tmp/reviews/ || echo "No reviews directory found"
+
+      - name: Run consensus engine
+        id: consensus
+        run: |
+          set -euo pipefail
+          node .github/scripts/multi-model-review/consensus.mjs /tmp/reviews /tmp/consensus
+
+          # Read the result for subsequent steps
+          VERDICT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/consensus/consensus-result.json','utf-8')).verdict)")
+          echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Output consensus report as summary
+        if: always()
+        run: |
+          set -euo pipefail
+          REPORT_PATH="/tmp/consensus/consensus-report.md"
+
+          if [ -f "$REPORT_PATH" ]; then
+            cat "$REPORT_PATH" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "⚠️ No consensus report generated" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Post consensus report as PR comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const reportPath = '/tmp/consensus/consensus-report.md';
+
+            let body = '';
+
+            if (fs.existsSync(reportPath)) {
+              body = fs.readFileSync(reportPath, 'utf8');
+            } else {
+              body = '# 🤖 Multi-Model AI Code Review\n\n⚠️ Consensus engine failed to produce a report. Check the workflow logs for details.';
+            }
+
+            body += '\n\n---\n*Workflow run: ' + context.runId + '*';
+
+            // Find existing comment to update (upsert pattern)
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const marker = 'Multi-Model AI Code Review';
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes(marker)
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+              console.log(`Updated existing comment ${botComment.id}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+              console.log('Created new PR comment');
+            }
+
+      - name: Upload consensus report artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: consensus-report-${{ github.run_id }}
+          path: /tmp/consensus/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Enforce consensus verdict
+        if: always()
+        run: |
+          set -euo pipefail
+          RESULT_FILE="/tmp/consensus/consensus-result.json"
+
+          if [ ! -f "$RESULT_FILE" ]; then
+            echo "::error::Consensus engine failed — no result file produced."
+            exit 1
+          fi
+
+          VERDICT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$RESULT_FILE','utf-8')).verdict)")
+          APPROVALS=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$RESULT_FILE','utf-8')).approvals)")
+          TOTAL=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$RESULT_FILE','utf-8')).total)")
+
+          echo "Verdict: $VERDICT ($APPROVALS/$TOTAL models approved)"
+
+          if [ "$VERDICT" = "approve" ]; then
+            echo "✅ Multi-model consensus: APPROVED"
+            exit 0
+          elif [ "$VERDICT" = "error" ]; then
+            echo "::error::Multi-model consensus: ERROR — no valid reviews received"
+            exit 1
+          else
+            echo "::error::Multi-model consensus: CHANGES REQUESTED ($APPROVALS/$TOTAL approved, need more)"
+            exit 1
+          fi
