@@ -148,6 +148,92 @@ jobs:
             sed -i "s/\${{ matrix.model }}/${{ matrix.model }}/g" "$OUTPUT_FILE"
           fi
 
+      - name: Post individual model review as PR comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const model = '${{ matrix.model }}';
+            const reviewFile = `/tmp/review-${model}.json`;
+            const marker = `<!-- multi-model-review:${model} -->`;
+
+            let body = marker + '\n';
+
+            if (fs.existsSync(reviewFile)) {
+              const review = JSON.parse(fs.readFileSync(reviewFile, 'utf8'));
+              const verdictEmoji = review.verdict === 'approve' ? '✅' : '❌';
+              const verdictLabel = review.verdict === 'approve' ? 'Approve' : 'Request Changes';
+              const confidence = review.confidence != null ? `${review.confidence}%` : 'N/A';
+
+              body += `## 🤖 Code Review: **${model}**\n\n`;
+              body += `| Verdict | Confidence |\n`;
+              body += `|---------|------------|\n`;
+              body += `| ${verdictEmoji} **${verdictLabel}** | ${confidence} |\n\n`;
+              body += `### Summary\n${review.summary}\n\n`;
+
+              // Findings
+              const findings = review.findings || [];
+              if (findings.length > 0) {
+                body += `### Findings (${findings.length})\n\n`;
+                const severityEmoji = { critical: '🔴', high: '🟠', medium: '🟡', low: '🔵', info: 'ℹ️' };
+                for (const f of findings) {
+                  const loc = f.line != null ? `${f.file}:${f.line}` : (f.file || 'general');
+                  body += `- ${severityEmoji[f.severity] || '⚪'} **${f.severity.toUpperCase()}** (${f.category}) — \`${loc}\`\n`;
+                  body += `  ${f.description}\n`;
+                  if (f.suggestion) {
+                    body += `  > 💡 ${f.suggestion}\n`;
+                  }
+                  body += '\n';
+                }
+              } else {
+                body += `### Findings\n✨ No issues found.\n\n`;
+              }
+
+              // Strengths
+              const strengths = review.strengths || [];
+              if (strengths.length > 0) {
+                body += `### Strengths\n`;
+                for (const s of strengths) {
+                  body += `- 💪 ${s}\n`;
+                }
+                body += '\n';
+              }
+            } else {
+              body += `## 🤖 Code Review: **${model}**\n\n`;
+              body += `⚠️ This model failed to produce a review. Check the [workflow logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}) for details.\n\n`;
+            }
+
+            body += `---\n*Reviewed by ${model} via GitHub Copilot CLI*`;
+
+            // Upsert: find existing comment for this model using the HTML marker
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+              console.log(`Updated ${model} review comment ${existing.id}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+              console.log(`Created ${model} review comment`);
+            }
+
       - name: Upload review artifact
         uses: actions/upload-artifact@v7
         with:
@@ -217,37 +303,72 @@ jobs:
           script: |
             const fs = require('fs');
             const reportPath = '/tmp/consensus/consensus-report.md';
+            const resultPath = '/tmp/consensus/consensus-result.json';
+            const marker = '<!-- multi-model-review:consensus -->';
 
-            let body = '';
+            let body = marker + '\n';
 
             if (fs.existsSync(reportPath)) {
-              body = fs.readFileSync(reportPath, 'utf8');
+              body += fs.readFileSync(reportPath, 'utf8');
             } else {
-              body = '# 🤖 Multi-Model AI Code Review\n\n⚠️ Consensus engine failed to produce a report. Check the workflow logs for details.';
+              body += '# 🤖 Multi-Model AI Code Review — Consensus\n\n⚠️ Consensus engine failed to produce a report. Check the workflow logs for details.';
             }
 
-            body += '\n\n---\n*Workflow run: ' + context.runId + '*';
+            // Add decision reasoning section
+            if (fs.existsSync(resultPath)) {
+              const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+              body += '\n\n### 🧠 Decision Reasoning\n\n';
 
-            // Find existing comment to update (upsert pattern)
+              if (result.verdict === 'approve') {
+                body += `**${result.approvals}/${result.total}** models approved this PR (threshold: ${result.threshold}/${result.total}). `;
+                if (result.crossModelFindingsCount > 0) {
+                  body += `There are **${result.crossModelFindingsCount}** findings agreed upon by multiple models — consider addressing these even though the overall verdict is approval. `;
+                } else {
+                  body += `No critical cross-model disagreements were found. `;
+                }
+                body += 'The consensus is that this PR is **safe to merge**.\n';
+              } else if (result.verdict === 'request_changes') {
+                body += `Only **${result.approvals}/${result.total}** models approved (need ${result.threshold}). `;
+                body += `**${result.rejections}** model(s) requested changes. `;
+                if (result.crossModelFindingsCount > 0) {
+                  body += `There are **${result.crossModelFindingsCount}** findings agreed upon by multiple models — these are high-priority issues to address. `;
+                }
+                body += 'The consensus is that this PR **needs revisions** before merge.\n';
+              } else {
+                body += 'The consensus engine encountered an error and could not determine a verdict. Please check the individual model reviews above and the workflow logs.\n';
+              }
+
+              // Per-model vote summary
+              if (result.models && result.models.length > 0) {
+                body += '\n**Individual votes:**\n';
+                for (const m of result.models) {
+                  const emoji = m.verdict === 'approve' ? '✅' : '❌';
+                  const conf = m.confidence != null ? ` (${m.confidence}% confident)` : '';
+                  const findings = m.findingsCount > 0 ? ` — ${m.findingsCount} finding(s)` : '';
+                  body += `- ${emoji} **${m.model}**${conf}${findings}\n`;
+                }
+              }
+            }
+
+            body += `\n\n---\n*Consensus from ${fs.existsSync(resultPath) ? JSON.parse(fs.readFileSync(resultPath, 'utf8')).total : '?'} AI models • [Workflow run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})*`;
+
+            // Upsert consensus comment
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
 
-            const marker = 'Multi-Model AI Code Review';
-            const botComment = comments.find(c =>
-              c.user.type === 'Bot' && c.body.includes(marker)
-            );
+            const existing = comments.find(c => c.body.includes(marker));
 
-            if (botComment) {
+            if (existing) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                comment_id: botComment.id,
+                comment_id: existing.id,
                 body,
               });
-              console.log(`Updated existing comment ${botComment.id}`);
+              console.log(`Updated consensus comment ${existing.id}`);
             } else {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -255,7 +376,7 @@ jobs:
                 issue_number: context.issue.number,
                 body,
               });
-              console.log('Created new PR comment');
+              console.log('Created consensus comment');
             }
 
       - name: Upload consensus report artifact
