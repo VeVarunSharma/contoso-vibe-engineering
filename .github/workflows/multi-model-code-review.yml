@@ -458,18 +458,14 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
           RESULT_FILE: /tmp/consensus/consensus-result.json
-          REVIEWS_DIR: /tmp/reviews
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const path = require('path');
             const prNumber = parseInt(process.env.PR_NUMBER, 10);
             const resultFile = process.env.RESULT_FILE;
-            const reviewsDir = process.env.REVIEWS_DIR;
             const marker = '<!-- multi-model-review:consensus -->';
             const statusMarker = '<!-- workflow-status -->';
-            const sevEmoji = { critical: '🔴', high: '🟠', medium: '🟡', low: '🔵', info: 'ℹ️' };
 
             let status = '';
             if (fs.existsSync(resultFile)) {
@@ -482,39 +478,6 @@ jobs:
               status += `| Status | Verdict | Approved | Threshold | Findings |\n`;
               status += `|--------|---------|----------|-----------|----------|\n`;
               status += `| ${emoji} ${label} | ${result.approvals}/${result.total} approve | ${result.approvals} | ${result.threshold}/${result.total} | ${result.totalFindingsCount} total, ${result.crossModelFindingsCount} cross-model |\n\n`;
-
-              // Per-model TL;DR with top findings
-              if (fs.existsSync(reviewsDir)) {
-                status += `### 🔍 Per-Model TL;DR\n\n`;
-                const files = fs.readdirSync(reviewsDir).filter(f => f.endsWith('.json')).sort();
-                for (const file of files) {
-                  try {
-                    const review = JSON.parse(fs.readFileSync(path.join(reviewsDir, file), 'utf8'));
-                    const model = review.model || path.basename(file, '.json');
-                    const vEmoji = review.verdict === 'approve' ? '✅' : review.verdict === 'error' ? '⚠️' : '❌';
-                    const conf = review.confidence != null ? ` (${review.confidence}%)` : '';
-                    const findings = review.findings || [];
-
-                    status += `**${vEmoji} ${model}**${conf} — ${review.summary || 'No summary'}\n`;
-
-                    // Show critical/high findings inline as bullet points
-                    const topFindings = findings.filter(f => ['critical', 'high'].includes(f.severity));
-                    if (topFindings.length > 0) {
-                      for (const f of topFindings) {
-                        const loc = f.line != null ? `${f.file}:${f.line}` : (f.file || 'general');
-                        status += `- ${sevEmoji[f.severity] || '⚪'} **${f.severity}** — \`${loc}\`: ${f.description.slice(0, 200)}${f.description.length > 200 ? '…' : ''}\n`;
-                      }
-                    } else if (findings.length > 0) {
-                      status += `- ${findings.length} finding(s), none critical/high\n`;
-                    } else {
-                      status += `- ✨ No issues found\n`;
-                    }
-                    status += '\n';
-                  } catch (e) {
-                    console.warn(`Failed to read ${file}: ${e.message}`);
-                  }
-                }
-              }
 
               status += `> 📝 This review is **advisory**. Enforce via branch protection rules if desired.\n\n`;
               status += `*Workflow completed at ${new Date().toISOString()} • [View run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})*`;
