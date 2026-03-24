@@ -50,6 +50,15 @@ function loadReviews(reviewsDir) {
       console.log(`✅ Loaded review from ${file} — verdict: ${review.verdict}`);
     } catch (err) {
       console.warn(`⚠️  Failed to parse ${file}: ${err.message}`);
+      errorReviews.push({
+        model: basename(file, ".json"),
+        _sourceFile: basename(file, ".json"),
+        verdict: "error",
+        confidence: 0,
+        summary: `Failed to parse review JSON: ${err.message}`,
+        findings: [],
+        strengths: [],
+      });
     }
   }
 
