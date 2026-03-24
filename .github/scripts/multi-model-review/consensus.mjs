@@ -96,7 +96,7 @@ function computeConsensus(validReviews, errorReviews) {
 }
 
 function findingKey(f) {
-  const descSnippet = (f.description ?? "").slice(0, 50).toLowerCase().replace(/\s+/g, " ");
+  const descSnippet = (f.description ?? "").slice(0, 120).toLowerCase().replace(/\s+/g, " ");
   return `${f.file}:${f.line ?? "?"}:${f.category}:${f.severity}:${descSnippet}`;
 }
 
