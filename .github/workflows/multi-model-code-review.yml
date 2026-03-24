@@ -217,107 +217,6 @@ jobs:
             "
           fi
 
-      - name: Post individual model review as PR comment
-        if: always() && (github.event_name == 'pull_request' || github.event.inputs.pr_number)
-        uses: actions/github-script@v8
-        env:
-          REVIEW_MODEL: ${{ matrix.model }}
-          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const model = process.env.REVIEW_MODEL;
-            const prNumber = parseInt(process.env.PR_NUMBER, 10);
-            const reviewFile = `/tmp/review-${model}.json`;
-            const marker = `<!-- multi-model-review:${model} -->`;
-
-            let body = marker + '\n';
-
-            if (fs.existsSync(reviewFile)) {
-              const review = JSON.parse(fs.readFileSync(reviewFile, 'utf8'));
-
-              // Handle all verdict types including 'error'
-              let verdictEmoji, verdictLabel;
-              if (review.verdict === 'approve') {
-                verdictEmoji = '✅';
-                verdictLabel = 'Approve';
-              } else if (review.verdict === 'error') {
-                verdictEmoji = '⚠️';
-                verdictLabel = 'Error (excluded from vote)';
-              } else {
-                verdictEmoji = '❌';
-                verdictLabel = 'Request Changes';
-              }
-              const confidence = review.confidence != null ? `${review.confidence}%` : 'N/A';
-
-              body += `## 🤖 Code Review: **${model}**\n\n`;
-              body += `| Verdict | Confidence |\n`;
-              body += `|---------|------------|\n`;
-              body += `| ${verdictEmoji} **${verdictLabel}** | ${confidence} |\n\n`;
-              body += `### Summary\n${review.summary}\n\n`;
-
-              // Findings
-              const findings = review.findings || [];
-              if (findings.length > 0) {
-                body += `### Findings (${findings.length})\n\n`;
-                const severityEmoji = { critical: '🔴', high: '🟠', medium: '🟡', low: '🔵', info: 'ℹ️' };
-                for (const f of findings) {
-                  const loc = f.line != null ? `${f.file}:${f.line}` : (f.file || 'general');
-                  body += `- ${severityEmoji[f.severity] || '⚪'} **${f.severity.toUpperCase()}** (${f.category}) — \`${loc}\`\n`;
-                  body += `  ${f.description}\n`;
-                  if (f.suggestion) {
-                    body += `  > 💡 ${f.suggestion}\n`;
-                  }
-                  body += '\n';
-                }
-              } else {
-                body += `### Findings\n✨ No issues found.\n\n`;
-              }
-
-              // Strengths
-              const strengths = review.strengths || [];
-              if (strengths.length > 0) {
-                body += `### Strengths\n`;
-                for (const s of strengths) {
-                  body += `- 💪 ${s}\n`;
-                }
-                body += '\n';
-              }
-            } else {
-              body += `## 🤖 Code Review: **${model}**\n\n`;
-              body += `⚠️ This model failed to produce a review. Check the [workflow logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}) for details.\n\n`;
-            }
-
-            body += `---\n*Reviewed by ${model} via GitHub Copilot CLI*`;
-
-            // Upsert: find existing comment for this model using the HTML marker
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-            });
-
-            const existing = comments.find(c => c.body.includes(marker));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-              console.log(`Updated ${model} review comment ${existing.id}`);
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body,
-              });
-              console.log(`Created ${model} review comment`);
-            }
-
       - name: Upload review artifact
         if: always()
         uses: actions/upload-artifact@v7
@@ -474,6 +373,38 @@ jobs:
                 body,
               });
               console.log('Created consensus comment');
+            }
+
+      - name: Clean up stale per-model comments
+        if: always() && (github.event_name == 'pull_request' || github.event.inputs.pr_number)
+        uses: actions/github-script@v8
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            // Delete old per-model review comments (now consolidated into consensus)
+            const perModelPattern = /<!-- multi-model-review:(?!consensus)[\w.-]+ -->/;
+            const staleComments = comments.filter(c => perModelPattern.test(c.body));
+
+            for (const c of staleComments) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: c.id,
+              });
+              console.log(`Deleted stale per-model comment ${c.id}`);
+            }
+
+            if (staleComments.length > 0) {
+              console.log(`Cleaned up ${staleComments.length} stale per-model comment(s)`);
             }
 
       - name: Upload consensus report artifact
