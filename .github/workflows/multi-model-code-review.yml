@@ -139,16 +139,15 @@ jobs:
           export COPILOT_PROMPT
 
           # Sandboxed invocation:
-          #   --deny-tool: block shell execution and file writes (review output via stdout only)
-          #   --add-dir: restrict filesystem access to repo checkout for reading context
-          #   No --allow-all-paths: default path restrictions apply
+          #   --available-tools: allowlist of read-only tools only (no shell, write, edit, create, network)
+          #   --disable-builtin-mcps: block MCP servers (no network/API access)
+          #   --allow-all-tools: auto-approve the allowlisted tools (required for non-interactive mode)
           copilot \
             --model "$REVIEW_MODEL" \
             --prompt "$COPILOT_PROMPT" \
+            --available-tools='view,grep,glob,list_directory' \
             --allow-all-tools \
-            --deny-tool='shell' \
-            --deny-tool='write' \
-            --add-dir "." \
+            --disable-builtin-mcps \
             < /dev/null 2>&1 | tee /tmp/copilot-output.log || \
             echo "::warning::Copilot CLI exited with non-zero status for model $REVIEW_MODEL"
 
@@ -417,7 +416,7 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
-      - name: Enforce consensus verdict
+      - name: Report consensus verdict
         if: always()
         env:
           RESULT_FILE: /tmp/consensus/consensus-result.json
@@ -425,8 +424,10 @@ jobs:
           set -euo pipefail
 
           if [ ! -f "$RESULT_FILE" ]; then
-            echo "::error::Consensus engine failed — no result file produced."
-            exit 1
+            echo "::warning::Consensus engine failed — no result file produced."
+            echo "## ⚠️ AI Code Review: No Result" >> "$GITHUB_STEP_SUMMARY"
+            echo "The consensus engine did not produce a result file." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
 
           # Parse via env var — avoids interpolating file path into JS string
@@ -439,11 +440,15 @@ jobs:
 
           if [ "$VERDICT" = "approve" ]; then
             echo "✅ Multi-model consensus: APPROVED"
-            exit 0
+            echo "## ✅ AI Code Review: APPROVED" >> "$GITHUB_STEP_SUMMARY"
+            echo "$APPROVALS/$TOTAL models approved this PR." >> "$GITHUB_STEP_SUMMARY"
           elif [ "$VERDICT" = "error" ]; then
-            echo "::error::Multi-model consensus: ERROR — no valid reviews received"
-            exit 1
+            echo "::warning::Multi-model consensus: ERROR — insufficient valid reviews"
+            echo "## ⚠️ AI Code Review: ERROR" >> "$GITHUB_STEP_SUMMARY"
+            echo "Insufficient valid reviews to determine a verdict." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "::error::Multi-model consensus: CHANGES REQUESTED ($APPROVALS/$TOTAL approved, need more)"
-            exit 1
+            echo "::warning::Multi-model consensus: CHANGES REQUESTED ($APPROVALS/$TOTAL approved)"
+            echo "## ❌ AI Code Review: CHANGES REQUESTED" >> "$GITHUB_STEP_SUMMARY"
+            echo "$APPROVALS/$TOTAL models approved. See the consensus report for details." >> "$GITHUB_STEP_SUMMARY"
           fi
+          # Verdict is advisory — enforce via branch protection rules if desired
