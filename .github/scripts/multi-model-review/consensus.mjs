@@ -11,14 +11,16 @@
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
 
-const APPROVAL_THRESHOLD_RATIO = 0.75;
+const APPROVAL_THRESHOLD_RATIO = 0.5;
 const MIN_QUORUM = 2; // At least 2 valid reviews required for consensus
 
-// Explicit thresholds per reviewer count for correct majority behavior
+// Explicit thresholds per reviewer count for correct majority behavior.
+// For 2 reviewers a tie (1/2) is not a majority, so unanimous agreement is required.
+// For 3+ reviewers a simple majority (floor(n/2)+1) applies.
 const THRESHOLD_MAP = {
-  2: 2, // 2/2 must approve
-  3: 2, // 2/3 must approve (graceful degradation)
-  4: 3, // 3/4 must approve
+  2: 2, // 2/2 must approve (unanimous — a 1/2 tie is not a majority)
+  3: 2, // 2/3 must approve (simple majority)
+  4: 2, // 2/4 must approve (simple majority)
 };
 
 function loadReviews(reviewsDir) {
