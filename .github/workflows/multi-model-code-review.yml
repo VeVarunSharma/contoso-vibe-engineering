@@ -348,7 +348,8 @@ jobs:
 
             body += `\n\n---\n*Consensus from ${fs.existsSync(resultPath) ? JSON.parse(fs.readFileSync(resultPath, 'utf8')).total : '?'} AI models • [Workflow run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})*`;
 
-            // Upsert consensus comment
+            // Delete old consensus comment and create fresh one at the bottom
+            // so it always appears as the latest comment on the PR
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -356,24 +357,22 @@ jobs:
             });
 
             const existing = comments.find(c => c.body.includes(marker));
-
             if (existing) {
-              await github.rest.issues.updateComment({
+              await github.rest.issues.deleteComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: existing.id,
-                body,
               });
-              console.log(`Updated consensus comment ${existing.id}`);
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body,
-              });
-              console.log('Created consensus comment');
+              console.log(`Deleted old consensus comment ${existing.id}`);
             }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });
+            console.log('Created new consensus comment at bottom of PR');
 
       - name: Clean up stale per-model comments
         if: always() && (github.event_name == 'pull_request' || github.event.inputs.pr_number)
