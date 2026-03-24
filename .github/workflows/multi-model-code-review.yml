@@ -452,3 +452,59 @@ jobs:
             echo "$APPROVALS/$TOTAL models approved. See the consensus report for details." >> "$GITHUB_STEP_SUMMARY"
           fi
           # Verdict is advisory — enforce via branch protection rules if desired
+
+      - name: Update PR comment with workflow status
+        if: always() && (github.event_name == 'pull_request' || github.event.inputs.pr_number)
+        uses: actions/github-script@v8
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+          RESULT_FILE: /tmp/consensus/consensus-result.json
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const resultFile = process.env.RESULT_FILE;
+            const marker = '<!-- multi-model-review:consensus -->';
+            const statusMarker = '<!-- workflow-status -->';
+
+            // Build status footer
+            let status = '';
+            if (fs.existsSync(resultFile)) {
+              const result = JSON.parse(fs.readFileSync(resultFile, 'utf8'));
+              const emoji = result.verdict === 'approve' ? '✅' : result.verdict === 'error' ? '⚠️' : '❌';
+              const label = result.verdict === 'approve' ? 'APPROVED' : result.verdict === 'error' ? 'ERROR' : 'CHANGES REQUESTED';
+              status += `\n\n${statusMarker}\n`;
+              status += `### 📋 Workflow Summary\n\n`;
+              status += `| Status | Verdict | Approved | Threshold | Findings |\n`;
+              status += `|--------|---------|----------|-----------|----------|\n`;
+              status += `| ${emoji} ${label} | ${result.approvals}/${result.total} approve | ${result.approvals} | ${result.threshold}/${result.total} | ${result.totalFindingsCount} total, ${result.crossModelFindingsCount} cross-model |\n\n`;
+              status += `> 📝 This review is **advisory**. Enforce via branch protection rules if desired.\n\n`;
+              status += `*Workflow completed at ${new Date().toISOString()} • [View run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})*`;
+            } else {
+              status += `\n\n${statusMarker}\n`;
+              status += `### 📋 Workflow Summary\n\n⚠️ Consensus engine did not produce results.\n\n`;
+              status += `*Workflow completed at ${new Date().toISOString()} • [View run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})*`;
+            }
+
+            // Find and update the consensus comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              // Remove any previous status footer, then append new one
+              let body = existing.body.replace(/\n\n<!-- workflow-status -->[\s\S]*$/, '');
+              body += status;
+
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+              console.log(`Updated consensus comment with workflow summary`);
+            }
