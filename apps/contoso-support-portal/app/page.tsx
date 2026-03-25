@@ -1,5 +1,5 @@
-import { SupportForm } from "@/components/support-form-pass";
-// To demo WARN: import { SupportForm } from "@/components/support-form-warn";
+import { SupportForm } from "@/components/support-form-warn";
+// To demo PASS: import { SupportForm } from "@/components/support-form-pass";
 // To demo FAIL: import { SupportForm } from "@/components/support-form-fail";
 
 export default function SupportPage() {
