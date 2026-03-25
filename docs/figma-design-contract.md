@@ -13,21 +13,21 @@
 Page: SubmitSupportRequest
 ├── PageHeader
 │   ├── Title: "Submit a Support Request"
-│   └── Subtitle: "We'll route your request to the right team. Please provide as much detail as possible."
+│   └── Subtitle: "We'll route your request to the right team and respond within 24 hours."
 ├── Card: FormContainer (max-width: 640px, centered)
 │   ├── Section: ContactInformation
 │   │   ├── FormField: FullName (TextInput, required)
 │   │   └── FormField: EmailAddress (TextInput, required)
 │   ├── Section: RequestDetails
 │   │   ├── FormField: Category (Select, required)
-│   │   │   └── Options: ["Bug Report", "Feature Request", "Account Issue", "Billing", "Other"]
+│   │   │   └── Options: ["Account Access", "Billing & Licensing", "Technical Issue", "Feature Request", "Security Concern"]
 │   │   ├── FormField: Priority (RadioGroup, required)
 │   │   │   └── Options: ["Low", "Medium", "High", "Critical"]
 │   │   ├── FormField: Subject (TextInput, required)
 │   │   └── FormField: Description (Textarea, required, minRows: 4)
 │   ├── Section: Consent
 │   │   └── Checkbox: DataUsageConsent (required)
-│   │       └── Label: "I agree that my data will be used to process this support request."
+│   │       └── Label: "I agree that submitted data may be used to improve our support services"
 │   └── Section: Actions
 │       ├── Button: Cancel (variant: outline)
 │       └── Button: SubmitRequest (variant: primary, label: "Submit Request")

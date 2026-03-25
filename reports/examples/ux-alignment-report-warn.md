@@ -1,59 +1,61 @@
-# UX Design Alignment Report
+# 🎨 UX Design Alignment Report
 
-**Status:** ⚠️ WARN
-**Confidence:** 82%
-**Spec Version:** v2.1 (2025-11-15)
-**Files Evaluated:** `apps/contoso-support-portal/components/support-form-warn.tsx`
-**Gate Result:** Allowed (review recommended)
-
----
-
-## Executive Summary
-
-The implementation is largely aligned with the UX specification but exhibits moderate design drift in four areas: CTA wording differs from spec, Priority field uses a dropdown instead of the specified radio group, loading state lacks a visual spinner, and one accessibility attribute is missing. These warrant design review but do not block the build.
+| | |
+|---|---|
+| **Status** | ⚠️ **WARN** — Minor UX specification drift detected |
+| **Confidence** | 82% |
+| **Spec** | `docs/ux-spec.md` v2.1 |
+| **Evaluated** | `support-form-warn.tsx` |
+| **Gate Result** | ✅ Build allowed — design review recommended |
 
 ---
 
-## Findings
+## Summary
 
-| # | Severity | Category | Finding | File | Remediation |
-|---|----------|----------|---------|------|-------------|
-| 1 | ⚠️ WARN | CTA | Primary button reads "Send Request" — spec requires "Submit Request" | `support-form-warn.tsx:189` | Change button text to "Submit Request" |
-| 2 | ⚠️ WARN | Fields | Priority field rendered as `<Select>` dropdown — spec requires radio group | `support-form-warn.tsx:108` | Replace with radio button group for clearer single-selection UX |
-| 3 | ⚠️ WARN | States | Submitting state changes button text but shows no visual spinner | `support-form-warn.tsx:192` | Add a loading spinner icon next to "Submitting..." text |
-| 4 | ⚠️ WARN | Accessibility | Description field error lacks `aria-describedby` attribute | `support-form-warn.tsx:156` | Add `aria-describedby="description-error"` to the textarea |
-| 5 | ✅ PASS | Fields | All 6 required fields present with correct labels | — | — |
-| 6 | ✅ PASS | Consent | Consent checkbox present with correct text | — | — |
-| 7 | ✅ PASS | Data Minimization | No prohibited fields collected | — | — |
+The implementation is largely aligned with the approved UX specification but exhibits **4 areas of design drift**. CTA wording differs from spec, a component type was substituted, a loading indicator is missing, and one accessibility link is absent. These do not block the build but should be reviewed before shipping.
 
----
+## Checklist
 
-## Detailed Analysis
-
-### Fields & Components
-All six required fields are present. However, the Priority field is implemented as a Select dropdown rather than the radio group specified in the UX spec. While functionally equivalent, radio buttons provide better visibility of all options at once, which is the intended UX.
-
-### UI States
-Four of five states are correctly implemented. The submitting state changes button text to "Sending..." but does not include the visual spinner indicator specified in the design. This is a minor UX gap.
-
-### Validations
-All validation rules are correctly implemented and match the spec requirements.
-
-### Consent & Compliance
-Consent checkbox is present with correct label text and enforced before submission. ✅
-
-### Accessibility
-Most accessibility requirements are met. One gap: the Description field's error message is not linked via `aria-describedby`, meaning screen readers may not associate the error with the field.
-
-### Data Minimization
-No unauthorized data collection detected. ✅
+| Requirement | Status | Detail |
+|---|---|---|
+| CTA text matches spec | ⚠️ | Says "Send Request" — spec requires **"Submit Request"** (§7) |
+| Priority field component type | ⚠️ | Uses `<Select>` dropdown — spec requires **radio buttons** (§3) |
+| Loading state with spinner | ⚠️ | Button text changes but **no visual spinner** shown (§5) |
+| Description field accessibility | ⚠️ | Error message missing `aria-describedby` link (§8) |
+| Fields: 6/6 present with correct labels | ✅ | All required fields accounted for |
+| Consent: checkbox with correct text, enforced | ✅ | Consent mechanism working as specified |
+| Data minimization: no prohibited fields | ✅ | No unauthorized data collection |
 
 ---
 
-## Recommendation
+## Findings Detail
 
-**Review recommended.** Four moderate drift items should be discussed with the design team before shipping. None are blocking, but addressing them would bring the implementation into full alignment with the approved spec.
+### ⚠️ 1. CTA Wording Drift — §7
+**Found:** `"Send Request"` · **Expected:** `"Submit Request"`
+The agent evaluated UX intent and determined the wording change weakens the action clarity specified in the approved design.
+
+### ⚠️ 2. Component Type Substitution — §3
+**Found:** `<Select>` dropdown · **Expected:** Radio button group
+Radio buttons provide immediate visibility of all options — the spec intentionally chose this for a 3-option field.
+
+### ⚠️ 3. Missing Loading Indicator — §5
+**Found:** Button text changes to "Sending..." · **Expected:** Spinner animation + disabled state
+Users lack visual confirmation that submission is in progress.
+
+### ⚠️ 4. Accessibility Gap — §8
+**Found:** Description error renders but is not linked · **Expected:** `aria-describedby="description-error"`
+Screen readers cannot associate the error message with the Description field.
 
 ---
 
-*Evaluated by UX Design Review Agent • Non-deterministic CI Gate*
+## Why These Matter
+
+> These findings reflect design *intent* drift — the AI agent compared functional behavior and UX semantics against the approved specification. A traditional linter or test suite would not catch CTA wording changes, component type substitutions, or missing loading indicators.
+>
+> This is a non-deterministic AI gate: the agent reasons about what the designer *meant*, not just what the code *does*.
+
+**Build allowed** — but design review recommended before shipping.
+
+---
+
+<sub>🤖 Evaluated by UX Design Review Agent · This is a non-deterministic AI gate — the agent reasons about design intent and UX behavior, not syntax or pixels.</sub>

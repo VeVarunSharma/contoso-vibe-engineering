@@ -28,12 +28,12 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
+      - name: "📥 Checkout"
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Get changed files
+      - name: "📋 Detect changed files"
         id: changed-files
         uses: tj-actions/changed-files@v47
         with:
@@ -41,7 +41,7 @@ jobs:
             apps/contoso-support-portal/**/*.tsx
             apps/contoso-support-portal/**/*.ts
 
-      - name: Check if relevant files changed
+      - name: "🔍 Check relevance"
         id: check-files
         run: |
           if [ -z "${{ steps.changed-files.outputs.all_changed_files }}" ]; then
@@ -53,17 +53,17 @@ jobs:
             echo "${{ steps.changed-files.outputs.all_changed_files }}"
           fi
 
-      - name: Setup Node.js
+      - name: "⚙️ Setup Node.js"
         if: steps.check-files.outputs.skip != 'true'
         uses: actions/setup-node@v6
         with:
           node-version: 22
 
-      - name: Install GitHub Copilot CLI
+      - name: "⚙️ Install Copilot CLI"
         if: steps.check-files.outputs.skip != 'true'
         run: npm i -g @github/copilot
 
-      - name: Run UX Design Review Agent
+      - name: "🤖 Run UX Design Review Agent"
         if: steps.check-files.outputs.skip != 'true'
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
@@ -89,7 +89,7 @@ jobs:
 
           copilot --prompt "$PROMPT" --allow-all-tools --allow-all-paths < /dev/null
 
-      - name: Parse alignment results
+      - name: "📊 Parse results"
         if: steps.check-files.outputs.skip != 'true'
         id: parse-results
         run: |
@@ -123,9 +123,19 @@ jobs:
             echo "passed=true" >> $GITHUB_OUTPUT
           fi
 
+          if [ "$STATUS" = "PASS" ]; then
+            echo "✅ UX Design Alignment: PASS"
+          elif [ "$STATUS" = "WARN" ]; then
+            echo "⚠️  UX Design Alignment: WARN (build allowed, review recommended)"
+          elif [ "$STATUS" = "FAIL" ]; then
+            echo "❌ UX Design Alignment: FAIL (build blocked)"
+          else
+            echo "❓ UX Design Alignment: UNKNOWN"
+          fi
+
           echo "::notice::UX Design Alignment Status: $STATUS"
 
-      - name: Output report as job summary
+      - name: "📝 Write job summary"
         if: steps.check-files.outputs.skip != 'true' && always()
         run: |
           set -euo pipefail
@@ -143,7 +153,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           cat "$REPORT_PATH" >> $GITHUB_STEP_SUMMARY
 
-      - name: Post PR comment
+      - name: "💬 Post PR comment"
         if: steps.check-files.outputs.skip != 'true' && github.event_name == 'pull_request'
         uses: actions/github-script@v8
         with:
@@ -198,11 +208,11 @@ jobs:
               });
             }
 
-      - name: Skip notification
+      - name: "⏭️ Skip — no relevant changes"
         if: steps.check-files.outputs.skip == 'true'
         run: echo "::notice::No relevant frontend files changed. Skipping UX design alignment review."
 
-      - name: Upload alignment report
+      - name: "📎 Upload report artifact"
         if: steps.check-files.outputs.skip != 'true' && always()
         uses: actions/upload-artifact@v7
         with:
@@ -211,14 +221,19 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
-      - name: Fail if alignment check failed
+      - name: "🚦 Gate decision"
         if: steps.check-files.outputs.skip != 'true' && steps.parse-results.outputs.passed != 'true'
         run: |
-          echo "::error::UX Design Alignment check FAILED"
-          echo ""
-          echo "The implementation significantly diverges from the approved UX specification."
-          echo "Status: ${{ steps.parse-results.outputs.status }}"
-          echo ""
-          echo "Review the alignment report in the PR comments and address all FAIL findings."
-          echo "Spec: docs/ux-spec.md"
+          echo "╔══════════════════════════════════════════════╗"
+          echo "║  ❌  UX DESIGN ALIGNMENT: FAIL              ║"
+          echo "║                                              ║"
+          echo "║  The implementation diverges from the        ║"
+          echo "║  approved UX specification.                  ║"
+          echo "║                                              ║"
+          echo "║  Status: ${{ steps.parse-results.outputs.status }}"
+          echo "║  Spec:   docs/ux-spec.md v2.1                ║"
+          echo "║                                              ║"
+          echo "║  Review the alignment report in PR comments  ║"
+          echo "║  and address all FAIL findings.              ║"
+          echo "╚══════════════════════════════════════════════╝"
           exit 1
