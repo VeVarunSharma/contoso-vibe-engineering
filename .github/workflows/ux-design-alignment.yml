@@ -1,0 +1,224 @@
+name: UX Design Alignment Gate
+
+on:
+  pull_request:
+    paths:
+      - "apps/contoso-support-portal/**"
+      - "docs/ux-spec.md"
+      - "docs/ux-spec-summary.md"
+      - "docs/figma-design-contract.md"
+    types:
+      - opened
+      - synchronize
+      - reopened
+  workflow_dispatch:
+
+concurrency:
+  group: ux-alignment-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ux-design-review:
+    name: UX Design Alignment Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v47
+        with:
+          files: |
+            apps/contoso-support-portal/**/*.tsx
+            apps/contoso-support-portal/**/*.ts
+
+      - name: Check if relevant files changed
+        id: check-files
+        run: |
+          if [ -z "${{ steps.changed-files.outputs.all_changed_files }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::notice::No frontend files changed in contoso-support-portal. Skipping UX alignment review."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "Changed files to evaluate:"
+            echo "${{ steps.changed-files.outputs.all_changed_files }}"
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-files.outputs.skip != 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install GitHub Copilot CLI
+        if: steps.check-files.outputs.skip != 'true'
+        run: npm i -g @github/copilot
+
+      - name: Run UX Design Review Agent
+        if: steps.check-files.outputs.skip != 'true'
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          CHANGED_FILES="${{ steps.changed-files.outputs.all_changed_files }}"
+          AGENT_PROMPT=$(cat .github/agents/ux-design-review.agent.md)
+
+          PROMPT="$AGENT_PROMPT"
+          PROMPT+=$'\n\n## Context\n'
+          PROMPT+="- Repository: $GITHUB_REPOSITORY"
+          PROMPT+=$'\n- Application: apps/contoso-support-portal'
+          PROMPT+=$'\n- Changed Files: '"$CHANGED_FILES"
+          PROMPT+=$'\n\n## Task\n'
+          PROMPT+='1. Read the UX specification at docs/ux-spec.md'
+          PROMPT+=$'\n2. Read the Figma design contract at docs/figma-design-contract.md (if available)'
+          PROMPT+=$'\n3. Analyze the changed frontend files listed above'
+          PROMPT+=$'\n4. Compare implementation against every requirement in the UX spec'
+          PROMPT+=$'\n5. Generate the alignment report at reports/ux-design-alignment-report.md'
+          PROMPT+=$'\n6. The report MUST include a clear PASS, WARN, or FAIL status'
+
+          copilot --prompt "$PROMPT" --allow-all-tools --allow-all-paths < /dev/null
+
+      - name: Parse alignment results
+        if: steps.check-files.outputs.skip != 'true'
+        id: parse-results
+        run: |
+          set -euo pipefail
+          REPORT_PATH="reports/ux-design-alignment-report.md"
+
+          if [ ! -f "$REPORT_PATH" ]; then
+            echo "::warning::No alignment report generated"
+            echo "status=UNKNOWN" >> $GITHUB_OUTPUT
+            echo "passed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Extract status from report
+          if grep -q "❌ FAIL" "$REPORT_PATH"; then
+            STATUS="FAIL"
+          elif grep -q "⚠️ WARN" "$REPORT_PATH"; then
+            STATUS="WARN"
+          elif grep -q "✅ PASS" "$REPORT_PATH"; then
+            STATUS="PASS"
+          else
+            STATUS="UNKNOWN"
+          fi
+
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+
+          # FAIL = block, WARN = allow, PASS = allow
+          if [ "$STATUS" = "FAIL" ]; then
+            echo "passed=false" >> $GITHUB_OUTPUT
+          else
+            echo "passed=true" >> $GITHUB_OUTPUT
+          fi
+
+          echo "::notice::UX Design Alignment Status: $STATUS"
+
+      - name: Output report as job summary
+        if: steps.check-files.outputs.skip != 'true' && always()
+        run: |
+          set -euo pipefail
+          REPORT_PATH="reports/ux-design-alignment-report.md"
+
+          if [ ! -f "$REPORT_PATH" ]; then
+            echo "No alignment report generated." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          STATUS="${{ steps.parse-results.outputs.status }}"
+          echo "# 🎨 UX Design Alignment Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** $STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat "$REPORT_PATH" >> $GITHUB_STEP_SUMMARY
+
+      - name: Post PR comment
+        if: steps.check-files.outputs.skip != 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const reportPath = 'reports/ux-design-alignment-report.md';
+
+            let comment = '## 🎨 UX Design Alignment Report\n\n';
+
+            if (fs.existsSync(reportPath)) {
+              const content = fs.readFileSync(reportPath, 'utf8');
+              const status = '${{ steps.parse-results.outputs.status }}';
+              const icon = status === 'PASS' ? '✅' : status === 'WARN' ? '⚠️' : '❌';
+
+              comment += `| Metric | Value |\n`;
+              comment += `|--------|-------|\n`;
+              comment += `| **Status** | ${icon} ${status} |\n`;
+              comment += `| **Gate Result** | ${status === 'FAIL' ? '🚫 Blocked' : '✅ Allowed'} |\n\n`;
+              comment += `---\n\n`;
+              comment += content;
+            } else {
+              comment += '⚠️ No alignment report was generated.\n';
+            }
+
+            comment += '\n\n---\n*Evaluated by UX Design Review Agent • Non-deterministic CI Gate*';
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('UX Design Alignment Report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }
+
+      - name: Skip notification
+        if: steps.check-files.outputs.skip == 'true'
+        run: echo "::notice::No relevant frontend files changed. Skipping UX design alignment review."
+
+      - name: Upload alignment report
+        if: steps.check-files.outputs.skip != 'true' && always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ux-design-alignment-report-${{ github.run_id }}
+          path: reports/ux-design-alignment-report.md
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Fail if alignment check failed
+        if: steps.check-files.outputs.skip != 'true' && steps.parse-results.outputs.passed != 'true'
+        run: |
+          echo "::error::UX Design Alignment check FAILED"
+          echo ""
+          echo "The implementation significantly diverges from the approved UX specification."
+          echo "Status: ${{ steps.parse-results.outputs.status }}"
+          echo ""
+          echo "Review the alignment report in the PR comments and address all FAIL findings."
+          echo "Spec: docs/ux-spec.md"
+          exit 1
