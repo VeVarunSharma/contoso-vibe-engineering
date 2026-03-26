@@ -32,6 +32,8 @@ contoso-vibe-engineering/
 │   ├── ai-tool-digest/        # AI tool digest Azure Function
 │   ├── dotnet-to-angular-agent/ # Migration agent
 │   └── rigidport/              # Full-stack ASP.NET Core 9 logistics platform (Razor Pages, EF Core SQLite, Chart.js)
+├── examples/                  # Example configurations
+│   └── mcp-servers/           # MCP server integration examples (Figma, etc.)
 └── infra/                     # Infrastructure-as-code (Terraform)
 ```
 
@@ -95,6 +97,14 @@ pnpm dev
 ## Configuration
 
 The rules for the AI Agent are defined in [.github/copilot-instructions.md](.github/copilot-instructions.md).
+
+## MCP Server Examples
+
+The `examples/mcp-servers/` directory contains example configurations for Model Context Protocol (MCP) servers that enhance AI development tools with external integrations:
+
+- **Figma MCP Server** - Connect AI assistants to Figma files, designs, and components
+
+See the [MCP Server Examples README](examples/mcp-servers/README.md) for detailed setup instructions and available integrations.
 
 ## Contributing
 
