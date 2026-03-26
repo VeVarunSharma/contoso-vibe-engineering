@@ -8,7 +8,7 @@ Model Context Protocol (MCP) is a standardized protocol that allows AI assistant
 
 ## Available Examples
 
-### Figma MCP Server
+### 1. Figma MCP Server (Single Server)
 
 The Figma MCP server allows AI assistants to interact with Figma files, designs, and components.
 
@@ -116,6 +116,18 @@ Once configured, you can ask your AI assistant questions like:
 **Server not starting:**
 - Verify Node.js and npm are installed: `node --version && npm --version`
 - Try installing the package manually: `npm install -g @figma/mcp-server-figma`
+
+### 2. Multi-Server Configuration
+
+For advanced workflows that require multiple data sources, see the [Multi-Server Setup Guide](MULTI_SERVER_SETUP.md). This example shows how to configure:
+
+- **Figma** - Design file access
+- **GitHub** - Repository, issue, and PR interactions
+- **Filesystem** - Enhanced workspace file access
+
+**Configuration File:** `multi-server-example.json`
+
+This setup enables powerful cross-tool queries like "Compare the button component in Figma with the code implementation in GitHub" or "Generate CSS variables from Figma design tokens and save them to our styles file."
 
 ## Adding More MCP Servers
 
