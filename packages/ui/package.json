@@ -20,16 +20,16 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.11",
-    "@turbo/gen": "^2.5.5",
+    "@tailwindcss/postcss": "^4.2.2",
+    "@turbo/gen": "^2.8.20",
     "@types/node": "^20.19.9",
     "@types/react": "^19.1.9",
     "@types/react-dom": "^19.1.7",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "^9.32.0",
-    "tailwindcss": "^4.1.11",
-    "typescript": "^5.9.2"
+    "tailwindcss": "^4.2.2",
+    "typescript": "^5.9.3"
   },
   "exports": {
     ".": "./src/index.ts",
