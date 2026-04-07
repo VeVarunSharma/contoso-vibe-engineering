@@ -32,6 +32,12 @@ export function SiteHeader() {
             >
               Muppets
             </Link>
+            <Link
+              href="/figma-demo"
+              className="transition-colors hover:text-foreground/80 text-foreground/60"
+            >
+              Figma Demo
+            </Link>
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-end space-x-2">
