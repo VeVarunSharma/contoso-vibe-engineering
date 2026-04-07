@@ -61,3 +61,7 @@ project.nuget.cache
 project.assets.json
 # Generated assembly info
 AssemblyInfo.cs
+
+
+# APM dependencies
+apm_modules/
