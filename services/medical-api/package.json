@@ -12,9 +12,9 @@
     "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
-    "@hono/node-server": "^1.11.0",
+    "@hono/node-server": "^1.19.13",
     "@hono/zod-validator": "^0.2.0",
-    "drizzle-orm": "^0.45.1",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.12.7",
     "pg": "^8.11.0",
     "uuid": "^10.0.0",
