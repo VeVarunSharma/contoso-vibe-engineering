@@ -22,10 +22,10 @@ export const ticketFormSchema = z.object({
     .max(100, "Name must be under 100 characters"),
   email: z.string().email("Please enter a valid email address"),
   category: z.enum(["bug", "feature", "question", "docs", "security"], {
-    error: "Please select a category",
+    message: "Please select a category",
   }),
   priority: z.enum(["low", "medium", "high", "critical"], {
-    error: "Please select a priority",
+    message: "Please select a priority",
   }),
   subject: z
     .string()
