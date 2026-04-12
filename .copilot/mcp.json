@@ -25,10 +25,20 @@
     // ─────────────────────────────────────────────────────────────────────────
     // The Coding Agent already has GitHub access via GITHUB_TOKEN, but this
     // MCP server provides additional structured tools for repo interactions.
+    // Authentication and scoping are provided via environment variables/secrets.
+    // Expected env vars (set as GitHub Action secrets):
+    //   - GITHUB_PERSONAL_ACCESS_TOKEN → token used by the GitHub MCP server
+    //   - GITHUB_READ_ONLY            → "true"/"false" to restrict write ops (optional)
+    //   - GITHUB_TOOLSETS             → comma-separated list of enabled toolsets (optional)
     "github": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"]
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_PERSONAL_ACCESS_TOKEN}",
+        "GITHUB_READ_ONLY": "${env:GITHUB_READ_ONLY}",
+        "GITHUB_TOOLSETS": "${env:GITHUB_TOOLSETS}"
+      }
     },
 
     // ─────────────────────────────────────────────────────────────────────────
