@@ -31,7 +31,7 @@ Scan the repository for dependency manifests. Look for:
 | Ecosystem | YAML Value | Manifest Files |
 |---|---|---|
 | npm/pnpm/yarn | `npm` | `package.json`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` |
-| pip/pipenv/poetry | `pip` | `requirements.txt`, `Pipfile`, `pyproject.toml`, `setup.py` |
+| pip/pipenv/poetry/uv | `pip` | `requirements.txt`, `Pipfile`, `pyproject.toml`, `setup.py` |
 | Docker | `docker` | `Dockerfile` |
 | Docker Compose | `docker-compose` | `docker-compose.yml` |
 | GitHub Actions | `github-actions` | `.github/workflows/*.yml` |
@@ -40,14 +40,18 @@ Scan the repository for dependency manifests. Look for:
 | Cargo (Rust) | `cargo` | `Cargo.toml` |
 | Composer (PHP) | `composer` | `composer.json` |
 | NuGet (.NET) | `nuget` | `*.csproj`, `packages.config` |
+| .NET SDK | `dotnet-sdk` | `global.json` |
 | Maven (Java) | `maven` | `pom.xml` |
 | Gradle (Java) | `gradle` | `build.gradle` |
-| Terraform | `terraform` | `*.tf` |
+| Terraform / OpenTofu | `terraform` | `*.tf` |
 | Helm | `helm` | `Chart.yaml` |
 | Hex (Elixir) | `mix` | `mix.exs` |
 | Swift | `swift` | `Package.swift` |
 | Pub (Dart) | `pub` | `pubspec.yaml` |
 | Bun | `bun` | `bun.lockb` |
+| Dev Containers | `devcontainers` | `devcontainer.json` |
+| Git Submodules | `gitsubmodule` | `.gitmodules` |
+| Pre-commit | `pre-commit` | `.pre-commit-config.yaml` |
 
 Note: pnpm and yarn both use the `npm` ecosystem value.
 
@@ -297,19 +301,19 @@ GitHub presets auto-dismiss low-impact alerts for development dependencies. Cust
 
 ## PR Comment Commands
 
-Interact with Dependabot PRs using `@dependabot` comments:
+Interact with Dependabot PRs using `@dependabot` comments.
+
+> **Note:** As of January 2026, merge/close/reopen commands have been deprecated.
+> Use GitHub's native UI, CLI (`gh pr merge`), or auto-merge instead.
 
 | Command | Effect |
 |---|---|
-| `@dependabot merge` | Merge after CI passes |
-| `@dependabot squash and merge` | Squash merge after CI passes |
 | `@dependabot rebase` | Rebase the PR |
 | `@dependabot recreate` | Recreate the PR from scratch |
-| `@dependabot close` | Close and prevent recreation |
-| `@dependabot reopen` | Reopen a closed PR |
 | `@dependabot ignore this dependency` | Close and never update this dependency |
 | `@dependabot ignore this major version` | Ignore this major version |
 | `@dependabot ignore this minor version` | Ignore this minor version |
+| `@dependabot ignore this patch version` | Ignore this patch version |
 
 For grouped PRs, additional commands:
 - `@dependabot ignore DEPENDENCY_NAME` — ignore specific dependency in group
