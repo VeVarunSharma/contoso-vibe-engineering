@@ -24,7 +24,7 @@
     // GitHub MCP Server
     // ─────────────────────────────────────────────────────────────────────────
     // Provides tools for interacting with GitHub: repos, issues, PRs, actions.
-    // Auth: Uses your GitHub CLI token (run `gh auth login` first).
+    // Auth: Uses a GitHub Personal Access Token provided via the `github_token` input.
     "github": {
       "type": "stdio",
       "command": "npx",
