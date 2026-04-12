@@ -65,7 +65,7 @@ jobs:
       comment_repo: ""
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@7d1a2798f21c06247ce115b7c7b8ddd70c8d0dc3 # v0.59.0
+        uses: github/gh-aw/actions/setup@89ae1c2ebfae7f8233fa4bd6a83b1121f65dc376 # v0.65.0
         with:
           destination: /opt/gh-aw/actions
       - name: Check workflow file timestamps
@@ -102,7 +102,7 @@ jobs:
       secret_verification_result: ${{ steps.validate-secret.outputs.verification_result }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@7d1a2798f21c06247ce115b7c7b8ddd70c8d0dc3 # v0.59.0
+        uses: github/gh-aw/actions/setup@89ae1c2ebfae7f8233fa4bd6a83b1121f65dc376 # v0.65.0
         with:
           destination: /opt/gh-aw/actions
       - name: Checkout repository
@@ -115,7 +115,7 @@ jobs:
       - name: Create cache-memory directory
         run: bash /opt/gh-aw/actions/create_cache_memory_dir.sh
       - name: Restore cache-memory file share data
-        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           key: memory-${{ env.GH_AW_WORKFLOW_ID_SANITIZED }}-${{ github.run_id }}
           path: /tmp/gh-aw/cache-memory
@@ -884,7 +884,7 @@ jobs:
       total_count: ${{ steps.missing_tool.outputs.total_count }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@7d1a2798f21c06247ce115b7c7b8ddd70c8d0dc3 # v0.59.0
+        uses: github/gh-aw/actions/setup@89ae1c2ebfae7f8233fa4bd6a83b1121f65dc376 # v0.65.0
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent output artifact
@@ -997,7 +997,7 @@ jobs:
       success: ${{ steps.parse_results.outputs.success }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@7d1a2798f21c06247ce115b7c7b8ddd70c8d0dc3 # v0.59.0
+        uses: github/gh-aw/actions/setup@89ae1c2ebfae7f8233fa4bd6a83b1121f65dc376 # v0.65.0
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent artifacts
@@ -1093,7 +1093,7 @@ jobs:
       activated: ${{ steps.check_membership.outputs.is_team_member == 'true' }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@7d1a2798f21c06247ce115b7c7b8ddd70c8d0dc3 # v0.59.0
+        uses: github/gh-aw/actions/setup@89ae1c2ebfae7f8233fa4bd6a83b1121f65dc376 # v0.65.0
         with:
           destination: /opt/gh-aw/actions
       - name: Check team membership for workflow
@@ -1133,7 +1133,7 @@ jobs:
       process_safe_outputs_temporary_id_map: ${{ steps.process_safe_outputs.outputs.temporary_id_map }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@7d1a2798f21c06247ce115b7c7b8ddd70c8d0dc3 # v0.59.0
+        uses: github/gh-aw/actions/setup@89ae1c2ebfae7f8233fa4bd6a83b1121f65dc376 # v0.65.0
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent output artifact
@@ -1170,7 +1170,7 @@ jobs:
     permissions: {}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@7d1a2798f21c06247ce115b7c7b8ddd70c8d0dc3 # v0.59.0
+        uses: github/gh-aw/actions/setup@89ae1c2ebfae7f8233fa4bd6a83b1121f65dc376 # v0.65.0
         with:
           destination: /opt/gh-aw/actions
       - name: Download cache-memory artifact (default)
@@ -1180,7 +1180,7 @@ jobs:
           name: cache-memory
           path: /tmp/gh-aw/cache-memory
       - name: Save cache-memory to cache (default)
-        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           key: memory-${{ env.GH_AW_WORKFLOW_ID_SANITIZED }}-${{ github.run_id }}
           path: /tmp/gh-aw/cache-memory
