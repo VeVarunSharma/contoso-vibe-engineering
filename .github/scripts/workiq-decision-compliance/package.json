@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@github/copilot-sdk": "^0.2.1",
+    "@github/copilot-sdk": "^0.2.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
