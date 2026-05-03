@@ -10,6 +10,7 @@ import {
   trackException,
 } from "../../logging.js";
 import { sendDigestEmail } from "../../email/dispatcher.js";
+import { checkRateLimit, getClientIp } from "../../rateLimit.js";
 import type { DigestRequestPayload } from "../../types.js";
 
 const requestSchema = z.object({
@@ -23,6 +24,25 @@ async function handler(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   logContext(context, "Digest trigger received");
+
+  // Defence-in-depth: per-IP throttle on top of the function key.
+  const ip = getClientIp(request);
+  const limit = checkRateLimit(ip);
+  if (!limit.allowed) {
+    const retryAfter = Math.max(
+      1,
+      Math.ceil((limit.resetAt - Date.now()) / 1000),
+    );
+    return {
+      status: 429,
+      headers: {
+        "Retry-After": String(retryAfter),
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": String(Math.ceil(limit.resetAt / 1000)),
+      },
+      jsonBody: { error: "Too many requests, please try again later." },
+    } satisfies HttpResponseInit;
+  }
 
   try {
     const payload = await parseBody(request);

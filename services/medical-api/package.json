@@ -16,6 +16,7 @@
     "@hono/zod-validator": "^0.2.0",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.12.7",
+    "hono-rate-limiter": "^0.5.3",
     "jose": "^6.2.3",
     "pg": "^8.11.0",
     "uuid": "^10.0.0",
