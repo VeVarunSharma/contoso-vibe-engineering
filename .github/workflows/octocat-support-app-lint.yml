@@ -1,0 +1,50 @@
+name: Octocat Support App Lint
+
+on:
+  pull_request:
+    branches: ["main", "develop/**"]
+    paths:
+      - "apps/octocat-support-app/**"
+      - "packages/ui/**"
+      - "packages/eslint-config/**"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.11]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+
+      - name: Disable Corepack
+        run: corepack disable
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run linting
+        run: |
+          cd apps/octocat-support-app
+          pnpm lint
