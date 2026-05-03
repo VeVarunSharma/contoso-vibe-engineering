@@ -6,7 +6,17 @@ module.exports = {
   setupFiles: ["<rootDir>/config/jest/env.setup.js"],
   setupFilesAfterEnv: ["<rootDir>/config/jest/jest.setup.js"],
   transform: {
-    "^.+\\.(ts|tsx|js|jsx)$": "@swc/jest",
+    "^.+\\.(ts|tsx|js|jsx)$": [
+      "@swc/jest",
+      {
+        jsc: {
+          parser: { syntax: "typescript", tsx: true },
+          transform: {
+            react: { runtime: "automatic" },
+          },
+        },
+      },
+    ],
     "^.+\\.svg$": "<rootDir>/config/jest/svgTransform.js",
   },
   moduleNameMapper: {
