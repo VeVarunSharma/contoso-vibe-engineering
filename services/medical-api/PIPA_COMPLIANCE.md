@@ -83,7 +83,10 @@ const filteredData = filterPHI(patient, purpose, user.role);
 
 **Implementation:** See [auth.ts](src/middleware/auth.ts)
 
-- Authentication required for all endpoints (`requireAuth`)
+- Authentication required for all endpoints (`requireAuth`) — verifies an
+  HS256-signed Bearer JWT keyed off `MEDICAL_API_JWT_SECRET`. Production
+  deployments should migrate to RS256 with a managed key (Azure Key Vault /
+  Entra ID) and rotate signing keys regularly.
 - Role-based access control (`requireRole`)
 - Purpose-based field restrictions
 
