@@ -30,7 +30,6 @@ contoso-vibe-engineering/
 │   ├── platform-api/          # Core platform API (Express + Drizzle)
 │   ├── medical-api/           # Medical data API (PIPA-compliant)
 │   ├── ai-tool-digest/        # AI tool digest Azure Function
-│   ├── dotnet-to-angular-agent/ # Migration agent
 │   └── rigidport/              # Full-stack ASP.NET Core 9 logistics platform (Razor Pages, EF Core SQLite, Chart.js)
 └── infra/                     # Infrastructure-as-code (Terraform)
 ```
