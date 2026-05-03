@@ -1,4 +1,5 @@
 import type { TicketFormData, TicketResponse } from "@/lib/types";
+import { escapeMarkdown } from "@/lib/escape";
 
 interface GitHubConfig {
   token: string;
@@ -32,7 +33,11 @@ const CATEGORY_PREFIX: Record<string, string> = {
  * Generates a structured issue body based on ticket category.
  */
 function generateIssueBody(ticket: TicketFormData): string {
-  const { category, name, email, subject, description } = ticket;
+  const { category, description } = ticket;
+  const name = escapeMarkdown(ticket.name);
+  const email = escapeMarkdown(ticket.email);
+  const subject = escapeMarkdown(ticket.subject);
+  const priority = escapeMarkdown(ticket.priority);
 
   switch (category) {
     case "bug":
@@ -84,7 +89,7 @@ function generateIssueBody(ticket: TicketFormData): string {
         description,
         "",
         "## Severity Assessment",
-        `Priority: ${ticket.priority}`,
+        `Priority: ${priority}`,
         "",
         "## Reporter",
         `- **Name:** ${name}`,

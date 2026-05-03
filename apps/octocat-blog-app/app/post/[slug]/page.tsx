@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { ArrowLeft, Calendar, Clock } from "lucide-react";
 import { CategoryBadge } from "@/components/category-badge";
 import { AuthorCard } from "@/components/author-card";
+import { renderMarkdown } from "@/lib/markdown";
 import type { Metadata } from "next";
 
 interface PostPageProps {
@@ -148,7 +149,7 @@ export default async function PostPage({ params }: PostPageProps) {
         {/* Parse markdown content */}
         <div
           dangerouslySetInnerHTML={{
-            __html: parseMarkdown(post.content),
+            __html: renderMarkdown(post.content),
           }}
         />
       </div>
@@ -198,39 +199,4 @@ export default async function PostPage({ params }: PostPageProps) {
   );
 }
 
-// Simple markdown parser for basic formatting
-function parseMarkdown(content: string): string {
-  return (
-    content
-      // Code blocks
-      .replace(
-        /```(\w+)?\n([\s\S]*?)```/g,
-        '<pre><code class="language-$1">$2</code></pre>'
-      )
-      // Inline code
-      .replace(/`([^`]+)`/g, "<code>$1</code>")
-      // Headers
-      .replace(/^### (.*$)/gim, "<h3>$1</h3>")
-      .replace(/^## (.*$)/gim, "<h2>$1</h2>")
-      .replace(/^# (.*$)/gim, "<h1>$1</h1>")
-      // Bold
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      // Italic
-      .replace(/\*(.*?)\*/g, "<em>$1</em>")
-      // Links
-      .replace(
-        /\[([^\]]+)\]\(([^)]+)\)/g,
-        '<a href="$2" class="text-primary hover:underline">$1</a>'
-      )
-      // Unordered lists
-      .replace(/^- (.*$)/gim, "<li>$1</li>")
-      // Ordered lists
-      .replace(/^\d+\. (.*$)/gim, "<li>$1</li>")
-      // Horizontal rule
-      .replace(/^---$/gim, "<hr>")
-      // Paragraphs
-      .replace(/\n\n/g, "</p><p>")
-      // Line breaks
-      .replace(/\n/g, "<br>")
-  );
-}
+
