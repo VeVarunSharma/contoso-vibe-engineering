@@ -96,6 +96,31 @@ pnpm dev
 
 The rules for the AI Agent are defined in [.github/copilot-instructions.md](.github/copilot-instructions.md).
 
+## What's Been Hardened
+
+This repository was the subject of an end-to-end **vibe-engineering triage** sprint. All P0 (critical) and P1 (high-priority) issues have been resolved through the following themed PRs — each one independently reviewable and shipped against a milestone:
+
+| PR | Theme | Closes | Milestone |
+| --- | --- | --- | --- |
+| [#283](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/283) | Repo hygiene — remove accidental artifacts and stale README references | (housekeeping) | — |
+| [#285](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/285) | Fix broken root tooling and missing UI package exports | #225, #226, #235 | P0 Security Baseline |
+| [#288](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/288) | Fix XSS in blog markdown rendering and sanitize support-app issue body | #220, #224 | P0 Security Baseline |
+| [#289](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/289) | Add real JWT auth to medical-api and bearer auth to platform-api | #221, #222 | P0 Security Baseline |
+| [#290](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/290) | Add rate limiting to all 4 services | #223 | P0 Security Baseline |
+| [#291](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/291) | Fix CI security gates and add support-app workflow | #233, #234 | P1 CI & Testing Baseline |
+| [#292](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/292) | Add backend service tests (medical-api, platform-api, ai-tool-digest) | #228, #229, #232 | P1 CI & Testing Baseline |
+| [#293](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/293) | Add frontend Jest tests (UI package, support-app, contoso-web-app) | #227, #230, #231 | P1 CI & Testing Baseline |
+
+### Highlights
+
+- **XSS fix in blog markdown renderer** — replaced regex parser with `marked` + `isomorphic-dompurify`.
+- **Real JWT authentication** — replaced spoofable `X-User-Id` / `X-User-Role` headers in `medical-api` with HS256 JWTs via `jose`; added bearer middleware to `platform-api`.
+- **Rate limiting on every service** — Express, Hono, ASP.NET Core, and Azure Functions all now have per-IP limits.
+- **CI security gates that actually fail** — removed silent `continueOnError` in the Azure Pipeline security scan and added a GitHub Actions workflow for the support-app.
+- **Test coverage from zero → real** — backend services and frontend packages now have Jest test suites with happy-path, validation-failure, and auth-failure coverage.
+
+Outstanding **P2 / P3** issues are tracked under their respective milestones.
+
 ## Contributing
 
 1. Create a new branch for your feature
