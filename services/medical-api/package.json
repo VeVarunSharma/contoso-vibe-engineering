@@ -24,7 +24,7 @@
     "@types/node": "^20.19.9",
     "@types/pg": "^8.11.0",
     "@types/uuid": "^10.0.0",
-    "drizzle-kit": "^0.31.8",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.15.0",
     "typescript": "^5.9.2"
   }
