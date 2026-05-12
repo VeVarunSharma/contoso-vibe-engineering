@@ -283,7 +283,7 @@ jobs:
 
       - name: Post consensus report as PR comment
         if: always() && (github.event_name == 'pull_request' || github.event.inputs.pr_number)
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
         with:
@@ -376,7 +376,7 @@ jobs:
 
       - name: Clean up stale per-model comments
         if: always() && (github.event_name == 'pull_request' || github.event.inputs.pr_number)
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
         with:
@@ -454,7 +454,7 @@ jobs:
 
       - name: Update PR comment with workflow status
         if: always() && (github.event_name == 'pull_request' || github.event.inputs.pr_number)
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
           RESULT_FILE: /tmp/consensus/consensus-result.json
