@@ -11,6 +11,7 @@ public class DashboardApiTests : IClassFixture<CustomWebApplicationFactory>
     public DashboardApiTests(CustomWebApplicationFactory factory)
     {
         _client = factory.CreateClient();
+        _client.DefaultRequestHeaders.Add("X-API-Key", "test-key");
     }
 
     [Fact]

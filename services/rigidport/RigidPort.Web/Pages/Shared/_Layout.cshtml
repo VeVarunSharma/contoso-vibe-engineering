@@ -47,6 +47,15 @@
                     </li>
                 </ul>
                 <div class="d-flex align-items-center">
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <span class="text-light small me-2">@User.Identity.Name</span>
+                        <a class="btn btn-outline-light btn-sm me-2" asp-area="" asp-page="/Auth/Logout">Logout</a>
+                    }
+                    else
+                    {
+                        <a class="btn btn-outline-light btn-sm me-2" asp-area="" asp-page="/Auth/Login">Login</a>
+                    }
                     <button id="themeToggle" class="btn btn-outline-light btn-sm me-2" title="Toggle theme">
                         <i class="bi bi-moon-stars"></i>
                     </button>
