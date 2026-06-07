@@ -21,8 +21,8 @@ const fullPatient: PatientData = {
 };
 
 describe("filterPHI", () => {
-  it("always returns at least the patient id and an _accessedFields array", () => {
-    const result = filterPHI(fullPatient, "research", "receptionist");
+  it("returns the patient id for identified access and an _accessedFields array", () => {
+    const result = filterPHI(fullPatient, "emergency", "receptionist");
     expect(result.id).toBe("p-001");
     expect(Array.isArray(result._accessedFields)).toBe(true);
     expect(result._accessedFields).toContain("id");
@@ -137,7 +137,7 @@ describe("filterPHI", () => {
   });
 
   describe("research purpose", () => {
-    it("returns only minimal fields regardless of role", () => {
+    it("drops direct identifiers regardless of role", () => {
       for (const role of [
         "physician",
         "nurse",
@@ -146,12 +146,44 @@ describe("filterPHI", () => {
         "receptionist",
       ] as const) {
         const out = filterPHI(fullPatient, "research", role);
-        expect(out.dateOfBirth).toBe("1980-04-12");
+        expect(out.id).toBeUndefined();
         expect(out.firstName).toBeUndefined();
-        expect(out.medicalHistory).toBeUndefined();
+        expect(out.lastName).toBeUndefined();
+        expect(out.dateOfBirth).toBeUndefined();
+        expect(out.email).toBeUndefined();
+        expect(out.phoneNumber).toBeUndefined();
+        expect(out.address).toBeUndefined();
         expect(out.socialInsuranceNumber).toBeUndefined();
-        expect(out._accessedFields).toEqual(["id", "dateOfBirth"]);
+        expect(out.healthCardNumber).toBeUndefined();
+        expect(out.medicalHistory).toBeUndefined();
       }
+    });
+
+    it("generalizes dateOfBirth to a numeric birthYear", () => {
+      const out = filterPHI(fullPatient, "research", "physician");
+      expect(out.birthYear).toBe(1980);
+      expect(typeof out.birthYear).toBe("number");
+      expect(out.dateOfBirth).toBeUndefined();
+    });
+
+    it("generalizes postalCode to the forward sortation area", () => {
+      const out = filterPHI(fullPatient, "research", "admin");
+      expect(out.postalCodeFsa).toBe("V6B");
+      expect(out.postalCode).toBeUndefined();
+      expect(out.address).toBeUndefined();
+    });
+
+    it("marks research output as de-identified", () => {
+      const out = filterPHI(fullPatient, "research", "receptionist");
+      expect(out._deidentified).toBe(true);
+    });
+
+    it("lists only emitted de-identified fields in _accessedFields", () => {
+      const out = filterPHI(fullPatient, "research", "billing");
+      expect(out._accessedFields).toEqual(["birthYear", "postalCodeFsa"]);
+      expect(out._accessedFields).not.toEqual(
+        expect.arrayContaining(["id", "dateOfBirth", "postalCode"])
+      );
     });
   });
 
