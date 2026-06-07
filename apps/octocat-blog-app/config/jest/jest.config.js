@@ -1,4 +1,4 @@
-const esmModules = ["uuid"];
+const esmModules = ["uuid", "marked"];
 
 module.exports = {
   rootDir: "../../",
