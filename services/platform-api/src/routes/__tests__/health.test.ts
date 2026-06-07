@@ -15,7 +15,7 @@ function buildAppWithPing(dbPing: () => Promise<void>) {
 
 describe("GET /health", () => {
   it("returns 200 with status: ok and db: up when the DB ping resolves", async () => {
-    const dbPing = jest.fn().mockResolvedValue(undefined);
+    const dbPing = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
     const app = buildAppWithPing(dbPing);
 
     const res = await request(app).get("/health");
@@ -27,7 +27,7 @@ describe("GET /health", () => {
 
   it("returns 503 with status: degraded when the DB ping rejects", async () => {
     const dbPing = jest
-      .fn()
+      .fn<() => Promise<void>>()
       .mockRejectedValue(new Error("connection refused"));
     const app = buildAppWithPing(dbPing);
 
@@ -42,7 +42,7 @@ describe("GET /health", () => {
   });
 
   it("responds to a trailing slash too", async () => {
-    const dbPing = jest.fn().mockResolvedValue(undefined);
+    const dbPing = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
     const app = buildAppWithPing(dbPing);
 
     const res = await request(app).get("/health/");
@@ -52,7 +52,7 @@ describe("GET /health", () => {
   });
 
   it("returns JSON content-type", async () => {
-    const dbPing = jest.fn().mockResolvedValue(undefined);
+    const dbPing = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
     const app = buildAppWithPing(dbPing);
 
     const res = await request(app).get("/health");

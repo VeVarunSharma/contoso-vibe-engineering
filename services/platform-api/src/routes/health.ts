@@ -1,6 +1,8 @@
 import { Router, type Router as RouterType } from "express";
 import { sql } from "drizzle-orm";
 import { db } from "../db/index.js";
+import { validate } from "../middleware/validate.js";
+import { healthParams, healthQuery } from "../validators/health.validators.js";
 
 /**
  * Default implementation: runs a trivial `SELECT 1` against the configured
@@ -12,27 +14,31 @@ export const defaultDbPing = async (): Promise<void> => {
 };
 
 export const createHealthRouter = (
-  dbPing: () => Promise<void> = defaultDbPing
+  dbPing: () => Promise<void> = defaultDbPing,
 ): RouterType => {
   const router = Router();
 
-  router.get("/", async (_req, res) => {
-    try {
-      await dbPing();
-      return res.status(200).json({ status: "ok", db: "up" });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Database health check failed";
-      console.error("Health check DB error:", message);
-      return res
-        .status(503)
-        .json({ status: "degraded", db: "down", error: message });
-    }
-  });
+  router.get(
+    "/",
+    validate({ query: healthQuery, params: healthParams }),
+    async (_req, res) => {
+      try {
+        await dbPing();
+        return res.status(200).json({ status: "ok", db: "up" });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Database health check failed";
+        console.error("Health check DB error:", message);
+        return res
+          .status(503)
+          .json({ status: "degraded", db: "down", error: message });
+      }
+    },
+  );
 
   return router;
 };
 
-const router: Router = createHealthRouter();
+const router: RouterType = createHealthRouter();
 
 export default router;
