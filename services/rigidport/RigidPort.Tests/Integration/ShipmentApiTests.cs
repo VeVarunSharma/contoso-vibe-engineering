@@ -11,6 +11,7 @@ public class ShipmentApiTests : IClassFixture<CustomWebApplicationFactory>
     public ShipmentApiTests(CustomWebApplicationFactory factory)
     {
         _client = factory.CreateClient();
+        _client.DefaultRequestHeaders.Add("X-API-Key", "test-key");
     }
 
     [Fact]

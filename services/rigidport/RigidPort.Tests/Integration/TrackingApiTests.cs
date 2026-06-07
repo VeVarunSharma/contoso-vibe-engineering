@@ -11,6 +11,7 @@ public class TrackingApiTests : IClassFixture<CustomWebApplicationFactory>
     public TrackingApiTests(CustomWebApplicationFactory factory)
     {
         _client = factory.CreateClient();
+        _client.DefaultRequestHeaders.Add("X-API-Key", "test-key");
     }
 
     [Fact]

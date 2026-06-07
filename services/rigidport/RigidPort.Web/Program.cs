@@ -1,12 +1,31 @@
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using RigidPort.Web.Data;
+using RigidPort.Web.Middleware;
 using RigidPort.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorPages();
+builder.Services.AddRazorPages(options =>
+{
+    options.Conventions.AuthorizeFolder("/");
+    options.Conventions.AllowAnonymousToPage("/Index");
+    options.Conventions.AllowAnonymousToPage("/Privacy");
+    options.Conventions.AllowAnonymousToPage("/Auth/Login");
+    options.Conventions.AllowAnonymousToPage("/Auth/AccessDenied");
+    options.Conventions.AllowAnonymousToPage("/Error");
+});
+
+builder.Services
+    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(opts =>
+    {
+        opts.LoginPath = "/Auth/Login";
+        opts.LogoutPath = "/Auth/Logout";
+        opts.AccessDeniedPath = "/Auth/AccessDenied";
+    });
 
 // Rate limiting — built-in ASP.NET Core rate limiter (.NET 7+). Fixed-window
 // per-IP limiter that returns 429 with a Retry-After header.
@@ -59,7 +78,9 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseRouting();
 app.UseRateLimiter();
+app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<ApiKeyAuthMiddleware>();
 
 // Minimal API endpoints for AJAX
 app.MapGet("/api/shipments/search", async (string? q, ShipmentService svc) =>
