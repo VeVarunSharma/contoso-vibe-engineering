@@ -1,4 +1,9 @@
-import { app, HttpResponseInit, InvocationContext } from "@azure/functions";
+import {
+  app,
+  type HttpRequest,
+  type HttpResponseInit,
+  type InvocationContext,
+} from "@azure/functions";
 import { z } from "zod";
 import { collectUpdates } from "../../scrapers/index.js";
 import { buildDigestContent } from "../../summary.js";
@@ -16,11 +21,11 @@ import type { DigestRequestPayload } from "../../types.js";
 const requestSchema = z.object({
   count: z.number().int().min(1).max(20).optional(),
   includeRaw: z.boolean().optional(),
-  recipients: z.array(z.string().email()).optional(),
+  recipients: z.array(z.email()).optional(),
 });
 
 async function handler(
-  request: Request,
+  request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   logContext(context, "Digest trigger received");
@@ -101,7 +106,7 @@ async function handler(
   }
 }
 
-async function parseBody(request: Request): Promise<DigestRequestPayload> {
+async function parseBody(request: HttpRequest): Promise<DigestRequestPayload> {
   if (request.method.toUpperCase() !== "POST") {
     return {};
   }

@@ -6,6 +6,8 @@ import { PostCard } from "@/components/post-card";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 async function getFeaturedPosts() {
   return db.query.posts.findMany({
     where: eq(posts.published, true),

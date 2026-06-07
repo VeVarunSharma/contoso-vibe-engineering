@@ -53,7 +53,9 @@ export function checkRateLimit(
   };
 }
 
-export function getClientIp(request: Request): string {
+type HeaderReader = Pick<Headers, "get">;
+
+export function getClientIp(request: { headers: HeaderReader }): string {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
     const first = forwarded.split(",")[0]?.trim();

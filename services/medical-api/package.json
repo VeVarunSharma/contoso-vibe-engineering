@@ -15,14 +15,14 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.13",
-    "@hono/zod-validator": "^0.2.0",
+    "@hono/zod-validator": "^0.8.0",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.21",
     "hono-rate-limiter": "^0.5.3",
     "jose": "^6.2.3",
     "pg": "^8.11.0",
     "uuid": "^11.1.0",
-    "zod": "^3.25.76"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
@@ -39,4 +39,3 @@
     "typescript": "^5.9.2"
   }
 }
-
