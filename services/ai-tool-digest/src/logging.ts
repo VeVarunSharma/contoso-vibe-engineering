@@ -1,5 +1,4 @@
 import applicationInsights from "applicationinsights";
-// TODO FIX THIS as InvocationContext type is not being resolved correctly
 import type { InvocationContext } from "@azure/functions";
 
 let telemetryClient: applicationInsights.TelemetryClient | undefined;
@@ -15,11 +14,33 @@ export function initialiseTelemetry(connectionString?: string): void {
   telemetryClient = applicationInsights.defaultClient;
 }
 
+function stringifyProperties(
+  properties?: Record<string, unknown>
+): { [key: string]: string } | undefined {
+  if (!properties) return undefined;
+  const result: { [key: string]: string } = {};
+  for (const [key, value] of Object.entries(properties)) {
+    if (value === undefined || value === null) {
+      result[key] = String(value);
+    } else if (typeof value === "string") {
+      result[key] = value;
+    } else if (typeof value === "object") {
+      result[key] = JSON.stringify(value);
+    } else {
+      result[key] = String(value);
+    }
+  }
+  return result;
+}
+
 export function trackEvent(
   name: string,
   properties?: Record<string, unknown>
 ): void {
-  telemetryClient?.trackEvent({ name, properties: properties as any });
+  telemetryClient?.trackEvent({
+    name,
+    properties: stringifyProperties(properties),
+  });
 }
 
 export function trackException(error: Error): void {
@@ -34,3 +55,4 @@ export function logContext(
   const payload = data ? `${message} ${JSON.stringify(data)}` : message;
   context.log(payload);
 }
+

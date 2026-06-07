@@ -76,6 +76,10 @@ export default async function PostPage({ params }: PostPageProps) {
   const wordCount = post.content.split(/\s+/).length;
   const readingTime = Math.ceil(wordCount / 200);
 
+  const siteUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
+    "http://localhost:3001";
+
   return (
     <article className="container max-w-4xl px-4 md:px-8 py-12">
       {/* Back link */}
@@ -179,7 +183,7 @@ export default async function PostPage({ params }: PostPageProps) {
       <div className="flex items-center gap-4 pt-8 border-t">
         <span className="text-sm font-medium">Share this post:</span>
         <a
-          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`https://octocat-blog.example.com/post/${post.slug}`)}`}
+          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`${siteUrl}/post/${post.slug}`)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-muted-foreground hover:text-primary"
@@ -187,7 +191,7 @@ export default async function PostPage({ params }: PostPageProps) {
           Twitter
         </a>
         <a
-          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://octocat-blog.example.com/post/${post.slug}`)}`}
+          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${siteUrl}/post/${post.slug}`)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-muted-foreground hover:text-primary"
