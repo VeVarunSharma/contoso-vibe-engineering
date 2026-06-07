@@ -1,0 +1,56 @@
+name: Octocat Support App Build
+
+on:
+  pull_request:
+    branches: ["main", "develop/**"]
+    paths:
+      - "apps/octocat-support-app/**"
+      - "packages/ui/**"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Next.js Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.11]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+
+      - name: Disable Corepack
+        run: corepack disable
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build (with placeholder env)
+        env:
+          # The support app reads these at build time for direct-triage.
+          # Real values are injected at deploy; placeholders here are
+          # only used to satisfy build-time validation.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: placeholder-owner
+          GITHUB_REPO: placeholder-repo
+        run: |
+          cd apps/octocat-support-app
+          pnpm build

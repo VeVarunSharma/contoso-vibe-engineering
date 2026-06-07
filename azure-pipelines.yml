@@ -102,4 +102,9 @@ stages:
 
           - script: pnpm audit --audit-level=high
             displayName: "Audit dependencies"
-            continueOnError: true
+            # Fail the build on high+ severity vulnerabilities. Previously
+            # `continueOnError: true` silently masked findings — see #234.
+            # Use `pnpm audit --audit-level=critical` if temporary noise
+            # blocks merges, but never restore continueOnError.
+            continueOnError: false
+
