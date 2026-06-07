@@ -1,9 +1,9 @@
-import express from "express";
+import express, { type Express } from "express";
 import cors from "cors";
 import healthRoutes from "./routes/health.js";
 import usersRoutes from "./routes/users.js";
 
-export const createServer = () => {
+export const createServer = (): Express => {
   const app = express();
 
   app.use(cors());
