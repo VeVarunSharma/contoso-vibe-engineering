@@ -49,6 +49,10 @@ DATABASE_URL="postgresql://user:password@localhost:5432/medical_db"
 PORT=3000
 ```
 
+### Security alerts
+
+Set `ALERT_WEBHOOK_URL` to a security team's webhook endpoint to receive audit middleware alerts when potential PHI values are detected in audit metadata. When unset, alerts are emitted as structured JSON to stderr for local and development use; alert payloads must contain metadata only and never PHI values.
+
 ### Database Setup
 
 ```bash
@@ -171,6 +175,7 @@ services/medical-api/
 │   ├── routes/
 │   │   └── patients.ts        # Patient CRUD endpoints
 │   ├── utils/
+│   │   ├── alert.ts           # Security alert delivery helper
 │   │   └── pii-filter.ts      # Data minimization helper
 │   └── index.ts               # Hono server entry point
 ├── drizzle.config.ts          # Drizzle Kit configuration

@@ -1,5 +1,6 @@
 import { db } from "../db/index.js";
 import { auditLogs } from "../db/schema.js";
+import { sendSecurityAlert } from "../utils/alert.js";
 import { v4 as uuidv4 } from "uuid";
 import type { Context } from "hono";
 
@@ -48,11 +49,16 @@ export async function createAuditLog(entry: AuditLogEntry): Promise<void> {
     const fieldsStr = JSON.stringify(entry.fieldsAccessed);
     for (const pattern of suspiciousPatterns) {
       if (pattern.test(fieldsStr)) {
-        console.error(
-          "SECURITY WARNING: Possible PHI detected in audit log fields"
-        );
-        // In production, this should alert security team
-        // TODO: Implement security alerting
+        await sendSecurityAlert({
+          type: "phi_in_audit_log",
+          severity: "warning",
+          message: "Possible PHI detected in audit log fields",
+          context: {
+            matchedPattern: pattern.toString(),
+            action: entry.action,
+            resourceType: entry.resourceType,
+          },
+        });
       }
     }
   }
