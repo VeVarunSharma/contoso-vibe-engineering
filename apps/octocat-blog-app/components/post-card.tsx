@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
+import { Tag } from "lucide-react";
 import type { Post, Author, Category } from "@/src/db/schema";
 
 interface PostCardProps {
@@ -34,9 +35,11 @@ export function PostCard({ post, featured = false }: PostCardProps) {
           )}
           <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
             <span
-              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium mb-3"
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium mb-3"
               style={{ backgroundColor: post.category.color || "#24292f" }}
+              aria-label={`Category: ${post.category.name}`}
             >
+              <Tag className="h-3 w-3" aria-hidden="true" />
               {post.category.name}
             </span>
             <h2 className="text-2xl md:text-3xl font-bold mb-2 line-clamp-2">
@@ -82,9 +85,11 @@ export function PostCard({ post, featured = false }: PostCardProps) {
         )}
         <div className="flex flex-1 flex-col p-4">
           <span
-            className="inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium text-white mb-2"
+            className="inline-flex w-fit items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-white mb-2"
             style={{ backgroundColor: post.category.color || "#24292f" }}
+            aria-label={`Category: ${post.category.name}`}
           >
+            <Tag className="h-3 w-3" aria-hidden="true" />
             {post.category.name}
           </span>
           <h3 className="text-lg font-semibold mb-2 line-clamp-2 group-hover:text-primary transition-colors">

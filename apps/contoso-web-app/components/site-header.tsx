@@ -7,13 +7,20 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
         <div className="mr-4 flex">
-          <Link href="/" className="mr-6 flex items-center space-x-2">
-            <Code2 className="h-6 w-6" />
+          <Link
+            href="/"
+            className="mr-6 flex items-center space-x-2"
+            aria-label="Contoso Vibe home"
+          >
+            <Code2 className="h-6 w-6" aria-hidden="true" />
             <span className="hidden font-bold sm:inline-block">
               Contoso Vibe
             </span>
           </Link>
-          <nav className="flex items-center space-x-6 text-sm font-medium">
+          <nav
+            className="flex items-center space-x-6 text-sm font-medium"
+            aria-label="Main"
+          >
             <Link
               href="#mission"
               className="transition-colors hover:text-foreground/80 text-foreground/60"
@@ -35,12 +42,13 @@ export function SiteHeader() {
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-end space-x-2">
-          <nav className="flex items-center">
+          <nav className="flex items-center" aria-label="Account">
             <Button variant="ghost" size="sm" asChild>
               <Link
                 href="https://github.com/contoso-vibe"
                 target="_blank"
                 rel="noreferrer"
+                aria-label="Open GitHub organization in a new tab"
               >
                 GitHub
               </Link>
