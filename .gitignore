@@ -12,6 +12,9 @@ node_modules
 .env.test.local
 .env.production.local
 
+# Local Copilot CLI session state (per-user, never committed)
+.copilot/
+
 # Testing
 coverage
 
