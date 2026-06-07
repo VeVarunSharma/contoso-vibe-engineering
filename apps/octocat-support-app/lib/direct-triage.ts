@@ -35,7 +35,7 @@ const CATEGORY_PREFIX: Record<string, string> = {
 function generateIssueBody(ticket: TicketFormData): string {
   const { category, description } = ticket;
   const name = escapeMarkdown(ticket.name);
-  const email = escapeMarkdown(ticket.email);
+  const email = ticket.email.replace(/[\r\n]+/g, " ");
   const subject = escapeMarkdown(ticket.subject);
   const priority = escapeMarkdown(ticket.priority);
 

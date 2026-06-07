@@ -9,6 +9,8 @@ import { ArrowLeft, Github, ExternalLink } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import type { Metadata } from "next";
 
+export const dynamic = "force-dynamic";
+
 interface AuthorPageProps {
   params: Promise<{
     username: string;

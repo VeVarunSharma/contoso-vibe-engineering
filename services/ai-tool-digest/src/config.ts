@@ -8,7 +8,7 @@ const envSchema = z.object({
   DIGEST_SMTP_PORT: z.string().min(1, "SMTP port is required"),
   DIGEST_SMTP_USER: z.string().min(1, "SMTP user is required"),
   DIGEST_SMTP_PASSWORD: z.string().min(1, "SMTP password is required"),
-  DIGEST_FROM_EMAIL: z.string().email("From email must be a valid address"),
+  DIGEST_FROM_EMAIL: z.email({ error: "From email must be a valid address" }),
   DIGEST_TO_OVERRIDE: z.string().optional(),
   DIGEST_APP_INSIGHTS_CONNECTION_STRING: z.string().optional(),
 });
@@ -23,7 +23,7 @@ const recipientsSchema = z.object({
           z.object({
             alias: z.string(),
             displayName: z.string(),
-            email: z.string().email(),
+            email: z.email(),
           })
         ),
       })

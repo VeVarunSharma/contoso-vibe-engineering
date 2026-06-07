@@ -4,7 +4,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "module": "ESNext",
+    "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "types": ["node", "@azure/functions", "jest"],
     "target": "ES2022",
@@ -14,5 +14,5 @@
     "noImplicitAny": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "**/__tests__/**", "**/*.test.ts"]
 }

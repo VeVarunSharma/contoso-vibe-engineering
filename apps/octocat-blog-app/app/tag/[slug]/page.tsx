@@ -7,6 +7,8 @@ import Link from "next/link";
 import { ArrowLeft, Tag as TagIcon } from "lucide-react";
 import type { Metadata } from "next";
 
+export const dynamic = "force-dynamic";
+
 interface TagPageProps {
   params: Promise<{
     slug: string;

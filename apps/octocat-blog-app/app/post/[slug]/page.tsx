@@ -11,6 +11,8 @@ import { AuthorCard } from "@/components/author-card";
 import { renderMarkdown } from "@/lib/markdown";
 import type { Metadata } from "next";
 
+export const dynamic = "force-dynamic";
+
 interface PostPageProps {
   params: Promise<{
     slug: string;
