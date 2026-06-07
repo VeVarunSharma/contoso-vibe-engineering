@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { timingSafeEqual } from "node:crypto";
+import { logger } from "../logger.js";
 
 /**
  * Bearer-token authentication middleware for the platform API.
@@ -23,7 +24,7 @@ export function requireBearerToken(
   const expected = process.env.PLATFORM_API_TOKEN;
 
   if (!expected || expected.length < 32) {
-    console.error(
+    (req.log ?? logger).error(
       "PLATFORM_API_TOKEN is not configured (or shorter than 32 chars). Refusing all requests.",
     );
     res.status(500).json({ error: "Server misconfigured" });

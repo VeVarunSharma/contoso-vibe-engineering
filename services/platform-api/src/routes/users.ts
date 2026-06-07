@@ -1,6 +1,7 @@
 import { Router, type Router as RouterType } from "express";
 import { db } from "../db/index.js";
 import { users } from "../db/schema.js";
+import { logger } from "../logger.js";
 import { requireBearerToken } from "../middleware/auth.js";
 import { validate, type ValidatedRequest } from "../middleware/validate.js";
 import {
@@ -43,7 +44,7 @@ export const createUsersRouter = (database: UsersDatabase = db): RouterType => {
         const allUsers = await database.query.users.findMany({ limit, offset });
         res.json(allUsers);
       } catch (error) {
-        console.error(error);
+        (req.log ?? logger).error({ err: error }, "Failed to list users");
         res.status(500).json({ error: "Internal Server Error" });
       }
     },

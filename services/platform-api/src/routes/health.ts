@@ -1,6 +1,7 @@
 import { Router, type Router as RouterType } from "express";
 import { sql } from "drizzle-orm";
 import { db } from "../db/index.js";
+import { logger } from "../logger.js";
 import { validate } from "../middleware/validate.js";
 import { healthParams, healthQuery } from "../validators/health.validators.js";
 
@@ -21,14 +22,14 @@ export const createHealthRouter = (
   router.get(
     "/",
     validate({ query: healthQuery, params: healthParams }),
-    async (_req, res) => {
+    async (req, res) => {
       try {
         await dbPing();
         return res.status(200).json({ status: "ok", db: "up" });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Database health check failed";
-        console.error("Health check DB error:", message);
+        (req.log ?? logger).error({ err }, "Health check DB error");
         return res
           .status(503)
           .json({ status: "degraded", db: "down", error: message });
