@@ -9,6 +9,7 @@ const config: Config = {
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
   },
+  setupFiles: ["<rootDir>/__tests__/setup.ts"],
   transform: {
     "^.+\\.tsx?$": [
       "ts-jest",
