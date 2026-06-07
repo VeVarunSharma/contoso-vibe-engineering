@@ -105,29 +105,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Newsletter Section */}
-      <section className="border-t bg-muted/30 py-16">
-        <div className="container mx-auto px-4 md:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-4">Stay in the Loop</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
-            Get the latest GitHub updates, feature announcements, and
-            engineering insights delivered straight to your inbox.
-          </p>
-          <form className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="flex-1 rounded-md border bg-background px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <button
-              type="submit"
-              className="rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              Subscribe
-            </button>
-          </form>
-        </div>
-      </section>
+      {/* End of posts */}
     </>
   );
 }
