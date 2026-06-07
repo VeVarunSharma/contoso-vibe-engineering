@@ -1,6 +1,16 @@
 import { jest } from "@jest/globals";
 import type { Context } from "hono";
 
+type SecurityAlertPayload = {
+  type: string;
+  severity: "warning" | "critical";
+  message: string;
+  context?: Record<string, unknown>;
+};
+
+const sendSecurityAlert = jest
+  .fn<(payload: SecurityAlertPayload) => Promise<void>>()
+  .mockResolvedValue(undefined);
 const values = jest.fn<(row: unknown) => Promise<void>>().mockResolvedValue(undefined);
 const insert = jest.fn(() => ({ values }));
 
@@ -10,21 +20,17 @@ jest.unstable_mockModule("../../db/index.js", () => ({
   },
 }));
 
+jest.unstable_mockModule("../../utils/alert.js", () => ({
+  sendSecurityAlert,
+}));
+
 const { createAuditLog, getRequestMetadata } = await import("../audit.js");
 
 describe("createAuditLog", () => {
-  let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
-
   beforeEach(() => {
     insert.mockClear();
     values.mockClear();
-    consoleErrorSpy = jest
-      .spyOn(console, "error")
-      .mockImplementation(() => undefined);
-  });
-
-  afterEach(() => {
-    consoleErrorSpy.mockRestore();
+    sendSecurityAlert.mockClear();
   });
 
   it("inserts a basic audit entry with field metadata", async () => {
@@ -53,10 +59,10 @@ describe("createAuditLog", () => {
       userAgent: "vitest",
     });
     expect(inserted.id).toEqual(expect.any(String));
-    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(sendSecurityAlert).not.toHaveBeenCalled();
   });
 
-  it("emits a SECURITY WARNING when fieldsAccessed contains a SIN-like pattern", async () => {
+  it("sends a metadata-only security alert when fieldsAccessed contains a SIN-like pattern", async () => {
     await createAuditLog({
       action: "PATIENT_ACCESS",
       resourceType: "patient",
@@ -65,14 +71,27 @@ describe("createAuditLog", () => {
       fieldsAccessed: ["firstName", "123-456-789"],
     });
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("SECURITY WARNING")
-    );
-    // Should still have inserted the row (warning is non-blocking)
+    expect(sendSecurityAlert).toHaveBeenCalledTimes(1);
+    expect(sendSecurityAlert).toHaveBeenCalledWith({
+      type: "phi_in_audit_log",
+      severity: "warning",
+      message: "Possible PHI detected in audit log fields",
+      context: {
+        matchedPattern: "/\\d{3}-\\d{3}-\\d{3}/",
+        action: "PATIENT_ACCESS",
+        resourceType: "patient",
+      },
+    });
+
+    const alertPayload = sendSecurityAlert.mock.calls[0][0];
+    const serializedAlert = JSON.stringify(alertPayload);
+    expect(serializedAlert).not.toContain("123-456-789");
+    expect(serializedAlert).not.toContain("fieldsAccessed");
+    // Should still have inserted the row (alerting is non-blocking)
     expect(values).toHaveBeenCalledTimes(1);
   });
 
-  it("emits a SECURITY WARNING when fieldsAccessed contains a 10-digit PHN", async () => {
+  it("sends a security alert when fieldsAccessed contains a 10-digit PHN", async () => {
     await createAuditLog({
       action: "PATIENT_ACCESS",
       resourceType: "patient",
@@ -81,26 +100,45 @@ describe("createAuditLog", () => {
       fieldsAccessed: ["healthCardNumber:9876543210"],
     });
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("SECURITY WARNING")
+    expect(sendSecurityAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "phi_in_audit_log",
+        severity: "warning",
+        context: expect.objectContaining({
+          matchedPattern: "/\\d{10}/",
+        }),
+      })
     );
   });
 
-  it("emits a SECURITY WARNING when fieldsAccessed contains an email", async () => {
+  it("sends a security alert without field values when fieldsAccessed contains an email", async () => {
     await createAuditLog({
       action: "PATIENT_ACCESS",
       resourceType: "patient",
       resourceId: "p-1",
       userId: "u-1",
-      fieldsAccessed: ["email:alex@example.com"],
+      fieldsAccessed: ["patientName:Alex Smith", "email:alex@example.com"],
     });
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("SECURITY WARNING")
+    expect(sendSecurityAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "phi_in_audit_log",
+        severity: "warning",
+        context: expect.objectContaining({
+          matchedPattern: "/@.*\\.(com|ca|org)/",
+          action: "PATIENT_ACCESS",
+          resourceType: "patient",
+        }),
+      })
     );
+
+    const alertPayload = sendSecurityAlert.mock.calls[0][0];
+    const serializedAlert = JSON.stringify(alertPayload);
+    expect(serializedAlert).not.toContain("Alex Smith");
+    expect(serializedAlert).not.toContain("alex@example.com");
   });
 
-  it("does not warn when fieldsAccessed contains only field names", async () => {
+  it("does not alert when fieldsAccessed contains only field names", async () => {
     await createAuditLog({
       action: "PATIENT_ACCESS",
       resourceType: "patient",
@@ -109,7 +147,7 @@ describe("createAuditLog", () => {
       fieldsAccessed: ["firstName", "lastName", "dateOfBirth"],
     });
 
-    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(sendSecurityAlert).not.toHaveBeenCalled();
   });
 
   it("normalises fieldsAccessed to null when omitted", async () => {

@@ -26,6 +26,29 @@ export interface PatientData {
   emergencyContacts?: unknown;
 }
 
+interface ResearchDeidentifiedData {
+  birthYear?: number;
+  postalCodeFsa?: string;
+  _deidentified?: true;
+}
+
+export type FilteredPatientData = Partial<PatientData> &
+  ResearchDeidentifiedData & { _accessedFields: string[] };
+
+const getBirthYear = (dateOfBirth?: string): number | undefined => {
+  if (!dateOfBirth) return undefined;
+
+  const birthYear = new Date(dateOfBirth).getUTCFullYear();
+  return Number.isNaN(birthYear) ? undefined : birthYear;
+};
+
+const getPostalCodeFsa = (postalCode?: string | null): string | undefined => {
+  const trimmedPostalCode = postalCode?.trim();
+  if (!trimmedPostalCode) return undefined;
+
+  return trimmedPostalCode.slice(0, 3).toUpperCase();
+};
+
 export type Purpose =
   | "treatment"
   | "billing"
@@ -46,9 +69,11 @@ export function filterPHI(
   patient: PatientData,
   purpose: Purpose,
   role: AuthUser["role"]
-): Partial<PatientData> & { _accessedFields: string[] } {
+): FilteredPatientData {
   const accessedFields: string[] = ["id"];
-  const filtered: Partial<PatientData> = { id: patient.id };
+  const filtered: Partial<PatientData> & ResearchDeidentifiedData = {
+    id: patient.id,
+  };
 
   // PIPA BC: Purpose-based filtering rules
   switch (purpose) {
@@ -145,12 +170,25 @@ export function filterPHI(
       }
       break;
 
-    case "research":
-      // Research access requires explicit handling
-      // TODO: Implement de-identification for research purposes
-      filtered.dateOfBirth = patient.dateOfBirth;
-      accessedFields.push("dateOfBirth");
+    case "research": {
+      delete filtered.id;
+      accessedFields.length = 0;
+
+      const birthYear = getBirthYear(patient.dateOfBirth);
+      if (birthYear !== undefined) {
+        filtered.birthYear = birthYear;
+        accessedFields.push("birthYear");
+      }
+
+      const postalCodeFsa = getPostalCodeFsa(patient.postalCode);
+      if (postalCodeFsa) {
+        filtered.postalCodeFsa = postalCodeFsa;
+        accessedFields.push("postalCodeFsa");
+      }
+
+      filtered._deidentified = true;
       break;
+    }
   }
 
   return { ...filtered, _accessedFields: accessedFields };
