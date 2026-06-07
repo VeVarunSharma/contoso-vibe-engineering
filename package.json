@@ -18,5 +18,26 @@
   "packageManager": "pnpm@10.26.2",
   "engines": {
     "node": ">=20"
+  },
+  "pnpm": {
+    "overrides": {
+      "@github/copilot": ">=1.0.43",
+      "@tootallnate/once@<2.0.1": "2.0.1",
+      "basic-ftp@<5.3.1": "5.3.1",
+      "brace-expansion@>=2.0.0 <2.0.2": "2.0.2",
+      "brace-expansion@>=1.0.0 <1.1.12": "1.1.12",
+      "fast-xml-parser@<5.7.0": "5.7.0",
+      "flatted@<3.4.2": "3.4.2",
+      "handlebars@<4.7.9": "4.7.9",
+      "ip-address@<10.1.1": "10.1.1",
+      "lodash@<4.17.21": "4.17.21",
+      "path-to-regexp@<0.1.13": "0.1.13",
+      "picomatch@<2.3.2": "2.3.2",
+      "postcss@<8.5.10": "8.5.10",
+      "qs@<6.15.2": "6.15.2",
+      "tar@>=7.0.0 <7.5.11": "7.5.11",
+      "tmp@<0.2.6": "0.2.6",
+      "ws@<8.20.1": "8.20.1"
+    }
   }
 }
