@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+.env*
+*.log
+__tests__
+*.md
+.turbo
