@@ -45,7 +45,7 @@ An AI-powered support ticket portal that converts user-submitted tickets into st
 ### Prerequisites
 
 - Node.js 20+
-- pnpm 8+
+- pnpm 10+
 - A GitHub Personal Access Token (PAT) with `repo` scope
 
 ### Installation

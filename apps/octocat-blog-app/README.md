@@ -26,7 +26,7 @@ A GitHub-themed blog application built with Next.js 15, shadcn/ui, and PostgreSQ
 ### Prerequisites
 
 - Node.js 20+
-- pnpm 8+
+- pnpm 10+
 - PostgreSQL database
 
 ### Installation
