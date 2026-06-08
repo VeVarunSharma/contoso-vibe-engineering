@@ -4,15 +4,18 @@ This project demonstrates the transition from "Single Player Vibe Coding" to "Mu
 
 ## Tech Stack
 
-| Layer               | Technology                                        |
-| ------------------- | ------------------------------------------------- |
-| **Package Manager** | pnpm                                              |
-| **Build System**    | Turborepo                                         |
-| **Frontend**        | Next.js 15 (App Router), React 19, Tailwind CSS 4 |
-| **Backend**         | Node.js, Express.js, Drizzle ORM, Zod             |
-| **Database**        | PostgreSQL                                        |
-| **AI Integration**  | GitHub Copilot SDK (`@github/copilot-sdk`)        |
-| **Testing**         | Jest, React Testing Library, @swc/jest            |
+| Layer               | Technology                                                              |
+| ------------------- | ----------------------------------------------------------------------- |
+| **Package Manager** | pnpm 10.x                                                               |
+| **Build System**    | Turborepo                                                               |
+| **Frontend**        | Next.js 15 (App Router), React 19, Tailwind CSS 4                       |
+| **Backend**         | Node.js, Express.js, Hono, Drizzle ORM, Zod 4                           |
+| **Logging**         | pino + pino-http (structured JSON logs in services)                     |
+| **Containers**      | Multi-stage Dockerfiles for `medical-api` & `platform-api`              |
+| **Database**        | PostgreSQL                                                              |
+| **AI Integration**  | GitHub Copilot SDK (`@github/copilot-sdk`)                              |
+| **.NET Service**    | ASP.NET Core 9 (Razor Pages + minimal APIs) — `rigidport`               |
+| **Testing**         | Jest, React Testing Library, @swc/jest, xUnit (.NET)                    |
 
 ## Repository Structure
 
@@ -56,8 +59,10 @@ An AI-powered support ticket portal that converts user-submitted tickets into st
 ### Prerequisites
 
 - Node.js 20+
-- pnpm 8+
+- pnpm 10+ (the repo pins `pnpm@10.26.2` via `packageManager`)
 - PostgreSQL (for apps that require a database)
+- .NET 9 SDK (only required if working on `services/rigidport`)
+- Docker (optional — for building service container images)
 
 ### Installation
 
@@ -118,7 +123,31 @@ This repository was the subject of an end-to-end **vibe-engineering triage** spr
 - **CI security gates that actually fail** — removed silent `continueOnError` in the Azure Pipeline security scan and added a GitHub Actions workflow for the support-app.
 - **Test coverage from zero → real** — backend services and frontend packages now have Jest test suites with happy-path, validation-failure, and auth-failure coverage.
 
-Outstanding **P2 / P3** issues are tracked under their respective milestones.
+### P2 / P3 Backlog Sweep (latest wave)
+
+The P2/P3 backlog has now been driven to zero through a second wave of focused PRs:
+
+| PR | Theme | Closes |
+| --- | --- | --- |
+| [#344](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/344) | Fix duplicated minimal-API block in `rigidport/Program.cs` (CodeQL CS8803) | (hotfix) |
+| [#345](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/345) | PIPA BC research de-identification in `medical-api` | #259 |
+| [#346](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/346) | Production Dockerfile for `medical-api` | #250 |
+| [#347](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/347) | Production Dockerfile for `platform-api` | #251 |
+| [#348](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/348) | Real security alerting in `medical-api` audit middleware | #258 |
+| [#349](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/349) | Zod input validation + `/users` pagination in `platform-api` | #253 |
+| [#350](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/350) | Structured logging with `pino` in `platform-api` | #264 |
+| [#351](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/351) | Cookie auth + `X-API-Key` middleware for `rigidport` | #254 |
+| [#352](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/352) | Workspace-wide Zod 3 → 4 migration | #208 |
+
+**Net effect:**
+
+- All Node services now ship a multi-stage **Dockerfile** with non-root runtime and `pnpm deploy --prod` output.
+- `platform-api` emits **structured JSON logs** via pino with sensitive-field redaction and request-scoped `req.log`.
+- `medical-api` writes audit-trail **security alerts** to an optional `ALERT_WEBHOOK_URL` (or stderr) and **de-identifies research-purpose responses** (drops direct identifiers, generalizes DOB to birth year, postal code to FSA).
+- `rigidport` now requires cookie auth for Razor Pages and `X-API-Key` for minimal APIs; 48/48 xUnit tests pass via a `TestAuthHandler`.
+- The entire workspace is on **Zod 4** (`^4.4.x`) — uniform error handling (`ZodError.issues`), top-level `z.email()` / `z.url()` validators, and consistent schema composition (`.extend()` over `.merge()`).
+
+The current backlog is **0 open issues, 0 open PRs**.
 
 ## Contributing
 

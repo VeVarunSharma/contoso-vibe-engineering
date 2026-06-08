@@ -15,16 +15,18 @@ This API implements British Columbia's Personal Information Protection Act (PIPA
 | [Hono](https://hono.dev/)                     | 4.4.x   | Lightweight HTTP framework   |
 | [Drizzle ORM](https://orm.drizzle.team/)      | 0.45.x  | Type-safe PostgreSQL ORM     |
 | [PostgreSQL](https://www.postgresql.org/)     | 15+     | Database (via node-postgres) |
-| [Zod](https://zod.dev/)                       | 3.23.x  | Request validation           |
+| [Zod](https://zod.dev/)                       | 4.4.x   | Request validation           |
 | [TypeScript](https://www.typescriptlang.org/) | 5.5.x   | Type safety                  |
+| Docker (multi-stage)                          | —       | Production container image   |
 
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js 20+
-- pnpm 9+
+- pnpm 10+
 - PostgreSQL 15+ (local or remote)
+- Docker (optional — to build the production image)
 
 ### Installation
 
@@ -75,6 +77,20 @@ pnpm dev
 # Production
 pnpm build
 pnpm start
+```
+
+### Docker
+
+A multi-stage `Dockerfile` ships with the service (see PR [#346](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/346)). It uses `pnpm deploy --prod` for the runtime layer, runs as a non-root user, and exposes port `3000`:
+
+```bash
+# Build from the repo root (Dockerfile uses the monorepo workspace)
+docker build -t medical-api:local -f services/medical-api/Dockerfile .
+
+# Run (DATABASE_URL is required)
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL="postgres://user:pass@host:5432/medical_db" \
+  medical-api:local
 ```
 
 ## API Endpoints
@@ -156,6 +172,7 @@ See [PIPA_COMPLIANCE.md](./PIPA_COMPLIANCE.md) for detailed compliance documenta
 | Section 34   | Audit Trail        | `src/middleware/audit.ts` - Log access without PHI values |
 | Section 9    | Consent Withdrawal | DELETE consent endpoint                                   |
 | Section 18   | Emergency Access   | Bypass consent for emergencies                            |
+| Section 35   | Research Use       | De-identification in `src/utils/pii-filter.ts` — drops direct identifiers, generalizes DOB → birth year, postal code → FSA, marks `_deidentified: true` (see PR [#345](https://github.com/VeVarunSharma/contoso-vibe-engineering/pull/345)) |
 
 ## Project Structure
 
@@ -179,6 +196,8 @@ services/medical-api/
 │   │   └── pii-filter.ts      # Data minimization helper
 │   └── index.ts               # Hono server entry point
 ├── drizzle.config.ts          # Drizzle Kit configuration
+├── Dockerfile                 # Multi-stage production image (non-root)
+├── .dockerignore
 ├── package.json
 ├── tsconfig.json
 ├── PIPA_COMPLIANCE.md         # Compliance documentation
