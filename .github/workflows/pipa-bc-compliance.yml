@@ -185,7 +185,7 @@ jobs:
 
       - name: Post compliance report as PR comment
         if: steps.check-files.outputs.skip != 'true' && github.event_name == 'pull_request'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
