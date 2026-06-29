@@ -1,6 +1,6 @@
 # Octocat Blog Web App Terraform Module
 
-This module provisions an Azure App Service plan and Linux Web App for the Octocat blog application using Terraform.
+This module provisions an Azure App Service plan and Linux Web App for the Octocat blog application using Infrastructure as Code that is compatible with both Terraform and OpenTofu CLI tooling.
 
 ## Resources created
 
@@ -10,6 +10,14 @@ This module provisions an Azure App Service plan and Linux Web App for the Octoc
 - HTTPS-only configuration with TLS 1.2 and HTTP/2 enabled
 
 ## Usage
+
+The module uses standard Terraform/OpenTofu syntax and can be initialized with either CLI:
+
+```bash
+terraform init
+# or
+tofu init
+```
 
 ```hcl
 module "octocat_blog_webapp" {
