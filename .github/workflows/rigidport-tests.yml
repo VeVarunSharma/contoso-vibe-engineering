@@ -22,7 +22,7 @@ jobs:
         working-directory: services/rigidport
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET 9
         uses: actions/setup-dotnet@v5
