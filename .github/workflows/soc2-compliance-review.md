@@ -1,7 +1,7 @@
 ---
 emoji: 🛡️
 name: SOC 2-Aligned Control Review
-description: Blocking SOC 2-aligned review of pull request changes across application code, infrastructure, and configuration.
+description: SOC 2-aligned review of code, infrastructure, and configuration that blocks critical and high findings.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -11,18 +11,19 @@ on:
       - "services/**"
       - "infra/**"
       - "terraform/**"
+      - ".github/actions/**"
+      - ".github/workflows/**"
       - "**/*.tf"
       - "**/*.tfvars"
       - "**/*.hcl"
       - "**/Dockerfile"
       - "**/Dockerfile.*"
-      - "**/*.yml"
-      - "**/*.yaml"
-      - "**/*.json"
-      - "**/*.toml"
-      - "**/*.xml"
       - "**/*.config.*"
       - "**/*.env.example"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
 permissions:
   contents: read
   pull-requests: read
