@@ -1,6 +1,6 @@
 ---
 emoji: 🛡️
-name: SOC 2 Compliance Review
+name: SOC 2-Aligned Control Review
 description: Blocking SOC 2-aligned review of pull request changes across application code, infrastructure, and configuration.
 on:
   pull_request:
@@ -25,7 +25,6 @@ on:
       - "**/*.env.example"
 permissions:
   contents: read
-  issues: read
   pull-requests: read
 strict: true
 network:
@@ -33,10 +32,7 @@ network:
     - defaults
     - github
 tools:
-  github:
-    mode: gh-proxy
-    toolsets: [default]
-  bash: [awk, cat, find, gh, grep, head, jq, ls, sed, wc]
+  bash: [cat, grep, head, jq, wc]
 steps:
   - name: Prefetch pull request context
     env:
@@ -56,7 +52,7 @@ safe-outputs:
     max: 1
     hide-older-comments: true
   create-check-run:
-    name: "SOC 2 Compliance Gate"
+    name: "SOC 2-Aligned Control Gate"
     max: 1
   noop:
     report-as-issue: false
@@ -69,7 +65,7 @@ safe-outputs:
 timeout-minutes: 15
 ---
 
-# SOC 2 Compliance Review
+# SOC 2-Aligned Control Review
 
 Review the pull request for SOC 2-aligned control violations across changed application code, APIs, database logic, infrastructure, Terraform, CI/CD, containers, and configuration.
 
@@ -92,7 +88,7 @@ Identify concrete violations with file and line evidence:
 - **Change management and auditability:** weakened branch or deployment controls; mutable or unpinned dependencies/actions; disabled security checks; missing audit logging; destructive infrastructure changes without safeguards.
 - **Terraform and infrastructure:** public ingress, wildcard IAM/RBAC, plaintext secrets, unencrypted storage, insecure state, absent logging, overly permissive security groups/firewalls, missing version constraints, and destructive lifecycle settings.
 
-Do not report style issues, speculative concerns without evidence, unchanged pre-existing problems, or missing enterprise processes that cannot be established from the diff.
+Do not report style issues, speculative concerns without evidence, pre-existing problems unaffected by the current changes, or missing enterprise processes that cannot be established from the diff. Report when a change interacts with or worsens an existing control weakness.
 
 ## Severity and Gate Policy
 
@@ -101,10 +97,10 @@ Do not report style issues, speculative concerns without evidence, unchanged pre
 - `medium`: a real but non-blocking control weakness.
 - `low`: defense-in-depth guidance.
 
-Create exactly one check run named `SOC 2 Compliance Gate`:
+Create exactly one check run named `SOC 2-Aligned Control Gate`:
 
 - Use `conclusion: failure` when any `critical` or `high` finding exists.
-- Use `conclusion: success` when there are no `critical` or `high` findings.
+- Use `conclusion: success` when there are no `critical` or `high` findings, including when only `medium` or `low` findings exist; include those non-blocking warnings in the check summary.
 - Include the result, reviewed scope, evidence, affected SOC 2 area, and remediation in the check summary.
 
 Post exactly one concise PR comment with `add-comment` for every completed review. State `PASS` or `FAIL`, list blocking findings first, include file/line evidence and remediation, and clearly note that the result is an automated SOC 2-aligned code review rather than an audit or certification.
