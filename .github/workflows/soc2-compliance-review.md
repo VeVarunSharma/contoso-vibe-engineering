@@ -25,6 +25,7 @@ on:
       - "**/*.env.example"
 permissions:
   contents: read
+  issues: read
   pull-requests: read
 strict: true
 network:
