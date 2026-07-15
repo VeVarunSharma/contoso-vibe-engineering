@@ -1,14 +1,31 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { db } from "../../../lib/db";
+
+const QuerySchema = z.object({
+  id: z.string().regex(/^\d+$/).transform(Number),
+});
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const id = searchParams.get("id");
 
-  // SECURITY FLAW 1: SQL Injection vulnerability via template literal
-  // SECURITY FLAW 2: No input validation
-  const users = await db.query(`SELECT * FROM users WHERE id = ${id}`);
+  const result = QuerySchema.safeParse({ id: searchParams.get("id") });
 
-  // SECURITY FLAW 3: Returning full object including password_hash and salt
-  return NextResponse.json(users[0]);
+  if (!result.success) {
+    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  }
+
+  const user = await db.user.findUnique({
+    where: { id: result.data.id },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+  });
 }
