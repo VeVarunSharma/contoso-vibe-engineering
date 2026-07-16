@@ -13,8 +13,9 @@ export function HeroSection() {
               Stock every shelf with confidence.
             </h1>
             <p className="max-w-2xl text-lg text-muted-foreground md:text-xl">
-              One dependable catalog for premium liquor, Mary Jane, and
-              compliant cannabis products—delivered to authorized retailers.
+              One dependable catalog for premium liquor and compliant cannabis,
+              including the Mary Jane collection—delivered to authorized
+              retailers.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">

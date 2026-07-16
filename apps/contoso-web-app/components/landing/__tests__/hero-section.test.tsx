@@ -17,8 +17,9 @@ describe("<HeroSection />", () => {
 
   it("renders the supporting subtitle", () => {
     expect(
-      screen.getByText(/premium liquor, mary jane, and compliant cannabis/i),
+      screen.getByText(/premium liquor and compliant cannabis/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/mary jane collection/i)).toBeInTheDocument();
   });
 
   it("links to the catalog and distribution coverage", () => {

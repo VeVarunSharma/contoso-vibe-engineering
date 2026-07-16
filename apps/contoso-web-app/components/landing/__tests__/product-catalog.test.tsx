@@ -12,7 +12,7 @@ describe("<ProductCatalog />", () => {
       screen.getByRole("heading", { name: /contoso reserve bourbon/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /mary jane premium flower/i }),
+      screen.getByRole("heading", { name: /premium cannabis flower.*mary jane/i }),
     ).toBeInTheDocument();
   });
 
@@ -26,7 +26,7 @@ describe("<ProductCatalog />", () => {
       screen.queryByRole("heading", { name: /contoso reserve bourbon/i }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /mary jane premium flower/i }),
+      screen.getByRole("heading", { name: /premium cannabis flower.*mary jane/i }),
     ).toBeInTheDocument();
   });
 

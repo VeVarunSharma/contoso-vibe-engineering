@@ -58,7 +58,7 @@ const products: Product[] = [
   },
   {
     id: "mary-jane-flower",
-    name: "Mary Jane Premium Flower",
+    name: "Premium Cannabis Flower — Mary Jane",
     category: "Cannabis",
     detail: "Indica · 12 × 3.5 g case",
     price: "$264.00",
