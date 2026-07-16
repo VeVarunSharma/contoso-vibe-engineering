@@ -88,7 +88,9 @@ const products: Product[] = [
 export function ProductCatalog() {
   const [category, setCategory] = useState<Category>("All");
   const [query, setQuery] = useState("");
-  const [taggedProduct, setTaggedProduct] = useState<string | null>(null);
+  const [visibleShelfTagProductId, setVisibleShelfTagProductId] = useState<
+    string | null
+  >(null);
 
   const visibleProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -102,8 +104,8 @@ export function ProductCatalog() {
     );
   }, [category, query]);
 
-  function generateShelfTag(productId: string) {
-    setTaggedProduct(productId);
+  function showShelfTag(productId: string) {
+    setVisibleShelfTagProductId(productId);
   }
 
   return (
@@ -160,7 +162,7 @@ export function ProductCatalog() {
         {visibleProducts.length > 0 ? (
           <div className="mx-auto mt-8 grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3">
             {visibleProducts.map((product) => {
-              const tagIsReady = taggedProduct === product.id;
+              const tagIsReady = visibleShelfTagProductId === product.id;
 
               return (
                 <Card key={product.id} className="gap-4">
@@ -233,7 +235,7 @@ export function ProductCatalog() {
                       variant={tagIsReady ? "secondary" : "outline"}
                       aria-pressed={tagIsReady}
                       disabled={tagIsReady}
-                      onClick={() => generateShelfTag(product.id)}
+                      onClick={() => showShelfTag(product.id)}
                     >
                       <Tag aria-hidden="true" />
                       {tagIsReady ? "Tag generated" : "Generate shelf tag"}
