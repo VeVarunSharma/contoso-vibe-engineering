@@ -16,6 +16,12 @@ variable "location" {
   default     = "eastus"
 }
 
+variable "owner" {
+  description = "Owner tag applied to the created resources."
+  type        = string
+  default     = "VeVarunSharma"
+}
+
 variable "resource_group_name" {
   description = "Name of the resource group that will host the blog web app."
   type        = string

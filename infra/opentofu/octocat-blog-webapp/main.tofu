@@ -20,7 +20,7 @@ locals {
     {
       Environment = var.environment
       CostCenter  = "Engineering"
-      Owner       = "VeVarunSharma"
+      Owner       = var.owner
     },
     var.tags,
   )
