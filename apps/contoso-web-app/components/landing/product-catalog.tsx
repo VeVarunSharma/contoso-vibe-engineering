@@ -88,7 +88,7 @@ const products: Product[] = [
 export function ProductCatalog() {
   const [category, setCategory] = useState<Category>("All");
   const [query, setQuery] = useState("");
-  const [taggedProducts, setTaggedProducts] = useState<Set<string>>(new Set());
+  const [taggedProduct, setTaggedProduct] = useState<string | null>(null);
 
   const visibleProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -103,7 +103,7 @@ export function ProductCatalog() {
   }, [category, query]);
 
   function generateShelfTag(productId: string) {
-    setTaggedProducts((current) => new Set(current).add(productId));
+    setTaggedProduct(productId);
   }
 
   return (
@@ -121,7 +121,11 @@ export function ProductCatalog() {
         </div>
 
         <div className="mx-auto mt-10 flex max-w-5xl flex-col gap-4 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-2" aria-label="Product categories">
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label="Product categories"
+          >
             {categories.map((item) => (
               <Button
                 key={item}
@@ -156,7 +160,7 @@ export function ProductCatalog() {
         {visibleProducts.length > 0 ? (
           <div className="mx-auto mt-8 grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3">
             {visibleProducts.map((product) => {
-              const tagIsReady = taggedProducts.has(product.id);
+              const tagIsReady = taggedProduct === product.id;
 
               return (
                 <Card key={product.id} className="gap-4">
@@ -192,13 +196,33 @@ export function ProductCatalog() {
                     </div>
                     {tagIsReady && (
                       <output
-                        className="block rounded-lg border border-dashed border-primary bg-primary/5 p-3 text-sm"
+                        className="block rounded-lg border-2 border-dashed border-primary bg-primary/5 p-4 text-sm print:fixed print:inset-8 print:z-50 print:bg-background"
                         aria-live="polite"
+                        aria-label={`${product.name} printable shelf tag`}
                       >
-                        <span className="block font-semibold">
-                          Shelf tag ready
+                        <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Shelf tag ready · {product.category}
                         </span>
-                        {product.name} · {product.price} · {product.shelf}
+                        <strong className="mt-2 block text-base">
+                          {product.name}
+                        </strong>
+                        <span className="mt-2 grid grid-cols-2 gap-2">
+                          <span>SKU: {product.sku}</span>
+                          <span className="text-right">
+                            Shelf: {product.shelf}
+                          </span>
+                          <span className="col-span-2 text-xl font-bold">
+                            {product.price} wholesale case
+                          </span>
+                        </span>
+                        <Button
+                          type="button"
+                          className="mt-3 min-h-11 w-full print:hidden"
+                          size="sm"
+                          onClick={() => window.print()}
+                        >
+                          Print shelf tag
+                        </Button>
                       </output>
                     )}
                   </CardContent>

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import { SiteHeader } from "@/components/site-header";
 
@@ -42,6 +43,17 @@ describe("<SiteHeader />", () => {
     expect(
       screen.getByRole("link", { name: /retailer catalog/i }),
     ).toHaveAttribute("href", "#catalog");
+  });
+
+  it("toggles the mobile navigation", async () => {
+    const user = userEvent.setup();
+    const menu = screen.getByRole("button", { name: /open navigation/i });
+
+    expect(menu).toHaveAttribute("aria-expanded", "false");
+    await user.click(menu);
+    expect(
+      screen.getByRole("button", { name: /close navigation/i }),
+    ).toHaveAttribute("aria-expanded", "true");
   });
 
   it("uses a semantic <header> element", () => {

@@ -65,7 +65,7 @@ export function DistributionSection() {
         </div>
         <aside
           id="compliance"
-          className="mx-auto mt-10 flex max-w-5xl flex-col gap-4 rounded-xl border bg-card p-6 sm:flex-row sm:items-center"
+          className="mx-auto mt-10 flex max-w-5xl scroll-mt-20 flex-col gap-4 rounded-xl border bg-card p-6 sm:flex-row sm:items-center"
           aria-labelledby="compliance-title"
         >
           <ShieldCheck

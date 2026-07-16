@@ -1,11 +1,16 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@workspace/ui";
-import { Truck } from "lucide-react";
+import { Menu, Truck, X } from "lucide-react";
 
 export function SiteHeader() {
+  const [menuIsOpen, setMenuIsOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex min-h-16 items-center px-4 md:px-6">
+      <div className="container relative flex min-h-16 items-center px-4 md:px-6">
         <div className="mr-4 flex items-center">
           <Link
             href="/"
@@ -18,7 +23,8 @@ export function SiteHeader() {
             </span>
           </Link>
           <nav
-            className="hidden items-center space-x-5 text-sm font-medium md:flex"
+            id="main-navigation"
+            className={`${menuIsOpen ? "flex" : "hidden"} absolute left-4 right-4 top-[calc(100%+0.5rem)] flex-col rounded-xl border bg-background p-3 text-sm font-medium shadow-lg md:static md:flex md:flex-row md:items-center md:space-x-5 md:border-0 md:bg-transparent md:p-0 md:shadow-none`}
             aria-label="Main"
           >
             <Link
@@ -42,6 +48,22 @@ export function SiteHeader() {
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-end space-x-2">
+          <Button
+            type="button"
+            className="min-h-11 min-w-11 md:hidden"
+            variant="ghost"
+            size="icon"
+            aria-label={menuIsOpen ? "Close navigation" : "Open navigation"}
+            aria-controls="main-navigation"
+            aria-expanded={menuIsOpen}
+            onClick={() => setMenuIsOpen((current) => !current)}
+          >
+            {menuIsOpen ? (
+              <X aria-hidden="true" />
+            ) : (
+              <Menu aria-hidden="true" />
+            )}
+          </Button>
           <nav className="flex items-center" aria-label="Account">
             <Button className="min-h-11" asChild>
               <Link href="#catalog">Retailer catalog</Link>

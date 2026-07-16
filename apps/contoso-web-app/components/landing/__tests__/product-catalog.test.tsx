@@ -5,6 +5,10 @@ import userEvent from "@testing-library/user-event";
 import { ProductCatalog } from "@/components/landing/product-catalog";
 
 describe("<ProductCatalog />", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("renders liquor and cannabis products", () => {
     render(<ProductCatalog />);
 
@@ -49,6 +53,7 @@ describe("<ProductCatalog />", () => {
 
   it("generates a shelf tag with product details", async () => {
     const user = userEvent.setup();
+    const print = jest.spyOn(window, "print").mockImplementation(() => {});
     render(<ProductCatalog />);
 
     await user.click(
@@ -56,6 +61,11 @@ describe("<ProductCatalog />", () => {
     );
 
     expect(screen.getByText(/shelf tag ready/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/printable shelf tag/i),
+    ).toHaveTextContent(/SKU: LQ-BBN-104/);
+    await user.click(screen.getByRole("button", { name: /print shelf tag/i }));
+    expect(print).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/tag generated/i)).toBeDisabled();
   });
 });
