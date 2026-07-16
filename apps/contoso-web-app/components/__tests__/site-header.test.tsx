@@ -20,29 +20,28 @@ describe("<SiteHeader />", () => {
   beforeEach(() => render(<SiteHeader />));
 
   it("renders the brand link to home", () => {
-    expect(screen.getByText(/contoso vibe/i)).toBeInTheDocument();
+    expect(screen.getByText(/contoso distribution/i)).toBeInTheDocument();
   });
 
-  it("renders Mission, Team, and Muppets nav items", () => {
-    expect(screen.getByRole("link", { name: /mission/i })).toHaveAttribute(
+  it("renders catalog, distribution, and compliance navigation", () => {
+    expect(screen.getByRole("link", { name: /^catalog$/i })).toHaveAttribute(
       "href",
-      "#mission",
+      "#catalog",
     );
-    expect(screen.getByRole("link", { name: /team/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^distribution$/i })).toHaveAttribute(
       "href",
-      "#team",
+      "#distribution",
     );
-    expect(screen.getByRole("link", { name: /muppets/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /compliance/i })).toHaveAttribute(
       "href",
-      "/muppets",
+      "#compliance",
     );
   });
 
-  it("renders the GitHub link with target=_blank and rel=noreferrer", () => {
-    const github = screen.getByRole("link", { name: /github/i });
-    expect(github).toHaveAttribute("href", "https://github.com/contoso-vibe");
-    expect(github).toHaveAttribute("target", "_blank");
-    expect(github).toHaveAttribute("rel", "noreferrer");
+  it("links the retailer catalog action to the catalog", () => {
+    expect(
+      screen.getByRole("link", { name: /retailer catalog/i }),
+    ).toHaveAttribute("href", "#catalog");
   });
 
   it("uses a semantic <header> element", () => {

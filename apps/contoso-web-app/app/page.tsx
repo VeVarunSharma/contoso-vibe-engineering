@@ -1,13 +1,13 @@
 import { HeroSection } from "@/components/landing/hero-section";
-import { MissionSection } from "@/components/landing/mission-section";
-import { TeamSection } from "@/components/landing/team-section";
+import { ProductCatalog } from "@/components/landing/product-catalog";
+import { DistributionSection } from "@/components/landing/distribution-section";
 
 export default function Page() {
   return (
-    <div className="flex flex-col min-h-svh">
+    <main className="flex min-h-svh flex-col">
       <HeroSection />
-      <MissionSection />
-      <TeamSection />
-    </div>
+      <ProductCatalog />
+      <DistributionSection />
+    </main>
   );
 }
