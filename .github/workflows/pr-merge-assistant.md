@@ -306,7 +306,7 @@ Follow the `action` in `decision-state.json` exactly:
 
 ### Step 2: Address feedback or failing checks
 
-When `action` is `assign_agent`, call `assign_to_agent` for this PR, add `changes-requested`, remove `ready-to-merge`, and leave one concise blocker comment using the counts in `decision-state.json`.
+When `action` is `assign_agent`, call `assign_to_agent` with `pull_number` set to the selected PR number and `agent` set to `copilot`. Never use `issue_number` for a pull request. Also add `changes-requested`, remove `ready-to-merge`, and leave one concise blocker comment using the counts in `decision-state.json`.
 
 ### Step 3: Merge only after greenlight
 
