@@ -1,18 +1,61 @@
 ---
-description: Ensures code review is triggered, feedback is addressed, and merges PRs when ready.
+name: PR Merge Assistant
+description: Automatically reviews, repairs, and merges one open pull request at a time.
 on:
   schedule: every 30 minutes
+  pull_request:
+    types: [synchronize, ready_for_review]
   pull_request_review:
     types: [submitted]
+concurrency:
+  group: pr-merge-assistant
+  cancel-in-progress: false
 permissions:
   contents: read
   pull-requests: read
   checks: read
   issues: read
+strict: true
 tools:
-  github:
-    mode: local
-    toolsets: [default]
+  bash: [cat, jq]
+steps:
+  - name: Prefetch oldest open PR
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+    run: |
+      set -euo pipefail
+      mkdir -p /tmp/gh-aw/agent
+
+      gh pr list \
+        --repo "$REPO" \
+        --state open \
+        --limit 100 \
+        --json number,title,isDraft,createdAt \
+        --jq 'sort_by(.createdAt) | map(select(.isDraft == false)) | .[0] // {}' \
+        > /tmp/gh-aw/agent/selected-pr.json
+
+      PR_NUMBER=$(jq -r '.number // empty' /tmp/gh-aw/agent/selected-pr.json)
+      if [[ -z "$PR_NUMBER" ]]; then
+        printf '{}\n' > /tmp/gh-aw/agent/pr-state.json
+        printf '{"reviewThreads":[]}\n' > /tmp/gh-aw/agent/review-threads.json
+        exit 0
+      fi
+
+      gh pr view "$PR_NUMBER" \
+        --repo "$REPO" \
+        --json number,title,url,author,assignees,isDraft,createdAt,updatedAt,baseRefName,headRefName,mergeStateStatus,reviewDecision,reviewRequests,reviews,commits,comments,labels,statusCheckRollup \
+        > /tmp/gh-aw/agent/pr-state.json
+
+      OWNER=${REPO%%/*}
+      NAME=${REPO#*/}
+      gh api graphql \
+        -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:20){nodes{author{login}body createdAt url}}}}}}}' \
+        -f owner="$OWNER" \
+        -f name="$NAME" \
+        -F number="$PR_NUMBER" \
+        --jq '.data.repository.pullRequest.reviewThreads' \
+        > /tmp/gh-aw/agent/review-threads.json
 safe-outputs:
   add-comment:
     max: 1
@@ -26,9 +69,26 @@ safe-outputs:
     allowed: [ready-to-merge, needs-review, changes-requested]
     target: "*"
     max: 3
+  add-reviewer:
+    reviewers: [copilot]
+    target: "*"
+    max: 1
+    github-token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+  assign-to-agent:
+    name: copilot
+    allowed: [copilot]
+    target: "*"
+    max: 1
+    github-token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+  noop:
+    report-as-issue: false
+  missing-data:
+    create-issue: false
+  missing-tool:
+    create-issue: false
   jobs:
     merge-pr:
-      description: "Merge a specific pull request by number after all checks pass and reviews are approved"
+      description: "Revalidate and squash-merge one approved pull request"
       runs-on: ubuntu-latest
       inputs:
         pr_number:
@@ -44,76 +104,110 @@ safe-outputs:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             REPO: ${{ github.repository }}
           run: |
+            set -euo pipefail
             PR_NUMBER=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "merge_pr") | .pr_number')
-            gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --auto
+            if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+              echo "Invalid pull request number: $PR_NUMBER" >&2
+              exit 1
+            fi
+
+            PR_STATE=$(gh pr view "$PR_NUMBER" \
+              --repo "$REPO" \
+              --json isDraft,reviewDecision,statusCheckRollup)
+
+            jq -e '
+              .isDraft == false
+              and .reviewDecision == "APPROVED"
+              and all(
+                .statusCheckRollup[];
+                if .__typename == "CheckRun" then
+                  .status == "COMPLETED"
+                  and (.conclusion == "SUCCESS" or .conclusion == "NEUTRAL" or .conclusion == "SKIPPED")
+                elif .__typename == "StatusContext" then
+                  .state == "SUCCESS"
+                else
+                  false
+                end
+              )
+            ' <<< "$PR_STATE" > /dev/null
+
+            OWNER=${REPO%%/*}
+            NAME=${REPO#*/}
+            UNRESOLVED_THREADS=$(gh api graphql \
+              -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' \
+              -f owner="$OWNER" \
+              -f name="$NAME" \
+              -F number="$PR_NUMBER" \
+              --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
+
+            if [[ "$UNRESOLVED_THREADS" != "0" ]]; then
+              echo "PR #$PR_NUMBER still has $UNRESOLVED_THREADS unresolved review thread(s)." >&2
+              exit 1
+            fi
+
+            gh pr merge "$PR_NUMBER" --repo "$REPO" --squash
+timeout-minutes: 15
 ---
 
 # PR Merge Assistant
 
 ## Task
 
-You are a fully automated pull request merge assistant. Your job is to pick the **oldest open PR** that is closest to being ready to merge, evaluate it, and either merge it or report what's blocking it. Process only ONE PR per run.
+You are a fully automated pull request merge assistant. Process exactly one pull request per run and keep that PR moving through review, repair, re-review, and merge without requiring a person to operate the workflow.
 
 ## Process
 
-### Step 0: Pick One PR
+### Step 0: Load the selected PR
 
-List all open pull requests sorted by oldest first:
-```
-gh pr list --state open --json number,title,isDraft,createdAt,labels,reviewDecision --jq 'sort_by(.createdAt)'
-```
+Read:
 
-Select the first non-draft PR from this list. If triggered by a `pull_request_review` event, evaluate only the triggering PR instead.
+- `/tmp/gh-aw/agent/selected-pr.json`
+- `/tmp/gh-aw/agent/pr-state.json`
+- `/tmp/gh-aw/agent/review-threads.json`
 
-### Step 1: Check if Code Review Has Been Requested
+The deterministic prefetch step has selected the oldest non-draft open PR. Never switch to another PR during this run. If `selected-pr.json` has no `number`, call `noop`.
 
-Use `gh pr view <number> --json reviews,reviewRequests` to inspect the PR's review status. Check:
-- Has a code review been requested? (Look for requested reviewers or submitted reviews)
-- If **no review has been requested**, post a comment asking the author to request a code review (CCR) and use `noop`.
+### Step 1: Ensure Copilot code review
 
-### Step 2: Evaluate Review Feedback
+Inspect `reviews` and `reviewRequests` in `pr-state.json`.
 
-If reviews exist, check the current state:
-- Use `gh pr view` with JSON output to get all submitted reviews and their states.
-- Identify reviews with status `CHANGES_REQUESTED` or `COMMENTED` that have unresolved threads.
-- Check if the author has pushed commits after the last review requesting changes (indicating feedback was addressed).
+- If there is no submitted review and Copilot is not already requested, call `add_reviewer` for reviewer `copilot`, add `needs-review`, remove `ready-to-merge`, and comment that Copilot code review was requested.
+- If Copilot review is already pending, call `noop`; do not request it again or add another comment.
 
-### Step 3: Determine Readiness
+### Step 2: Address feedback or failing checks
 
-The PR is **ready to merge** when ALL of these conditions are met:
-1. At least one approving review exists
-2. No reviews have outstanding `CHANGES_REQUESTED` status without subsequent commits addressing them
-3. All CI checks are passing (use `gh pr checks`)
-4. No unresolved review conversations remain
+Inspect the latest review state, unresolved threads, commit timestamps, assignees, and `statusCheckRollup`.
 
-### Step 4: Take Action
+- If review feedback remains unresolved or a completed check failed, call `assign_to_agent` for this PR unless Copilot is already assigned. Add `changes-requested`, remove `ready-to-merge`, and leave one concise blocker comment.
+- If Copilot is already assigned, call `noop` and wait for its commit.
+- If a newer commit follows the latest blocking review, request Copilot review again with `add_reviewer` unless a review is already pending.
+- If checks are pending or queued, call `noop` and wait.
 
-**If ready to merge:**
-- Remove `needs-review` or `changes-requested` labels if present
-- Add the `ready-to-merge` label
-- Post a brief comment summarizing: approvals received, checks passing, no outstanding feedback
-- Merge the pull request by calling the `merge_pr` tool
+### Step 3: Merge only after greenlight
 
-**If NOT ready to merge:**
-- Add the appropriate label (`needs-review` or `changes-requested`)
-- Remove `ready-to-merge` label if present
-- Post a comment with a clear checklist of what's still needed:
-  - ❌ Missing approvals (list who needs to review)
-  - ❌ Unresolved review feedback (summarize outstanding comments)
-  - ❌ Failing CI checks (list which checks are failing)
-- Use `noop` (do NOT merge)
+Call `merge_pr` with the selected PR number only when all conditions are true:
+
+1. At least one current `APPROVED` review exists.
+2. `reviewDecision` is `APPROVED`.
+3. Every check run is completed with `SUCCESS`, `NEUTRAL`, or `SKIPPED`, and every status context is `SUCCESS`.
+4. Every review thread is resolved.
+5. The PR is not a draft.
+
+Before merging, remove `needs-review` and `changes-requested`, add `ready-to-merge`, and post one concise greenlight comment. The merge job independently revalidates these gates before merging.
 
 ## Noop Conditions
 
 Use `noop` with a brief explanation when:
 - No open non-draft PRs exist
-- The selected PR is not ready to merge (feedback pending, CI failing, etc.)
-- No code review has been requested on the selected PR
+- Copilot review is already pending
+- Copilot is already assigned to address feedback or CI
+- Checks are pending
 
 ## Important Rules
 
 - Never merge a PR without at least one approval
-- Never merge if CI checks are failing
-- Always explain clearly what's blocking the merge
-- When feedback appears addressed (new commits after review), give benefit of the doubt and approve merge if other conditions are met
-- Be concise in comments — use checklists for clarity
+- Never merge with failing or pending checks
+- Never merge with unresolved review threads
+- Never treat a new commit as approval; request re-review instead
+- Never process more than one PR in a run
+- Avoid duplicate comments and duplicate Copilot assignments
