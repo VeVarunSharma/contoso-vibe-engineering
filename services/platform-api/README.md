@@ -1,6 +1,6 @@
 # Platform API
 
-> A small Express + Drizzle service that backs the demo apps. Demonstrates the "vibe-engineered" backend pattern: typed routes, parameterized queries, rate limiting, and bearer-token auth on mutations.
+> A small Express + Drizzle service that backs the demo apps. Demonstrates the "vibe-engineered" backend pattern: typed routes, parameterized queries, rate limiting, and bearer-token auth.
 
 ## Tech stack
 
@@ -19,11 +19,62 @@
 
 | Method | Path | Auth | Description |
 | ------ | ---- | ---- | ----------- |
-| `GET` | `/health` | none | Liveness probe |
-| `GET` | `/users?page=1&pageSize=20` | none | List users (safe DTO — no password hashes). Paginated; defaults `page=1`, `pageSize=20`, max `pageSize=100`. Response includes `{ data, pagination: { page, pageSize, total, totalPages } }`. |
-| `POST` | `/users` | Bearer | Create a user |
+| `GET` | `/health` | None | Database health check |
+| `GET` | `/users?limit=20&offset=0` | Bearer token | List users. `limit` defaults to `20` and accepts `1`-`100`; `offset` defaults to `0` and accepts non-negative integers. |
 
 All inputs are validated by Zod schemas in [`src/validators/`](src/validators/) via a centralized `validate(schema)` middleware. See [`src/routes/`](src/routes/) for handler source.
+
+### Authentication
+
+`GET /users` requires `Authorization: Bearer <token>`, where the token matches `PLATFORM_API_TOKEN`. The configured token must be at least 32 characters long. `GET /health` does not require authentication.
+
+### Examples
+
+Check service and database health:
+
+```bash
+curl http://localhost:3001/health
+```
+
+Successful response (`200`):
+
+```json
+{
+  "status": "ok",
+  "db": "up"
+}
+```
+
+If the database check fails, the endpoint returns `503`:
+
+```json
+{
+  "status": "degraded",
+  "db": "down",
+  "error": "connection refused"
+}
+```
+
+List up to 20 users, starting after the first 10:
+
+```bash
+curl \
+  -H "Authorization: Bearer $PLATFORM_API_TOKEN" \
+  "http://localhost:3001/users?limit=20&offset=10"
+```
+
+Successful response (`200`) is a JSON array, not a pagination wrapper:
+
+```json
+[
+  {
+    "id": 11,
+    "name": "Ada Lovelace",
+    "email": "ada@example.com",
+    "createdAt": "2026-07-27T12:00:00.000Z"
+  }
+]
+```
 
 ## Quick start
 
