@@ -19,109 +19,98 @@ strict: true
 tools:
   bash: [cat, jq]
 steps:
-  - name: Prefetch oldest open PR
+  - name: Select next actionable PR
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
     run: |
       set -euo pipefail
-      mkdir -p /tmp/gh-aw/agent
+      AGENT_DIR=/tmp/gh-aw/agent
+      CANDIDATE_DIR="$AGENT_DIR/candidates"
+      mkdir -p "$CANDIDATE_DIR"
+      : > "$AGENT_DIR/candidates.jsonl"
 
       gh pr list \
         --repo "$REPO" \
         --state open \
         --limit 100 \
-        --json number,title,isDraft,createdAt \
-        --jq 'sort_by(.createdAt) | map(select(.isDraft == false)) | .[0] // {}' \
-        > /tmp/gh-aw/agent/selected-pr.json
-
-      PR_NUMBER=$(jq -r '.number // empty' /tmp/gh-aw/agent/selected-pr.json)
-      if [[ -z "$PR_NUMBER" ]]; then
-        printf '{}\n' > /tmp/gh-aw/agent/pr-state.json
-        printf '{"reviewThreads":[]}\n' > /tmp/gh-aw/agent/review-threads.json
-        printf '[]\n' > /tmp/gh-aw/agent/review-events.json
-        printf '{"action":"none","reason":"No open non-draft pull requests."}\n' > /tmp/gh-aw/agent/decision-state.json
-        exit 0
-      fi
-
-      gh pr view "$PR_NUMBER" \
-        --repo "$REPO" \
-        --json number,title,url,author,assignees,isDraft,createdAt,updatedAt,baseRefName,headRefName,mergeStateStatus,reviewDecision,reviewRequests,reviews,commits,comments,labels,statusCheckRollup \
-        > /tmp/gh-aw/agent/pr-state.json
+        --json number,isDraft,createdAt \
+        --jq 'sort_by(.createdAt) | .[] | select(.isDraft == false) | .number' \
+        > "$AGENT_DIR/open-pr-numbers.txt"
 
       OWNER=${REPO%%/*}
       NAME=${REPO#*/}
-      gh api graphql \
-        -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:20){nodes{author{login}body createdAt url}}}}}}}' \
-        -f owner="$OWNER" \
-        -f name="$NAME" \
-        -F number="$PR_NUMBER" \
-        --jq '.data.repository.pullRequest.reviewThreads' \
-        > /tmp/gh-aw/agent/review-threads.json
 
-      gh api \
-        "repos/$REPO/issues/$PR_NUMBER/timeline?per_page=100" \
-        -H "Accept: application/vnd.github+json" \
-        --jq '[.[]
-          | select(.event == "review_requested" or .event == "review_request_removed")
-          | {
-              event,
-              created_at,
-              actor: .actor.login,
-              requested_reviewer: .requested_reviewer.login
-            }
-        ]' \
-        > /tmp/gh-aw/agent/review-events.json
+      while IFS= read -r PR_NUMBER; do
+        [[ -n "$PR_NUMBER" ]] || continue
+        PR_DIR="$CANDIDATE_DIR/$PR_NUMBER"
+        mkdir -p "$PR_DIR"
 
-      jq -n \
-        --slurpfile pr /tmp/gh-aw/agent/pr-state.json \
-        --slurpfile threads /tmp/gh-aw/agent/review-threads.json \
-        --slurpfile events /tmp/gh-aw/agent/review-events.json \
-        '
-          $pr[0] as $p
-          | ($threads[0].nodes // []) as $review_threads
-          | ($events[0] // []) as $review_events
-          | ([ $p.commits[].committedDate ] | max // "") as $latest_commit
-          | ([ $p.reviews[]
-                | select(.author.login | startswith("copilot-pull-request-reviewer"))
-                | .submittedAt
-             ] | max // "") as $latest_copilot_review
-          | ([ $review_events[]
-                | select((.requested_reviewer // "") == "Copilot")
-             ] | sort_by(.created_at) | last // {}) as $latest_copilot_event
-          | ([ $review_threads[] | select(.isResolved == false) ] | length) as $unresolved_threads
-          | ([ $p.statusCheckRollup[]
-                | select(
-                    (.__typename == "CheckRun"
-                      and .status == "COMPLETED"
-                      and (.conclusion != "SUCCESS" and .conclusion != "NEUTRAL" and .conclusion != "SKIPPED"))
-                    or (.__typename == "StatusContext" and .state != "SUCCESS" and .state != "PENDING")
-                    or (.__typename != "CheckRun" and .__typename != "StatusContext")
-                  )
-             ] | length) as $failing_checks
-          | ([ $p.statusCheckRollup[]
-                | select(
-                    (.__typename == "CheckRun" and .status != "COMPLETED")
-                    or (.__typename == "StatusContext" and .state == "PENDING")
-                  )
-             ] | length) as $pending_checks
-          | any($p.assignees[]?; ((.login // "") | ascii_downcase | contains("copilot"))) as $copilot_assigned
-          | ($latest_copilot_review != "" and $latest_copilot_review >= $latest_commit) as $review_current
-          | (($latest_copilot_event.event // "") == "review_requested"
-              and ($latest_copilot_event.created_at // "") >= $latest_commit
-              and ($latest_copilot_event.created_at // "") > $latest_copilot_review) as $review_pending
-          | {
-              pull_request_number: $p.number,
-              latest_commit: $latest_commit,
-              latest_copilot_review: $latest_copilot_review,
-              review_current: $review_current,
-              review_pending: $review_pending,
-              unresolved_threads: $unresolved_threads,
-              failing_checks: $failing_checks,
-              pending_checks: $pending_checks,
-              review_decision: $p.reviewDecision,
-              copilot_assigned: $copilot_assigned,
-              action: (
+        gh pr view "$PR_NUMBER" \
+          --repo "$REPO" \
+          --json number,title,url,author,assignees,isDraft,createdAt,updatedAt,baseRefName,headRefName,mergeStateStatus,reviewDecision,reviewRequests,reviews,commits,comments,labels,statusCheckRollup \
+          > "$PR_DIR/pr-state.json"
+
+        gh api graphql \
+          -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:20){nodes{author{login}body createdAt url}}}}}}}' \
+          -f owner="$OWNER" \
+          -f name="$NAME" \
+          -F number="$PR_NUMBER" \
+          --jq '.data.repository.pullRequest.reviewThreads' \
+          > "$PR_DIR/review-threads.json"
+
+        gh api \
+          "repos/$REPO/issues/$PR_NUMBER/timeline?per_page=100" \
+          -H "Accept: application/vnd.github+json" \
+          --jq '[.[]
+            | select(.event == "review_requested" or .event == "review_request_removed")
+            | {
+                event,
+                created_at,
+                actor: .actor.login,
+                requested_reviewer: .requested_reviewer.login
+              }
+          ]' \
+          > "$PR_DIR/review-events.json"
+
+        jq -n \
+          --slurpfile pr "$PR_DIR/pr-state.json" \
+          --slurpfile threads "$PR_DIR/review-threads.json" \
+          --slurpfile events "$PR_DIR/review-events.json" \
+          '
+            $pr[0] as $p
+            | ($threads[0].nodes // []) as $review_threads
+            | ($events[0] // []) as $review_events
+            | ([ $p.commits[].committedDate ] | max // "") as $latest_commit
+            | ([ $p.reviews[]
+                  | select(.author.login | startswith("copilot-pull-request-reviewer"))
+                  | .submittedAt
+               ] | max // "") as $latest_copilot_review
+            | ([ $review_events[]
+                  | select((.requested_reviewer // "") == "Copilot")
+               ] | sort_by(.created_at) | last // {}) as $latest_copilot_event
+            | ([ $review_threads[] | select(.isResolved == false) ] | length) as $unresolved_threads
+            | ([ $p.statusCheckRollup[]
+                  | select(
+                      (.__typename == "CheckRun"
+                        and .status == "COMPLETED"
+                        and (.conclusion != "SUCCESS" and .conclusion != "NEUTRAL" and .conclusion != "SKIPPED"))
+                      or (.__typename == "StatusContext" and .state != "SUCCESS" and .state != "PENDING")
+                      or (.__typename != "CheckRun" and .__typename != "StatusContext")
+                    )
+               ] | length) as $failing_checks
+            | ([ $p.statusCheckRollup[]
+                  | select(
+                      (.__typename == "CheckRun" and .status != "COMPLETED")
+                      or (.__typename == "StatusContext" and .state == "PENDING")
+                    )
+               ] | length) as $pending_checks
+            | any($p.assignees[]?; ((.login // "") | ascii_downcase | contains("copilot"))) as $copilot_assigned
+            | ($latest_copilot_review != "" and $latest_copilot_review >= $latest_commit) as $review_current
+            | (($latest_copilot_event.event // "") == "review_requested"
+                and ($latest_copilot_event.created_at // "") >= $latest_commit
+                and ($latest_copilot_event.created_at // "") > $latest_copilot_review) as $review_pending
+            | (
                 if $review_current == false then
                   if $review_pending then "wait" else "request_review" end
                 elif ($unresolved_threads > 0 or $failing_checks > 0 or $p.reviewDecision == "CHANGES_REQUESTED") then
@@ -131,9 +120,73 @@ steps:
                 else
                   "merge"
                 end
-              )
-            }
-        ' > /tmp/gh-aw/agent/decision-state.json
+              ) as $action
+            | {
+                pull_request_number: $p.number,
+                title: $p.title,
+                url: $p.url,
+                created_at: $p.createdAt,
+                latest_commit: $latest_commit,
+                latest_copilot_review: $latest_copilot_review,
+                review_current: $review_current,
+                review_pending: $review_pending,
+                unresolved_threads: $unresolved_threads,
+                failing_checks: $failing_checks,
+                pending_checks: $pending_checks,
+                review_decision: $p.reviewDecision,
+                copilot_assigned: $copilot_assigned,
+                action: $action,
+                priority: (
+                  if $action == "merge" then 0
+                  elif $action == "request_review" then 1
+                  elif $action == "assign_agent" then 2
+                  else 9
+                  end
+                )
+              }
+          ' > "$PR_DIR/decision-state.json"
+
+        jq -c . "$PR_DIR/decision-state.json" >> "$AGENT_DIR/candidates.jsonl"
+      done < "$AGENT_DIR/open-pr-numbers.txt"
+
+      if [[ -s "$AGENT_DIR/candidates.jsonl" ]]; then
+        jq -s '.' "$AGENT_DIR/candidates.jsonl" > "$AGENT_DIR/candidates.json"
+      else
+        printf '[]\n' > "$AGENT_DIR/candidates.json"
+      fi
+
+      jq '
+        [ .[] | select(.action != "wait") ]
+        | sort_by(.priority, .created_at, .pull_request_number)
+        | .[0] // {}
+      ' "$AGENT_DIR/candidates.json" > "$AGENT_DIR/decision-state.json"
+
+      PR_NUMBER=$(jq -r '.pull_request_number // empty' "$AGENT_DIR/decision-state.json")
+      if [[ -z "$PR_NUMBER" ]]; then
+        jq -n \
+          --slurpfile candidates "$AGENT_DIR/candidates.json" \
+          '{
+            action: "none",
+            reason: "No actionable PRs; all open non-draft PRs are waiting on reviews, checks, or assigned fixes.",
+            waiting_count: ([ $candidates[0][] | select(.action == "wait") ] | length)
+          }' > "$AGENT_DIR/decision-state.json"
+        printf '{}\n' > "$AGENT_DIR/selected-pr.json"
+        printf '{}\n' > "$AGENT_DIR/pr-state.json"
+        printf '{"nodes":[]}\n' > "$AGENT_DIR/review-threads.json"
+        printf '[]\n' > "$AGENT_DIR/review-events.json"
+        exit 0
+      fi
+
+      PR_DIR="$CANDIDATE_DIR/$PR_NUMBER"
+      cp "$PR_DIR/pr-state.json" "$AGENT_DIR/pr-state.json"
+      cp "$PR_DIR/review-threads.json" "$AGENT_DIR/review-threads.json"
+      cp "$PR_DIR/review-events.json" "$AGENT_DIR/review-events.json"
+      jq '{
+        number: .pull_request_number,
+        title,
+        url,
+        createdAt: .created_at
+      }' "$AGENT_DIR/decision-state.json" > "$AGENT_DIR/selected-pr.json"
 safe-outputs:
   add-comment:
     max: 1
@@ -163,6 +216,7 @@ safe-outputs:
           required: true
           type: string
       permissions:
+        actions: write
         contents: read
         issues: write
         pull-requests: read
@@ -170,7 +224,9 @@ safe-outputs:
         - name: Assign Copilot coding agent
           env:
             GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
+            DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
             REPO: ${{ github.repository }}
+            WORKFLOW: pr-merge-assistant.lock.yml
           run: |
             set -euo pipefail
             PR_NUMBER=$(jq -r '.items[] | select(.type == "assign_copilot_to_pr") | .pr_number' "$GH_AW_AGENT_OUTPUT")
@@ -199,6 +255,10 @@ safe-outputs:
             gh pr comment "$PR_NUMBER" \
               --repo "$REPO" \
               --body "Copilot coding agent assigned to address unresolved review feedback or actionable CI failures. The PR will be re-reviewed after the next commit."
+
+            gh workflow run "$WORKFLOW" \
+              --repo "$REPO" \
+              --ref "$DEFAULT_BRANCH"
     request-copilot-review:
       description: "Request Copilot code review on one pull request"
       runs-on: ubuntu-latest
@@ -208,6 +268,7 @@ safe-outputs:
           required: true
           type: string
       permissions:
+        actions: write
         contents: read
         issues: write
         pull-requests: write
@@ -215,7 +276,9 @@ safe-outputs:
         - name: Request Copilot reviewer
           env:
             GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
+            DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
             REPO: ${{ github.repository }}
+            WORKFLOW: pr-merge-assistant.lock.yml
           run: |
             set -euo pipefail
             PR_NUMBER=$(jq -r '.items[] | select(.type == "request_copilot_review") | .pr_number' "$GH_AW_AGENT_OUTPUT")
@@ -242,6 +305,10 @@ safe-outputs:
             gh pr comment "$PR_NUMBER" \
               --repo "$REPO" \
               --body "⏳ Copilot code review requested for the current head commit. Waiting for review analysis before merge."
+
+            gh workflow run "$WORKFLOW" \
+              --repo "$REPO" \
+              --ref "$DEFAULT_BRANCH"
     merge-pr:
       description: "Revalidate and squash-merge one Copilot-reviewed pull request"
       runs-on: ubuntu-latest
@@ -251,13 +318,16 @@ safe-outputs:
           required: true
           type: string
       permissions:
+        actions: write
         contents: write
         pull-requests: write
       steps:
         - name: Merge PR
           env:
             GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
+            DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
             REPO: ${{ github.repository }}
+            WORKFLOW: pr-merge-assistant.lock.yml
           run: |
             set -euo pipefail
             PR_NUMBER=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "merge_pr") | .pr_number')
@@ -312,6 +382,10 @@ safe-outputs:
             fi
 
             gh pr merge "$PR_NUMBER" --repo "$REPO" --squash
+
+            gh workflow run "$WORKFLOW" \
+              --repo "$REPO" \
+              --ref "$DEFAULT_BRANCH"
 timeout-minutes: 15
 ---
 
@@ -333,15 +407,14 @@ Read:
 - `/tmp/gh-aw/agent/review-events.json`
 - `/tmp/gh-aw/agent/decision-state.json`
 
-The deterministic prefetch step has selected the oldest non-draft open PR and computed its next transition. Never switch to another PR during this run. Treat `decision-state.json` as authoritative and do not override its `action`.
+The deterministic prefetch step has scanned every open non-draft PR, skipped PRs already waiting on external work, and selected exactly one actionable PR. Merge-ready PRs are prioritized, followed by review requests and repair assignments. Never switch to another PR during this run. Treat `decision-state.json` as authoritative and do not override its `action`.
 
 ### Step 1: Ensure Copilot code review
 
 Follow the `action` in `decision-state.json` exactly:
 
 - `request_review`: call `request_copilot_review` with `pr_number`. That atomic job requests the reviewer, updates labels, and posts the status comment; do not emit separate comment or label outputs.
-- `wait`: call `noop` with the state values that explain what is pending. Do not add comments or labels.
-- `none`: call `noop` because no eligible PR exists.
+- `none`: call `noop` because every open non-draft PR is already waiting on review, checks, or an assigned fix.
 
 ### Step 2: Address feedback or failing checks
 
@@ -363,9 +436,7 @@ Before merging, remove `needs-review` and `changes-requested`, add `ready-to-mer
 
 Use `noop` with a brief explanation when:
 - No open non-draft PRs exist
-- Copilot review is already pending
-- Copilot is already assigned to address feedback or CI
-- Checks are pending
+- Every open non-draft PR is already waiting on review, checks, or an assigned fix
 
 ## Important Rules
 
@@ -375,4 +446,5 @@ Use `noop` with a brief explanation when:
 - Never merge with unresolved review threads
 - Never treat a new commit as approval; request re-review instead
 - Never process more than one PR in a run
+- Do not let a waiting PR block another actionable PR
 - Avoid duplicate comments and duplicate Copilot assignments
