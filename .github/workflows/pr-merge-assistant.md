@@ -1,10 +1,9 @@
 ---
 description: Ensures code review is triggered, feedback is addressed, and merges PRs when ready.
 on:
+  schedule: every 30 minutes
   pull_request_review:
     types: [submitted]
-  slash_command:
-    name: merge-check
 permissions:
   contents: read
   pull-requests: read
@@ -16,18 +15,26 @@ tools:
     toolsets: [default]
 safe-outputs:
   add-comment:
-    max: 2
+    max: 10
+    target: "*"
     hide-older-comments: true
   add-labels:
     allowed: [ready-to-merge, needs-review, changes-requested]
-    max: 3
+    target: "*"
+    max: 10
   remove-labels:
     allowed: [ready-to-merge, needs-review, changes-requested]
-    max: 3
+    target: "*"
+    max: 10
   jobs:
     merge-pr:
-      description: "Merge the pull request after all checks pass and reviews are approved"
+      description: "Merge a specific pull request by number after all checks pass and reviews are approved"
       runs-on: ubuntu-latest
+      inputs:
+        pr_number:
+          description: "The PR number to merge"
+          required: true
+          type: string
       permissions:
         contents: write
         pull-requests: write
@@ -35,9 +42,9 @@ safe-outputs:
         - name: Merge PR
           env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
             REPO: ${{ github.repository }}
           run: |
+            PR_NUMBER=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "merge_pr") | .pr_number')
             gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --auto
 ---
 
@@ -45,17 +52,24 @@ safe-outputs:
 
 ## Task
 
-You are a pull request merge assistant. Your job is to evaluate whether a PR is ready to merge by checking code review status, ensuring feedback has been addressed, and either merging the PR or reporting what's still needed.
+You are a fully automated pull request merge assistant. Your job is to evaluate ALL open PRs in the repository, check their review and CI status, ensure feedback has been addressed, and merge any PRs that are ready — without human intervention.
 
 ## Process
 
-Follow this decision loop for the triggering pull request:
+### Step 0: Discover Open PRs
+
+When triggered on a schedule, list all open pull requests:
+```
+gh pr list --state open --json number,title,isDraft,labels,reviewDecision,statusCheckRollup
+```
+
+For each non-draft PR, run through the following steps. When triggered by a `pull_request_review` event, evaluate only the triggering PR.
 
 ### Step 1: Check if Code Review Has Been Requested
 
-Use `gh pr view` to inspect the PR's review status. Check:
+Use `gh pr view <number> --json reviews,reviewRequests` to inspect the PR's review status. Check:
 - Has a code review been requested? (Look for requested reviewers or submitted reviews)
-- If **no review has been requested**, post a comment asking the author to request a code review (CCR) and use `noop`. Do NOT merge.
+- If **no review has been requested**, post a comment asking the author to request a code review (CCR) and move to the next PR.
 
 ### Step 2: Evaluate Review Feedback
 
@@ -92,10 +106,9 @@ The PR is **ready to merge** when ALL of these conditions are met:
 ## Noop Conditions
 
 Use `noop` with a brief explanation when:
-- No code review has been requested yet
-- The PR still has outstanding feedback that hasn't been addressed
-- CI checks are still failing or pending
-- The PR is a draft
+- No open PRs exist
+- All open PRs are drafts
+- No PRs are ready to merge and comments have already been posted on previous runs
 
 ## Important Rules
 
