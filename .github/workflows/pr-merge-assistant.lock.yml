@@ -23,7 +23,7 @@
 #
 # Automatically reviews, repairs, and merges one open pull request at a time.
 #
-# frontmatter-hash: b4ee4a5c88341e7a0fdf3d12527ac0c9727294d437bc75b0e6d8cd170a0117c3
+# frontmatter-hash: 734a8142be3ca9fd0dc3de3b6f887a125197bfa2945300382b9611bca67e2473
 
 name: "PR Merge Assistant"
 "on":
@@ -114,7 +114,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         name: Prefetch oldest open PR
-        run: "set -euo pipefail\nmkdir -p /tmp/gh-aw/agent\n\ngh pr list \\\n  --repo \"$REPO\" \\\n  --state open \\\n  --limit 100 \\\n  --json number,title,isDraft,createdAt \\\n  --jq 'sort_by(.createdAt) | map(select(.isDraft == false)) | .[0] // {}' \\\n  > /tmp/gh-aw/agent/selected-pr.json\n\nPR_NUMBER=$(jq -r '.number // empty' /tmp/gh-aw/agent/selected-pr.json)\nif [[ -z \"$PR_NUMBER\" ]]; then\n  printf '{}\\n' > /tmp/gh-aw/agent/pr-state.json\n  printf '{\"reviewThreads\":[]}\\n' > /tmp/gh-aw/agent/review-threads.json\n  printf '[]\\n' > /tmp/gh-aw/agent/review-events.json\n  exit 0\nfi\n\ngh pr view \"$PR_NUMBER\" \\\n  --repo \"$REPO\" \\\n  --json number,title,url,author,assignees,isDraft,createdAt,updatedAt,baseRefName,headRefName,mergeStateStatus,reviewDecision,reviewRequests,reviews,commits,comments,labels,statusCheckRollup \\\n  > /tmp/gh-aw/agent/pr-state.json\n\nOWNER=${REPO%%/*}\nNAME=${REPO#*/}\ngh api graphql \\\n  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:20){nodes{author{login}body createdAt url}}}}}}}' \\\n  -f owner=\"$OWNER\" \\\n  -f name=\"$NAME\" \\\n  -F number=\"$PR_NUMBER\" \\\n  --jq '.data.repository.pullRequest.reviewThreads' \\\n  > /tmp/gh-aw/agent/review-threads.json\n\ngh api \\\n  \"repos/$REPO/issues/$PR_NUMBER/timeline?per_page=100\" \\\n  -H \"Accept: application/vnd.github+json\" \\\n  --jq '[.[]\n    | select(.event == \"review_requested\" or .event == \"review_request_removed\")\n    | {\n        event,\n        created_at,\n        actor: .actor.login,\n        requested_reviewer: .requested_reviewer.login\n      }\n  ]' \\\n  > /tmp/gh-aw/agent/review-events.json\n"
+        run: "set -euo pipefail\nmkdir -p /tmp/gh-aw/agent\n\ngh pr list \\\n  --repo \"$REPO\" \\\n  --state open \\\n  --limit 100 \\\n  --json number,title,isDraft,createdAt \\\n  --jq 'sort_by(.createdAt) | map(select(.isDraft == false)) | .[0] // {}' \\\n  > /tmp/gh-aw/agent/selected-pr.json\n\nPR_NUMBER=$(jq -r '.number // empty' /tmp/gh-aw/agent/selected-pr.json)\nif [[ -z \"$PR_NUMBER\" ]]; then\n  printf '{}\\n' > /tmp/gh-aw/agent/pr-state.json\n  printf '{\"reviewThreads\":[]}\\n' > /tmp/gh-aw/agent/review-threads.json\n  printf '[]\\n' > /tmp/gh-aw/agent/review-events.json\n  printf '{\"action\":\"none\",\"reason\":\"No open non-draft pull requests.\"}\\n' > /tmp/gh-aw/agent/decision-state.json\n  exit 0\nfi\n\ngh pr view \"$PR_NUMBER\" \\\n  --repo \"$REPO\" \\\n  --json number,title,url,author,assignees,isDraft,createdAt,updatedAt,baseRefName,headRefName,mergeStateStatus,reviewDecision,reviewRequests,reviews,commits,comments,labels,statusCheckRollup \\\n  > /tmp/gh-aw/agent/pr-state.json\n\nOWNER=${REPO%%/*}\nNAME=${REPO#*/}\ngh api graphql \\\n  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:20){nodes{author{login}body createdAt url}}}}}}}' \\\n  -f owner=\"$OWNER\" \\\n  -f name=\"$NAME\" \\\n  -F number=\"$PR_NUMBER\" \\\n  --jq '.data.repository.pullRequest.reviewThreads' \\\n  > /tmp/gh-aw/agent/review-threads.json\n\ngh api \\\n  \"repos/$REPO/issues/$PR_NUMBER/timeline?per_page=100\" \\\n  -H \"Accept: application/vnd.github+json\" \\\n  --jq '[.[]\n    | select(.event == \"review_requested\" or .event == \"review_request_removed\")\n    | {\n        event,\n        created_at,\n        actor: .actor.login,\n        requested_reviewer: .requested_reviewer.login\n      }\n  ]' \\\n  > /tmp/gh-aw/agent/review-events.json\n\njq -n \\\n  --slurpfile pr /tmp/gh-aw/agent/pr-state.json \\\n  --slurpfile threads /tmp/gh-aw/agent/review-threads.json \\\n  --slurpfile events /tmp/gh-aw/agent/review-events.json \\\n  '\n    $pr[0] as $p\n    | ($threads[0].nodes // []) as $review_threads\n    | ($events[0] // []) as $review_events\n    | ([ $p.commits[].committedDate ] | max // \"\") as $latest_commit\n    | ([ $p.reviews[]\n          | select(.author.login | startswith(\"copilot-pull-request-reviewer\"))\n          | .submittedAt\n       ] | max // \"\") as $latest_copilot_review\n    | ([ $review_events[]\n          | select((.requested_reviewer // \"\") == \"Copilot\")\n       ] | sort_by(.created_at) | last // {}) as $latest_copilot_event\n    | ([ $review_threads[] | select(.isResolved == false) ] | length) as $unresolved_threads\n    | ([ $p.statusCheckRollup[]\n          | select(\n              (.__typename == \"CheckRun\"\n                and .status == \"COMPLETED\"\n                and (.conclusion != \"SUCCESS\" and .conclusion != \"NEUTRAL\" and .conclusion != \"SKIPPED\"))\n              or (.__typename == \"StatusContext\" and .state != \"SUCCESS\" and .state != \"PENDING\")\n              or (.__typename != \"CheckRun\" and .__typename != \"StatusContext\")\n            )\n       ] | length) as $failing_checks\n    | ([ $p.statusCheckRollup[]\n          | select(\n              (.__typename == \"CheckRun\" and .status != \"COMPLETED\")\n              or (.__typename == \"StatusContext\" and .state == \"PENDING\")\n            )\n       ] | length) as $pending_checks\n    | any($p.assignees[]?; ((.login // \"\") | ascii_downcase | contains(\"copilot\"))) as $copilot_assigned\n    | ($latest_copilot_review != \"\" and $latest_copilot_review >= $latest_commit) as $review_current\n    | (($latest_copilot_event.event // \"\") == \"review_requested\"\n        and ($latest_copilot_event.created_at // \"\") >= $latest_commit\n        and ($latest_copilot_event.created_at // \"\") > $latest_copilot_review) as $review_pending\n    | {\n        pull_request_number: $p.number,\n        latest_commit: $latest_commit,\n        latest_copilot_review: $latest_copilot_review,\n        review_current: $review_current,\n        review_pending: $review_pending,\n        unresolved_threads: $unresolved_threads,\n        failing_checks: $failing_checks,\n        pending_checks: $pending_checks,\n        review_decision: $p.reviewDecision,\n        copilot_assigned: $copilot_assigned,\n        action:\n          if $review_current == false then\n            if $review_pending then \"wait\" else \"request_review\" end\n          elif ($unresolved_threads > 0 or $failing_checks > 0 or $p.reviewDecision == \"CHANGES_REQUESTED\") then\n            if $copilot_assigned then \"wait\" else \"assign_agent\" end\n          elif $pending_checks > 0 then\n            \"wait\"\n          else\n            \"merge\"\n          end\n      }\n  ' > /tmp/gh-aw/agent/decision-state.json\n"
 
       - name: Configure Git credentials
         env:
@@ -1159,7 +1159,7 @@ jobs:
             --repo "$REPO" \
             --json isDraft,reviewDecision,statusCheckRollup,reviews,commits)
 
-          jq -e '
+          if ! jq -e '
             . as $pr
             | ([ $pr.commits[].committedDate ] | max // "") as $latest_commit
             | ([ $pr.reviews[]
@@ -1181,7 +1181,10 @@ jobs:
                 false
               end
             )
-          ' <<< "$PR_STATE" > /dev/null
+          ' <<< "$PR_STATE" > /dev/null; then
+            echo "::warning::PR #$PR_NUMBER changed after evaluation and no longer satisfies merge gates; deferring to the next run."
+            exit 0
+          fi
 
           OWNER=${REPO%%/*}
           NAME=${REPO#*/}
@@ -1193,8 +1196,8 @@ jobs:
             --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
 
           if [[ "$UNRESOLVED_THREADS" != "0" ]]; then
-            echo "PR #$PR_NUMBER still has $UNRESOLVED_THREADS unresolved review thread(s)." >&2
-            exit 1
+            echo "::warning::PR #$PR_NUMBER now has $UNRESOLVED_THREADS unresolved review thread(s); deferring to the next run."
+            exit 0
           fi
 
           gh pr merge "$PR_NUMBER" --repo "$REPO" --squash
@@ -1342,7 +1345,7 @@ jobs:
           GH_AW_AGENT_TARGET: "*"
           GH_AW_AGENT_ALLOWED: "copilot"
         with:
-          github-token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          github-token: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
