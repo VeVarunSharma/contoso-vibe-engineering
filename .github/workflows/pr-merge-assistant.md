@@ -92,11 +92,12 @@ safe-outputs:
           type: string
       permissions:
         contents: read
-        pull-requests: read
+        issues: write
+        pull-requests: write
       steps:
         - name: Request Copilot reviewer
           env:
-            GH_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             REPO: ${{ github.repository }}
           run: |
             set -euo pipefail
@@ -110,6 +111,20 @@ safe-outputs:
               --method POST \
               "repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" \
               -f 'reviewers[]=copilot-pull-request-reviewer[bot]'
+
+            CURRENT_LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '[.labels[].name]')
+            if jq -e 'index("ready-to-merge") != null' <<< "$CURRENT_LABELS" > /dev/null; then
+              gh api --method DELETE "repos/$REPO/issues/$PR_NUMBER/labels/ready-to-merge"
+            fi
+
+            gh api \
+              --method POST \
+              "repos/$REPO/issues/$PR_NUMBER/labels" \
+              -f 'labels[]=needs-review'
+
+            gh pr comment "$PR_NUMBER" \
+              --repo "$REPO" \
+              --body "⏳ Copilot code review requested for the current head commit. Waiting for review analysis before merge."
     merge-pr:
       description: "Revalidate and squash-merge one Copilot-reviewed pull request"
       runs-on: ubuntu-latest
@@ -124,7 +139,7 @@ safe-outputs:
       steps:
         - name: Merge PR
           env:
-            GH_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             REPO: ${{ github.repository }}
           run: |
             set -euo pipefail
@@ -176,7 +191,7 @@ safe-outputs:
               exit 1
             fi
 
-            gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --admin
+            gh pr merge "$PR_NUMBER" --repo "$REPO" --squash
 timeout-minutes: 15
 ---
 
@@ -203,7 +218,7 @@ The deterministic prefetch step has selected the oldest non-draft open PR. Never
 Inspect `reviews` and `reviewRequests` in `pr-state.json`.
 
 - A Copilot review request exists only when `reviewRequests` contains a login beginning with `copilot-pull-request-reviewer`. Never infer a pending request from labels or comments.
-- If there is no current Copilot review and Copilot is not already requested, call `request_copilot_review` with `pr_number`, add `needs-review`, remove `ready-to-merge`, and comment that Copilot code review was requested.
+- If there is no current Copilot review and Copilot is not already requested, call `request_copilot_review` with `pr_number`. That atomic job requests the reviewer, updates labels, and posts the status comment; do not emit separate comment or label outputs for this transition.
 - If Copilot review is already pending, call `noop`; do not request it again or add another comment.
 
 ### Step 2: Address feedback or failing checks

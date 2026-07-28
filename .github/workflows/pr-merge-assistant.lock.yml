@@ -23,7 +23,7 @@
 #
 # Automatically reviews, repairs, and merges one open pull request at a time.
 #
-# frontmatter-hash: 8cc79d156e6531e5893ef9dd34603d2589fa8e166601437bd70d82d7200fbe84
+# frontmatter-hash: 9ba7762e30a9981adb1e42e4654a149dbbcf527522ade00beff63d65c2e0f2a6
 
 name: "PR Merge Assistant"
 "on":
@@ -1197,9 +1197,9 @@ jobs:
             exit 1
           fi
 
-          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --admin
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash
         env:
-          GH_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
 
   pre_activation:
@@ -1234,7 +1234,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      issues: write
+      pull-requests: write
     steps:
       - name: Download agent output artifact
         continue-on-error: true
@@ -1259,8 +1260,22 @@ jobs:
             --method POST \
             "repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" \
             -f 'reviewers[]=copilot-pull-request-reviewer[bot]'
+
+          CURRENT_LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '[.labels[].name]')
+          if jq -e 'index("ready-to-merge") != null' <<< "$CURRENT_LABELS" > /dev/null; then
+            gh api --method DELETE "repos/$REPO/issues/$PR_NUMBER/labels/ready-to-merge"
+          fi
+
+          gh api \
+            --method POST \
+            "repos/$REPO/issues/$PR_NUMBER/labels" \
+            -f 'labels[]=needs-review'
+
+          gh pr comment "$PR_NUMBER" \
+            --repo "$REPO" \
+            --body "⏳ Copilot code review requested for the current head commit. Waiting for review analysis before merge."
         env:
-          GH_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
 
   safe_outputs:
