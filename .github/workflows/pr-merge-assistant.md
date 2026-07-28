@@ -69,11 +69,6 @@ safe-outputs:
     allowed: [ready-to-merge, needs-review, changes-requested]
     target: "*"
     max: 3
-  add-reviewer:
-    reviewers: [copilot]
-    target: "*"
-    max: 1
-    github-token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
   assign-to-agent:
     name: copilot
     allowed: [copilot]
@@ -87,8 +82,36 @@ safe-outputs:
   missing-tool:
     create-issue: false
   jobs:
+    request-copilot-review:
+      description: "Request Copilot code review on one pull request"
+      runs-on: ubuntu-latest
+      inputs:
+        pr_number:
+          description: "The PR number to review"
+          required: true
+          type: string
+      permissions:
+        contents: read
+        pull-requests: read
+      steps:
+        - name: Request Copilot reviewer
+          env:
+            GH_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+            REPO: ${{ github.repository }}
+          run: |
+            set -euo pipefail
+            PR_NUMBER=$(jq -r '.items[] | select(.type == "request_copilot_review") | .pr_number' "$GH_AW_AGENT_OUTPUT")
+            if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+              echo "Invalid pull request number: $PR_NUMBER" >&2
+              exit 1
+            fi
+
+            gh api \
+              --method POST \
+              "repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" \
+              -f 'reviewers[]=copilot-pull-request-reviewer[bot]'
     merge-pr:
-      description: "Revalidate and squash-merge one approved pull request"
+      description: "Revalidate and squash-merge one Copilot-reviewed pull request"
       runs-on: ubuntu-latest
       inputs:
         pr_number:
@@ -101,7 +124,7 @@ safe-outputs:
       steps:
         - name: Merge PR
           env:
-            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            GH_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
             REPO: ${{ github.repository }}
           run: |
             set -euo pipefail
@@ -113,13 +136,21 @@ safe-outputs:
 
             PR_STATE=$(gh pr view "$PR_NUMBER" \
               --repo "$REPO" \
-              --json isDraft,reviewDecision,statusCheckRollup)
+              --json isDraft,reviewDecision,statusCheckRollup,reviews,commits)
 
             jq -e '
-              .isDraft == false
-              and .reviewDecision == "APPROVED"
+              . as $pr
+              | ([ $pr.commits[].committedDate ] | max // "") as $latest_commit
+              | ([ $pr.reviews[]
+                    | select(.author.login | startswith("copilot-pull-request-reviewer"))
+                    | .submittedAt
+                 ] | max // "") as $latest_copilot_review
+              | $pr.isDraft == false
+              and $pr.reviewDecision != "CHANGES_REQUESTED"
+              and $latest_copilot_review != ""
+              and $latest_copilot_review >= $latest_commit
               and all(
-                .statusCheckRollup[];
+                $pr.statusCheckRollup[];
                 if .__typename == "CheckRun" then
                   .status == "COMPLETED"
                   and (.conclusion == "SUCCESS" or .conclusion == "NEUTRAL" or .conclusion == "SKIPPED")
@@ -145,7 +176,7 @@ safe-outputs:
               exit 1
             fi
 
-            gh pr merge "$PR_NUMBER" --repo "$REPO" --squash
+            gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --admin
 timeout-minutes: 15
 ---
 
@@ -171,7 +202,8 @@ The deterministic prefetch step has selected the oldest non-draft open PR. Never
 
 Inspect `reviews` and `reviewRequests` in `pr-state.json`.
 
-- If there is no submitted review and Copilot is not already requested, call `add_reviewer` for reviewer `copilot`, add `needs-review`, remove `ready-to-merge`, and comment that Copilot code review was requested.
+- A Copilot review request exists only when `reviewRequests` contains a login beginning with `copilot-pull-request-reviewer`. Never infer a pending request from labels or comments.
+- If there is no current Copilot review and Copilot is not already requested, call `request_copilot_review` with `pr_number`, add `needs-review`, remove `ready-to-merge`, and comment that Copilot code review was requested.
 - If Copilot review is already pending, call `noop`; do not request it again or add another comment.
 
 ### Step 2: Address feedback or failing checks
@@ -180,15 +212,15 @@ Inspect the latest review state, unresolved threads, commit timestamps, assignee
 
 - If review feedback remains unresolved or a completed check failed, call `assign_to_agent` for this PR unless Copilot is already assigned. Add `changes-requested`, remove `ready-to-merge`, and leave one concise blocker comment.
 - If Copilot is already assigned, call `noop` and wait for its commit.
-- If a newer commit follows the latest blocking review, request Copilot review again with `add_reviewer` unless a review is already pending.
+- If the latest Copilot review predates the newest commit, call `request_copilot_review` unless a review is already pending.
 - If checks are pending or queued, call `noop` and wait.
 
 ### Step 3: Merge only after greenlight
 
 Call `merge_pr` with the selected PR number only when all conditions are true:
 
-1. At least one current `APPROVED` review exists.
-2. `reviewDecision` is `APPROVED`.
+1. A Copilot code review was submitted after the newest commit.
+2. `reviewDecision` is not `CHANGES_REQUESTED`.
 3. Every check run is completed with `SUCCESS`, `NEUTRAL`, or `SKIPPED`, and every status context is `SUCCESS`.
 4. Every review thread is resolved.
 5. The PR is not a draft.
@@ -205,7 +237,8 @@ Use `noop` with a brief explanation when:
 
 ## Important Rules
 
-- Never merge a PR without at least one approval
+- Never merge before Copilot reviews the current head commit
+- Never override an explicit `CHANGES_REQUESTED` decision
 - Never merge with failing or pending checks
 - Never merge with unresolved review threads
 - Never treat a new commit as approval; request re-review instead

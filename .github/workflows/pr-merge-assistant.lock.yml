@@ -23,7 +23,7 @@
 #
 # Automatically reviews, repairs, and merges one open pull request at a time.
 #
-# frontmatter-hash: e077d7ceacd3862f98557327c9267aa4058b278f9f5c36d78adb47d8c9502666
+# frontmatter-hash: 8cc79d156e6531e5893ef9dd34603d2589fa8e166601437bd70d82d7200fbe84
 
 name: "PR Merge Assistant"
 "on":
@@ -213,7 +213,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":1,"target":"*"},"add_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":3,"target":"*"},"add_reviewer":{"max":1,"reviewers":["copilot"]},"assign_to_agent":{"allowed":["copilot"],"default_agent":"copilot","max":1,"target":"*"},"merge-pr":{"description":"Revalidate and squash-merge one approved pull request","inputs":{"pr_number":{"default":null,"description":"The PR number to merge","required":true,"type":"string"}}},"missing_data":{},"missing_tool":{},"noop":{"max":1},"remove_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":3}}
+          {"add_comment":{"max":1,"target":"*"},"add_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":3,"target":"*"},"assign_to_agent":{"allowed":["copilot"],"default_agent":"copilot","max":1,"target":"*"},"merge-pr":{"description":"Revalidate and squash-merge one Copilot-reviewed pull request","inputs":{"pr_number":{"default":null,"description":"The PR number to merge","required":true,"type":"string"}}},"missing_data":{},"missing_tool":{},"noop":{"max":1},"remove_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":3},"request-copilot-review":{"description":"Request Copilot code review on one pull request","inputs":{"pr_number":{"default":null,"description":"The PR number to review","required":true,"type":"string"}}}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -282,33 +282,6 @@ jobs:
                 "type": "object"
               },
               "name": "remove_labels"
-            },
-            {
-              "description": "Add reviewers to a GitHub pull request. Reviewers receive notifications and can approve or request changes. Use 'copilot' as a reviewer name to request the Copilot PR review bot. CONSTRAINTS: Maximum 1 reviewer(s) can be added.",
-              "inputSchema": {
-                "additionalProperties": false,
-                "properties": {
-                  "pull_request_number": {
-                    "description": "Pull request number to add reviewers to. This is the numeric ID from the GitHub URL (e.g., 876 in github.com/owner/repo/pull/876). If omitted, adds reviewers to the PR that triggered this workflow.",
-                    "type": [
-                      "number",
-                      "string"
-                    ]
-                  },
-                  "reviewers": {
-                    "description": "GitHub usernames to add as reviewers (e.g., ['octocat', 'copilot']). Users must have access to the repository.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  }
-                },
-                "required": [
-                  "reviewers"
-                ],
-                "type": "object"
-              },
-              "name": "add_reviewer"
             },
             {
               "description": "Assign the GitHub Copilot coding agent to work on an issue or pull request. The agent will analyze the issue/PR and attempt to implement a solution, creating a pull request when complete. Use this to delegate coding tasks to Copilot. Example usage: assign_to_agent(issue_number=123, agent=\"copilot\") or assign_to_agent(pull_number=456, agent=\"copilot\") CONSTRAINTS: Maximum 1 issue(s) can be assigned to agent.",
@@ -408,7 +381,7 @@ jobs:
               "name": "missing_data"
             },
             {
-              "description": "Revalidate and squash-merge one approved pull request",
+              "description": "Revalidate and squash-merge one Copilot-reviewed pull request",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -423,6 +396,23 @@ jobs:
                 "type": "object"
               },
               "name": "merge_pr"
+            },
+            {
+              "description": "Request Copilot code review on one pull request",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "pr_number": {
+                    "description": "The PR number to review",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "pr_number"
+                ],
+                "type": "object"
+              },
+              "name": "request_copilot_review"
             }
           ]
           GH_AW_SAFE_OUTPUTS_TOOLS_EOF
@@ -454,21 +444,6 @@ jobs:
                   "itemType": "string",
                   "itemSanitize": true,
                   "itemMaxLength": 128
-                }
-              }
-            },
-            "add_reviewer": {
-              "defaultMax": 3,
-              "fields": {
-                "pull_request_number": {
-                  "issueOrPRNumber": true
-                },
-                "reviewers": {
-                  "required": true,
-                  "type": "array",
-                  "itemType": "string",
-                  "itemSanitize": true,
-                  "itemMaxLength": 39
                 }
               }
             },
@@ -939,6 +914,7 @@ jobs:
       - agent
       - detection
       - merge_pr
+      - request_copilot_review
       - safe_outputs
     if: (always()) && (needs.agent.result != 'skipped')
     runs-on: ubuntu-slim
@@ -1181,13 +1157,21 @@ jobs:
 
           PR_STATE=$(gh pr view "$PR_NUMBER" \
             --repo "$REPO" \
-            --json isDraft,reviewDecision,statusCheckRollup)
+            --json isDraft,reviewDecision,statusCheckRollup,reviews,commits)
 
           jq -e '
-            .isDraft == false
-            and .reviewDecision == "APPROVED"
+            . as $pr
+            | ([ $pr.commits[].committedDate ] | max // "") as $latest_commit
+            | ([ $pr.reviews[]
+                  | select(.author.login | startswith("copilot-pull-request-reviewer"))
+                  | .submittedAt
+               ] | max // "") as $latest_copilot_review
+            | $pr.isDraft == false
+            and $pr.reviewDecision != "CHANGES_REQUESTED"
+            and $latest_copilot_review != ""
+            and $latest_copilot_review >= $latest_commit
             and all(
-              .statusCheckRollup[];
+              $pr.statusCheckRollup[];
               if .__typename == "CheckRun" then
                 .status == "COMPLETED"
                 and (.conclusion == "SUCCESS" or .conclusion == "NEUTRAL" or .conclusion == "SKIPPED")
@@ -1213,9 +1197,9 @@ jobs:
             exit 1
           fi
 
-          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --admin
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
 
   pre_activation:
@@ -1241,6 +1225,44 @@ jobs:
             const { main } = require('/opt/gh-aw/actions/check_membership.cjs');
             await main();
 
+  request_copilot_review:
+    needs:
+      - agent
+      - detection
+    if: >
+      ((!cancelled()) && (needs.agent.result != 'skipped')) && (contains(needs.agent.outputs.output_types, 'request_copilot_review'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: agent-output
+          path: /opt/gh-aw/safe-jobs/
+      - name: Setup Safe Job Environment Variables
+        run: |
+          find "/opt/gh-aw/safe-jobs/" -type f -print
+          echo "GH_AW_AGENT_OUTPUT=/opt/gh-aw/safe-jobs/agent_output.json" >> "$GITHUB_ENV"
+      - name: Request Copilot reviewer
+        run: |
+          set -euo pipefail
+          PR_NUMBER=$(jq -r '.items[] | select(.type == "request_copilot_review") | .pr_number' "$GH_AW_AGENT_OUTPUT")
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid pull request number: $PR_NUMBER" >&2
+            exit 1
+          fi
+
+          gh api \
+            --method POST \
+            "repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" \
+            -f 'reviewers[]=copilot-pull-request-reviewer[bot]'
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+
   safe_outputs:
     needs:
       - agent
@@ -1258,7 +1280,6 @@ jobs:
       GH_AW_WORKFLOW_ID: "pr-merge-assistant"
       GH_AW_WORKFLOW_NAME: "PR Merge Assistant"
     outputs:
-      add_reviewer_reviewers_added: ${{ steps.process_safe_outputs.outputs.reviewers_added }}
       assign_to_agent_assigned: ${{ steps.assign_to_agent.outputs.assigned }}
       assign_to_agent_assignment_error_count: ${{ steps.assign_to_agent.outputs.assignment_error_count }}
       assign_to_agent_assignment_errors: ${{ steps.assign_to_agent.outputs.assignment_errors }}
