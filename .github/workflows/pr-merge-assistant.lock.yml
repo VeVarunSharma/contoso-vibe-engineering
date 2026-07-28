@@ -21,12 +21,16 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# Ensures code review is triggered, feedback is addressed, and merges PRs when ready.
+# Automatically reviews, repairs, and merges one open pull request at a time.
 #
-# frontmatter-hash: 13ac4b30ea6ad2f16884ebd9489167b296b3a8260c0c046d3989b0454e710e91
+# frontmatter-hash: e077d7ceacd3862f98557327c9267aa4058b278f9f5c36d78adb47d8c9502666
 
 name: "PR Merge Assistant"
 "on":
+  pull_request:
+    types:
+    - synchronize
+    - ready_for_review
   pull_request_review:
     types:
     - submitted
@@ -38,15 +42,16 @@ name: "PR Merge Assistant"
 permissions: {}
 
 concurrency:
-  group: "gh-aw-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
-  cancel-in-progress: true
+  cancel-in-progress: false
+  group: pr-merge-assistant
 
 run-name: "PR Merge Assistant"
 
 jobs:
   activation:
     needs: pre_activation
-    if: needs.pre_activation.outputs.activated == 'true'
+    if: >
+      (needs.pre_activation.outputs.activated == 'true') && ((github.event_name != 'pull_request') || (github.event.pull_request.head.repo.id == github.repository_id))
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -105,6 +110,12 @@ jobs:
           persist-credentials: false
       - name: Create gh-aw temp directory
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        name: Prefetch oldest open PR
+        run: "set -euo pipefail\nmkdir -p /tmp/gh-aw/agent\n\ngh pr list \\\n  --repo \"$REPO\" \\\n  --state open \\\n  --limit 100 \\\n  --json number,title,isDraft,createdAt \\\n  --jq 'sort_by(.createdAt) | map(select(.isDraft == false)) | .[0] // {}' \\\n  > /tmp/gh-aw/agent/selected-pr.json\n\nPR_NUMBER=$(jq -r '.number // empty' /tmp/gh-aw/agent/selected-pr.json)\nif [[ -z \"$PR_NUMBER\" ]]; then\n  printf '{}\\n' > /tmp/gh-aw/agent/pr-state.json\n  printf '{\"reviewThreads\":[]}\\n' > /tmp/gh-aw/agent/review-threads.json\n  exit 0\nfi\n\ngh pr view \"$PR_NUMBER\" \\\n  --repo \"$REPO\" \\\n  --json number,title,url,author,assignees,isDraft,createdAt,updatedAt,baseRefName,headRefName,mergeStateStatus,reviewDecision,reviewRequests,reviews,commits,comments,labels,statusCheckRollup \\\n  > /tmp/gh-aw/agent/pr-state.json\n\nOWNER=${REPO%%/*}\nNAME=${REPO#*/}\ngh api graphql \\\n  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:20){nodes{author{login}body createdAt url}}}}}}}' \\\n  -f owner=\"$OWNER\" \\\n  -f name=\"$NAME\" \\\n  -F number=\"$PR_NUMBER\" \\\n  --jq '.data.repository.pullRequest.reviewThreads' \\\n  > /tmp/gh-aw/agent/review-threads.json\n"
+
       - name: Configure Git credentials
         env:
           REPO_NAME: ${{ github.repository }}
@@ -202,7 +213,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":1,"target":"*"},"add_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":3,"target":"*"},"merge-pr":{"description":"Merge a specific pull request by number after all checks pass and reviews are approved","inputs":{"pr_number":{"default":null,"description":"The PR number to merge","required":true,"type":"string"}}},"missing_data":{},"missing_tool":{},"noop":{"max":1},"remove_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":3}}
+          {"add_comment":{"max":1,"target":"*"},"add_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":3,"target":"*"},"add_reviewer":{"max":1,"reviewers":["copilot"]},"assign_to_agent":{"allowed":["copilot"],"default_agent":"copilot","max":1,"target":"*"},"merge-pr":{"description":"Revalidate and squash-merge one approved pull request","inputs":{"pr_number":{"default":null,"description":"The PR number to merge","required":true,"type":"string"}}},"missing_data":{},"missing_tool":{},"noop":{"max":1},"remove_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":3}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -271,6 +282,61 @@ jobs:
                 "type": "object"
               },
               "name": "remove_labels"
+            },
+            {
+              "description": "Add reviewers to a GitHub pull request. Reviewers receive notifications and can approve or request changes. Use 'copilot' as a reviewer name to request the Copilot PR review bot. CONSTRAINTS: Maximum 1 reviewer(s) can be added.",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "pull_request_number": {
+                    "description": "Pull request number to add reviewers to. This is the numeric ID from the GitHub URL (e.g., 876 in github.com/owner/repo/pull/876). If omitted, adds reviewers to the PR that triggered this workflow.",
+                    "type": [
+                      "number",
+                      "string"
+                    ]
+                  },
+                  "reviewers": {
+                    "description": "GitHub usernames to add as reviewers (e.g., ['octocat', 'copilot']). Users must have access to the repository.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "reviewers"
+                ],
+                "type": "object"
+              },
+              "name": "add_reviewer"
+            },
+            {
+              "description": "Assign the GitHub Copilot coding agent to work on an issue or pull request. The agent will analyze the issue/PR and attempt to implement a solution, creating a pull request when complete. Use this to delegate coding tasks to Copilot. Example usage: assign_to_agent(issue_number=123, agent=\"copilot\") or assign_to_agent(pull_number=456, agent=\"copilot\") CONSTRAINTS: Maximum 1 issue(s) can be assigned to agent.",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "agent": {
+                    "description": "Agent identifier to assign. Defaults to 'copilot' (the Copilot coding agent) if not specified.",
+                    "type": "string"
+                  },
+                  "issue_number": {
+                    "description": "Issue number to assign the Copilot agent to. This is the numeric ID from the GitHub URL (e.g., 234 in github.com/owner/repo/issues/234). Can also be a temporary_id (e.g., 'aw_abc123', 'aw_Test123') from an issue created earlier in the same workflow run. The issue should contain clear, actionable requirements. Either issue_number or pull_number must be provided, but not both.",
+                    "type": [
+                      "number",
+                      "string"
+                    ]
+                  },
+                  "pull_number": {
+                    "description": "Pull request number to assign the Copilot agent to. This is the numeric ID from the GitHub URL (e.g., 456 in github.com/owner/repo/pull/456). Either issue_number or pull_number must be provided, but not both.",
+                    "type": [
+                      "number",
+                      "string"
+                    ]
+                  }
+                },
+                "type": "object"
+              },
+              "name": "assign_to_agent"
             },
             {
               "description": "Report that a tool or capability needed to complete the task is not available, or share any information you deem important about missing functionality or limitations. Use this when you cannot accomplish what was requested because the required functionality is missing or access is restricted.",
@@ -342,7 +408,7 @@ jobs:
               "name": "missing_data"
             },
             {
-              "description": "Merge a specific pull request by number after all checks pass and reviews are approved",
+              "description": "Revalidate and squash-merge one approved pull request",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -390,6 +456,38 @@ jobs:
                   "itemMaxLength": 128
                 }
               }
+            },
+            "add_reviewer": {
+              "defaultMax": 3,
+              "fields": {
+                "pull_request_number": {
+                  "issueOrPRNumber": true
+                },
+                "reviewers": {
+                  "required": true,
+                  "type": "array",
+                  "itemType": "string",
+                  "itemSanitize": true,
+                  "itemMaxLength": 39
+                }
+              }
+            },
+            "assign_to_agent": {
+              "defaultMax": 1,
+              "fields": {
+                "agent": {
+                  "type": "string",
+                  "sanitize": true,
+                  "maxLength": 128
+                },
+                "issue_number": {
+                  "issueNumberOrTemporaryId": true
+                },
+                "pull_number": {
+                  "optionalPositiveInteger": true
+                }
+              },
+              "customValidation": "requiresOneOf:issue_number,pull_number"
             },
             "missing_tool": {
               "defaultMax": 20,
@@ -667,11 +765,27 @@ jobs:
       - name: Execute GitHub Copilot CLI
         id: agentic_execution
         # Copilot CLI tool arguments (sorted):
-        timeout-minutes: 20
+        # --allow-tool github
+        # --allow-tool safeoutputs
+        # --allow-tool shell(cat)
+        # --allow-tool shell(date)
+        # --allow-tool shell(echo)
+        # --allow-tool shell(grep)
+        # --allow-tool shell(head)
+        # --allow-tool shell(jq)
+        # --allow-tool shell(ls)
+        # --allow-tool shell(pwd)
+        # --allow-tool shell(sort)
+        # --allow-tool shell(tail)
+        # --allow-tool shell(uniq)
+        # --allow-tool shell(wc)
+        # --allow-tool shell(yq)
+        # --allow-tool write
+        timeout-minutes: 15
         run: |
           set -o pipefail
           sudo -E awf --env-all --container-workdir "${GITHUB_WORKSPACE}" --allow-domains api.business.githubcopilot.com,api.enterprise.githubcopilot.com,api.github.com,api.githubcopilot.com,api.individual.githubcopilot.com,api.snapcraft.io,archive.ubuntu.com,azure.archive.ubuntu.com,crl.geotrust.com,crl.globalsign.com,crl.identrust.com,crl.sectigo.com,crl.thawte.com,crl.usertrust.com,crl.verisign.com,crl3.digicert.com,crl4.digicert.com,crls.ssl.com,github.com,host.docker.internal,json-schema.org,json.schemastore.org,keyserver.ubuntu.com,ocsp.digicert.com,ocsp.geotrust.com,ocsp.globalsign.com,ocsp.identrust.com,ocsp.sectigo.com,ocsp.ssl.com,ocsp.thawte.com,ocsp.usertrust.com,ocsp.verisign.com,packagecloud.io,packages.cloud.google.com,packages.microsoft.com,ppa.launchpad.net,raw.githubusercontent.com,registry.npmjs.org,s.symcb.com,s.symcd.com,security.ubuntu.com,telemetry.enterprise.githubcopilot.com,ts-crl.ws.symantec.com,ts-ocsp.ws.symantec.com --log-level info --proxy-logs-dir /tmp/gh-aw/sandbox/firewall/logs --enable-host-access --image-tag 0.18.0 --skip-pull \
-            -- '/usr/local/bin/copilot --add-dir /tmp/gh-aw/ --log-level all --log-dir /tmp/gh-aw/sandbox/agent/logs/ --add-dir "${GITHUB_WORKSPACE}" --disable-builtin-mcps --allow-all-tools --allow-all-paths --share /tmp/gh-aw/sandbox/agent/logs/conversation.md --prompt "$(cat /tmp/gh-aw/aw-prompts/prompt.txt)"${GH_AW_MODEL_AGENT_COPILOT:+ --model "$GH_AW_MODEL_AGENT_COPILOT"}' \
+            -- '/usr/local/bin/copilot --add-dir /tmp/gh-aw/ --log-level all --log-dir /tmp/gh-aw/sandbox/agent/logs/ --add-dir "${GITHUB_WORKSPACE}" --disable-builtin-mcps --allow-tool github --allow-tool safeoutputs --allow-tool '\''shell(cat)'\'' --allow-tool '\''shell(date)'\'' --allow-tool '\''shell(echo)'\'' --allow-tool '\''shell(grep)'\'' --allow-tool '\''shell(head)'\'' --allow-tool '\''shell(jq)'\'' --allow-tool '\''shell(ls)'\'' --allow-tool '\''shell(pwd)'\'' --allow-tool '\''shell(sort)'\'' --allow-tool '\''shell(tail)'\'' --allow-tool '\''shell(uniq)'\'' --allow-tool '\''shell(wc)'\'' --allow-tool '\''shell(yq)'\'' --allow-tool write --allow-all-paths --share /tmp/gh-aw/sandbox/agent/logs/conversation.md --prompt "$(cat /tmp/gh-aw/aw-prompts/prompt.txt)"${GH_AW_MODEL_AGENT_COPILOT:+ --model "$GH_AW_MODEL_AGENT_COPILOT"}' \
             2>&1 | tee /tmp/gh-aw/agent-stdio.log
         env:
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
@@ -872,6 +986,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
+          GH_AW_MISSING_TOOL_TITLE_PREFIX: "[missing tool]"
           GH_AW_WORKFLOW_NAME: "PR Merge Assistant"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
@@ -891,6 +1006,8 @@ jobs:
           GH_AW_WORKFLOW_ID: "pr-merge-assistant"
           GH_AW_SECRET_VERIFICATION_RESULT: ${{ needs.agent.outputs.secret_verification_result }}
           GH_AW_CHECKOUT_PR_SUCCESS: ${{ needs.agent.outputs.checkout_pr_success }}
+          GH_AW_ASSIGNMENT_ERRORS: ${{ needs.safe_outputs.outputs.assign_to_agent_assignment_errors }}
+          GH_AW_ASSIGNMENT_ERROR_COUNT: ${{ needs.safe_outputs.outputs.assign_to_agent_assignment_error_count }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -907,7 +1024,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -968,7 +1085,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "PR Merge Assistant"
-          WORKFLOW_DESCRIPTION: "Ensures code review is triggered, feedback is addressed, and merges PRs when ready."
+          WORKFLOW_DESCRIPTION: "Automatically reviews, repairs, and merges one open pull request at a time."
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
           script: |
@@ -1055,13 +1172,54 @@ jobs:
           echo "GH_AW_AGENT_OUTPUT=/opt/gh-aw/safe-jobs/agent_output.json" >> "$GITHUB_ENV"
       - name: Merge PR
         run: |
+          set -euo pipefail
           PR_NUMBER=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "merge_pr") | .pr_number')
-          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --auto
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid pull request number: $PR_NUMBER" >&2
+            exit 1
+          fi
+
+          PR_STATE=$(gh pr view "$PR_NUMBER" \
+            --repo "$REPO" \
+            --json isDraft,reviewDecision,statusCheckRollup)
+
+          jq -e '
+            .isDraft == false
+            and .reviewDecision == "APPROVED"
+            and all(
+              .statusCheckRollup[];
+              if .__typename == "CheckRun" then
+                .status == "COMPLETED"
+                and (.conclusion == "SUCCESS" or .conclusion == "NEUTRAL" or .conclusion == "SKIPPED")
+              elif .__typename == "StatusContext" then
+                .state == "SUCCESS"
+              else
+                false
+              end
+            )
+          ' <<< "$PR_STATE" > /dev/null
+
+          OWNER=${REPO%%/*}
+          NAME=${REPO#*/}
+          UNRESOLVED_THREADS=$(gh api graphql \
+            -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' \
+            -f owner="$OWNER" \
+            -f name="$NAME" \
+            -F number="$PR_NUMBER" \
+            --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
+
+          if [[ "$UNRESOLVED_THREADS" != "0" ]]; then
+            echo "PR #$PR_NUMBER still has $UNRESOLVED_THREADS unresolved review thread(s)." >&2
+            exit 1
+          fi
+
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
 
   pre_activation:
+    if: (github.event_name != 'pull_request') || (github.event.pull_request.head.repo.id == github.repository_id)
     runs-on: ubuntu-slim
     outputs:
       activated: ${{ steps.check_membership.outputs.is_team_member == 'true' }}
@@ -1100,6 +1258,10 @@ jobs:
       GH_AW_WORKFLOW_ID: "pr-merge-assistant"
       GH_AW_WORKFLOW_NAME: "PR Merge Assistant"
     outputs:
+      add_reviewer_reviewers_added: ${{ steps.process_safe_outputs.outputs.reviewers_added }}
+      assign_to_agent_assigned: ${{ steps.assign_to_agent.outputs.assigned }}
+      assign_to_agent_assignment_error_count: ${{ steps.assign_to_agent.outputs.assignment_error_count }}
+      assign_to_agent_assignment_errors: ${{ steps.assign_to_agent.outputs.assignment_errors }}
       create_discussion_error_count: ${{ steps.process_safe_outputs.outputs.create_discussion_error_count }}
       create_discussion_errors: ${{ steps.process_safe_outputs.outputs.create_discussion_errors }}
       process_safe_outputs_processed_count: ${{ steps.process_safe_outputs.outputs.processed_count }}
@@ -1132,5 +1294,22 @@ jobs:
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
             const { main } = require('/opt/gh-aw/actions/safe_output_handler_manager.cjs');
+            await main();
+      - name: Assign To Agent
+        id: assign_to_agent
+        if: ((!cancelled()) && (needs.agent.result != 'skipped')) && (contains(needs.agent.outputs.output_types, 'assign_to_agent'))
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
+          GH_AW_AGENT_MAX_COUNT: 1
+          GH_AW_AGENT_DEFAULT: "copilot"
+          GH_AW_AGENT_TARGET: "*"
+          GH_AW_AGENT_ALLOWED: "copilot"
+        with:
+          github-token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          script: |
+            const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
+            setupGlobals(core, github, context, exec, io);
+            const { main } = require('/opt/gh-aw/actions/assign_to_agent.cjs');
             await main();
 
