@@ -121,7 +121,7 @@ steps:
               pending_checks: $pending_checks,
               review_decision: $p.reviewDecision,
               copilot_assigned: $copilot_assigned,
-              action:
+              action: (
                 if $review_current == false then
                   if $review_pending then "wait" else "request_review" end
                 elif ($unresolved_threads > 0 or $failing_checks > 0 or $p.reviewDecision == "CHANGES_REQUESTED") then
@@ -131,6 +131,7 @@ steps:
                 else
                   "merge"
                 end
+              )
             }
         ' > /tmp/gh-aw/agent/decision-state.json
 safe-outputs:
