@@ -19,6 +19,22 @@ const WINDOW_MS = 60 * 1000;
 const LIMIT = 30;
 
 const buckets = new Map<string, Bucket>();
+// Sweep on the request path at most once per window to avoid background timers.
+let nextCleanupAt = 0;
+
+function removeExpiredBuckets(now: number): void {
+  if (now < nextCleanupAt) {
+    return;
+  }
+
+  for (const [key, bucket] of buckets) {
+    if (now >= bucket.resetAt) {
+      buckets.delete(key);
+    }
+  }
+
+  nextCleanupAt = now + WINDOW_MS;
+}
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -33,6 +49,8 @@ export function checkRateLimit(
   if (!key) {
     key = "unknown";
   }
+
+  removeExpiredBuckets(now);
 
   const existing = buckets.get(key);
   if (!existing || now >= existing.resetAt) {
@@ -68,4 +86,9 @@ export function getClientIp(request: { headers: HeaderReader }): string {
 
 export function __resetBuckets(): void {
   buckets.clear();
+  nextCleanupAt = 0;
+}
+
+export function __getBucketCount(): number {
+  return buckets.size;
 }
