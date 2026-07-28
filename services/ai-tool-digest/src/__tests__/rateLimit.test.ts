@@ -1,4 +1,9 @@
-import { checkRateLimit, getClientIp, __resetBuckets } from "../rateLimit.js";
+import {
+  checkRateLimit,
+  getClientIp,
+  __getBucketCount,
+  __resetBuckets,
+} from "../rateLimit.js";
 
 describe("rateLimit", () => {
   beforeEach(() => __resetBuckets());
@@ -42,6 +47,28 @@ describe("rateLimit", () => {
       expect(blocked.allowed).toBe(false);
       const otherIp = checkRateLimit("2.2.2.2", 2000);
       expect(otherIp.allowed).toBe(true);
+    });
+
+    it("removes expired one-off client buckets during scheduled cleanup", () => {
+      checkRateLimit("stale-1", 1000);
+      checkRateLimit("stale-2", 1000);
+      expect(__getBucketCount()).toBe(2);
+
+      checkRateLimit("cleanup-trigger", 61_000);
+
+      expect(__getBucketCount()).toBe(1);
+    });
+
+    it("retains active client counts when expired buckets are cleaned up", () => {
+      checkRateLimit("stale", 1000);
+      checkRateLimit("active", 30_000);
+      checkRateLimit("active", 30_001);
+
+      checkRateLimit("cleanup-trigger", 61_000);
+      const active = checkRateLimit("active", 61_001);
+
+      expect(active.remaining).toBe(27);
+      expect(__getBucketCount()).toBe(2);
     });
 
     it("falls back to 'unknown' when key is empty", () => {
