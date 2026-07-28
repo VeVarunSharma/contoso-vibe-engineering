@@ -23,7 +23,7 @@
 #
 # Ensures code review is triggered, feedback is addressed, and merges PRs when ready.
 #
-# frontmatter-hash: b82ce9e6c6b4e1c770b4c2da3b9a8412b39300d9fde9e417ed5dc77d357ae757
+# frontmatter-hash: 13ac4b30ea6ad2f16884ebd9489167b296b3a8260c0c046d3989b0454e710e91
 
 name: "PR Merge Assistant"
 "on":
@@ -202,12 +202,12 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":10,"target":"*"},"add_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":10,"target":"*"},"merge-pr":{"description":"Merge a specific pull request by number after all checks pass and reviews are approved","inputs":{"pr_number":{"default":null,"description":"The PR number to merge","required":true,"type":"string"}}},"missing_data":{},"missing_tool":{},"noop":{"max":1},"remove_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":10}}
+          {"add_comment":{"max":1,"target":"*"},"add_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":3,"target":"*"},"merge-pr":{"description":"Merge a specific pull request by number after all checks pass and reviews are approved","inputs":{"pr_number":{"default":null,"description":"The PR number to merge","required":true,"type":"string"}}},"missing_data":{},"missing_tool":{},"noop":{"max":1},"remove_labels":{"allowed":["ready-to-merge","needs-review","changes-requested"],"max":3}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
             {
-              "description": "Add a comment to an existing GitHub issue, pull request, or discussion. Use this to provide feedback, answer questions, or add information to an existing conversation. For creating new items, use create_issue, create_discussion, or create_pull_request instead. CONSTRAINTS: Maximum 10 comment(s) can be added. Target: *.",
+              "description": "Add a comment to an existing GitHub issue, pull request, or discussion. Use this to provide feedback, answer questions, or add information to an existing conversation. For creating new items, use create_issue, create_discussion, or create_pull_request instead. CONSTRAINTS: Maximum 1 comment(s) can be added. Target: *.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -228,7 +228,7 @@ jobs:
               "name": "add_comment"
             },
             {
-              "description": "Add labels to an existing GitHub issue or pull request for categorization and filtering. Labels must already exist in the repository. For creating new issues with labels, use create_issue with the labels property instead. CONSTRAINTS: Maximum 10 label(s) can be added. Only these labels are allowed: [ready-to-merge needs-review changes-requested]. Target: *.",
+              "description": "Add labels to an existing GitHub issue or pull request for categorization and filtering. Labels must already exist in the repository. For creating new issues with labels, use create_issue with the labels property instead. CONSTRAINTS: Maximum 3 label(s) can be added. Only these labels are allowed: [ready-to-merge needs-review changes-requested]. Target: *.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -249,7 +249,7 @@ jobs:
               "name": "add_labels"
             },
             {
-              "description": "Remove labels from an existing GitHub issue or pull request. Silently skips labels that don't exist on the item. Use this to clean up labels or manage label lifecycles (e.g., removing 'needs-review' after review is complete). CONSTRAINTS: Maximum 10 label(s) can be removed. Only these labels can be removed: [ready-to-merge needs-review changes-requested]. Target: *.",
+              "description": "Remove labels from an existing GitHub issue or pull request. Silently skips labels that don't exist on the item. Use this to clean up labels or manage label lifecycles (e.g., removing 'needs-review' after review is complete). CONSTRAINTS: Maximum 3 label(s) can be removed. Only these labels can be removed: [ready-to-merge needs-review changes-requested]. Target: *.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -1125,7 +1125,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"hide_older_comments\":true,\"max\":10,\"target\":\"*\"},\"add_labels\":{\"allowed\":[\"ready-to-merge\",\"needs-review\",\"changes-requested\"],\"max\":10,\"target\":\"*\"},\"missing_data\":{},\"missing_tool\":{},\"remove_labels\":{\"allowed\":[\"ready-to-merge\",\"needs-review\",\"changes-requested\"],\"max\":10,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"hide_older_comments\":true,\"max\":1,\"target\":\"*\"},\"add_labels\":{\"allowed\":[\"ready-to-merge\",\"needs-review\",\"changes-requested\"],\"max\":3,\"target\":\"*\"},\"missing_data\":{},\"missing_tool\":{},\"remove_labels\":{\"allowed\":[\"ready-to-merge\",\"needs-review\",\"changes-requested\"],\"max\":3,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

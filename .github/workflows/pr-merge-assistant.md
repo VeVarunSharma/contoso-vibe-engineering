@@ -15,17 +15,17 @@ tools:
     toolsets: [default]
 safe-outputs:
   add-comment:
-    max: 10
+    max: 1
     target: "*"
     hide-older-comments: true
   add-labels:
     allowed: [ready-to-merge, needs-review, changes-requested]
     target: "*"
-    max: 10
+    max: 3
   remove-labels:
     allowed: [ready-to-merge, needs-review, changes-requested]
     target: "*"
-    max: 10
+    max: 3
   jobs:
     merge-pr:
       description: "Merge a specific pull request by number after all checks pass and reviews are approved"
@@ -52,24 +52,24 @@ safe-outputs:
 
 ## Task
 
-You are a fully automated pull request merge assistant. Your job is to evaluate ALL open PRs in the repository, check their review and CI status, ensure feedback has been addressed, and merge any PRs that are ready — without human intervention.
+You are a fully automated pull request merge assistant. Your job is to pick the **oldest open PR** that is closest to being ready to merge, evaluate it, and either merge it or report what's blocking it. Process only ONE PR per run.
 
 ## Process
 
-### Step 0: Discover Open PRs
+### Step 0: Pick One PR
 
-When triggered on a schedule, list all open pull requests:
+List all open pull requests sorted by oldest first:
 ```
-gh pr list --state open --json number,title,isDraft,labels,reviewDecision,statusCheckRollup
+gh pr list --state open --json number,title,isDraft,createdAt,labels,reviewDecision --jq 'sort_by(.createdAt)'
 ```
 
-For each non-draft PR, run through the following steps. When triggered by a `pull_request_review` event, evaluate only the triggering PR.
+Select the first non-draft PR from this list. If triggered by a `pull_request_review` event, evaluate only the triggering PR instead.
 
 ### Step 1: Check if Code Review Has Been Requested
 
 Use `gh pr view <number> --json reviews,reviewRequests` to inspect the PR's review status. Check:
 - Has a code review been requested? (Look for requested reviewers or submitted reviews)
-- If **no review has been requested**, post a comment asking the author to request a code review (CCR) and move to the next PR.
+- If **no review has been requested**, post a comment asking the author to request a code review (CCR) and use `noop`.
 
 ### Step 2: Evaluate Review Feedback
 
@@ -106,9 +106,9 @@ The PR is **ready to merge** when ALL of these conditions are met:
 ## Noop Conditions
 
 Use `noop` with a brief explanation when:
-- No open PRs exist
-- All open PRs are drafts
-- No PRs are ready to merge and comments have already been posted on previous runs
+- No open non-draft PRs exist
+- The selected PR is not ready to merge (feedback pending, CI failing, etc.)
+- No code review has been requested on the selected PR
 
 ## Important Rules
 
