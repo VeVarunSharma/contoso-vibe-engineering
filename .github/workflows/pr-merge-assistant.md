@@ -147,12 +147,6 @@ safe-outputs:
     allowed: [ready-to-merge, needs-review, changes-requested]
     target: "*"
     max: 3
-  assign-to-agent:
-    name: copilot
-    allowed: [copilot]
-    target: "*"
-    max: 1
-    github-token: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
   noop:
     report-as-issue: false
   missing-data:
@@ -160,6 +154,51 @@ safe-outputs:
   missing-tool:
     create-issue: false
   jobs:
+    assign-copilot-to-pr:
+      description: "Assign Copilot coding agent to address feedback on one pull request"
+      runs-on: ubuntu-latest
+      inputs:
+        pr_number:
+          description: "The PR number to repair"
+          required: true
+          type: string
+      permissions:
+        contents: read
+        issues: write
+        pull-requests: read
+      steps:
+        - name: Assign Copilot coding agent
+          env:
+            GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
+            REPO: ${{ github.repository }}
+          run: |
+            set -euo pipefail
+            PR_NUMBER=$(jq -r '.items[] | select(.type == "assign_copilot_to_pr") | .pr_number' "$GH_AW_AGENT_OUTPUT")
+            if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+              echo "Invalid pull request number: $PR_NUMBER" >&2
+              exit 1
+            fi
+
+            gh api \
+              --method POST \
+              "repos/$REPO/issues/$PR_NUMBER/assignees" \
+              -f 'assignees[]=copilot-swe-agent[bot]'
+
+            CURRENT_LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '[.labels[].name]')
+            for LABEL in ready-to-merge needs-review; do
+              if jq -e --arg label "$LABEL" 'index($label) != null' <<< "$CURRENT_LABELS" > /dev/null; then
+                gh api --method DELETE "repos/$REPO/issues/$PR_NUMBER/labels/$LABEL"
+              fi
+            done
+
+            gh api \
+              --method POST \
+              "repos/$REPO/issues/$PR_NUMBER/labels" \
+              -f 'labels[]=changes-requested'
+
+            gh pr comment "$PR_NUMBER" \
+              --repo "$REPO" \
+              --body "Copilot coding agent assigned to address unresolved review feedback or actionable CI failures. The PR will be re-reviewed after the next commit."
     request-copilot-review:
       description: "Request Copilot code review on one pull request"
       runs-on: ubuntu-latest
@@ -306,7 +345,7 @@ Follow the `action` in `decision-state.json` exactly:
 
 ### Step 2: Address feedback or failing checks
 
-When `action` is `assign_agent`, call `assign_to_agent` with `pull_number` set to the selected PR number and `agent` set to `copilot`. Never use `issue_number` for a pull request. Also add `changes-requested`, remove `ready-to-merge`, and leave one concise blocker comment using the counts in `decision-state.json`.
+When `action` is `assign_agent`, call `assign_copilot_to_pr` with `pr_number` set to the selected PR number. That atomic job assigns Copilot, updates labels, and posts the status comment; do not emit separate comment or label outputs.
 
 ### Step 3: Merge only after greenlight
 
