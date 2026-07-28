@@ -23,7 +23,7 @@
 #
 # Automatically reviews, repairs, and merges one open pull request at a time.
 #
-# frontmatter-hash: 9ba7762e30a9981adb1e42e4654a149dbbcf527522ade00beff63d65c2e0f2a6
+# frontmatter-hash: b4ee4a5c88341e7a0fdf3d12527ac0c9727294d437bc75b0e6d8cd170a0117c3
 
 name: "PR Merge Assistant"
 "on":
@@ -114,7 +114,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         name: Prefetch oldest open PR
-        run: "set -euo pipefail\nmkdir -p /tmp/gh-aw/agent\n\ngh pr list \\\n  --repo \"$REPO\" \\\n  --state open \\\n  --limit 100 \\\n  --json number,title,isDraft,createdAt \\\n  --jq 'sort_by(.createdAt) | map(select(.isDraft == false)) | .[0] // {}' \\\n  > /tmp/gh-aw/agent/selected-pr.json\n\nPR_NUMBER=$(jq -r '.number // empty' /tmp/gh-aw/agent/selected-pr.json)\nif [[ -z \"$PR_NUMBER\" ]]; then\n  printf '{}\\n' > /tmp/gh-aw/agent/pr-state.json\n  printf '{\"reviewThreads\":[]}\\n' > /tmp/gh-aw/agent/review-threads.json\n  exit 0\nfi\n\ngh pr view \"$PR_NUMBER\" \\\n  --repo \"$REPO\" \\\n  --json number,title,url,author,assignees,isDraft,createdAt,updatedAt,baseRefName,headRefName,mergeStateStatus,reviewDecision,reviewRequests,reviews,commits,comments,labels,statusCheckRollup \\\n  > /tmp/gh-aw/agent/pr-state.json\n\nOWNER=${REPO%%/*}\nNAME=${REPO#*/}\ngh api graphql \\\n  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:20){nodes{author{login}body createdAt url}}}}}}}' \\\n  -f owner=\"$OWNER\" \\\n  -f name=\"$NAME\" \\\n  -F number=\"$PR_NUMBER\" \\\n  --jq '.data.repository.pullRequest.reviewThreads' \\\n  > /tmp/gh-aw/agent/review-threads.json\n"
+        run: "set -euo pipefail\nmkdir -p /tmp/gh-aw/agent\n\ngh pr list \\\n  --repo \"$REPO\" \\\n  --state open \\\n  --limit 100 \\\n  --json number,title,isDraft,createdAt \\\n  --jq 'sort_by(.createdAt) | map(select(.isDraft == false)) | .[0] // {}' \\\n  > /tmp/gh-aw/agent/selected-pr.json\n\nPR_NUMBER=$(jq -r '.number // empty' /tmp/gh-aw/agent/selected-pr.json)\nif [[ -z \"$PR_NUMBER\" ]]; then\n  printf '{}\\n' > /tmp/gh-aw/agent/pr-state.json\n  printf '{\"reviewThreads\":[]}\\n' > /tmp/gh-aw/agent/review-threads.json\n  printf '[]\\n' > /tmp/gh-aw/agent/review-events.json\n  exit 0\nfi\n\ngh pr view \"$PR_NUMBER\" \\\n  --repo \"$REPO\" \\\n  --json number,title,url,author,assignees,isDraft,createdAt,updatedAt,baseRefName,headRefName,mergeStateStatus,reviewDecision,reviewRequests,reviews,commits,comments,labels,statusCheckRollup \\\n  > /tmp/gh-aw/agent/pr-state.json\n\nOWNER=${REPO%%/*}\nNAME=${REPO#*/}\ngh api graphql \\\n  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:20){nodes{author{login}body createdAt url}}}}}}}' \\\n  -f owner=\"$OWNER\" \\\n  -f name=\"$NAME\" \\\n  -F number=\"$PR_NUMBER\" \\\n  --jq '.data.repository.pullRequest.reviewThreads' \\\n  > /tmp/gh-aw/agent/review-threads.json\n\ngh api \\\n  \"repos/$REPO/issues/$PR_NUMBER/timeline?per_page=100\" \\\n  -H \"Accept: application/vnd.github+json\" \\\n  --jq '[.[]\n    | select(.event == \"review_requested\" or .event == \"review_request_removed\")\n    | {\n        event,\n        created_at,\n        actor: .actor.login,\n        requested_reviewer: .requested_reviewer.login\n      }\n  ]' \\\n  > /tmp/gh-aw/agent/review-events.json\n"
 
       - name: Configure Git credentials
         env:
@@ -1199,7 +1199,7 @@ jobs:
 
           gh pr merge "$PR_NUMBER" --repo "$REPO" --squash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
           REPO: ${{ github.repository }}
 
   pre_activation:
@@ -1275,7 +1275,7 @@ jobs:
             --repo "$REPO" \
             --body "⏳ Copilot code review requested for the current head commit. Waiting for review analysis before merge."
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
           REPO: ${{ github.repository }}
 
   safe_outputs:

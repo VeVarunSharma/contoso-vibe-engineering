@@ -39,6 +39,7 @@ steps:
       if [[ -z "$PR_NUMBER" ]]; then
         printf '{}\n' > /tmp/gh-aw/agent/pr-state.json
         printf '{"reviewThreads":[]}\n' > /tmp/gh-aw/agent/review-threads.json
+        printf '[]\n' > /tmp/gh-aw/agent/review-events.json
         exit 0
       fi
 
@@ -56,6 +57,20 @@ steps:
         -F number="$PR_NUMBER" \
         --jq '.data.repository.pullRequest.reviewThreads' \
         > /tmp/gh-aw/agent/review-threads.json
+
+      gh api \
+        "repos/$REPO/issues/$PR_NUMBER/timeline?per_page=100" \
+        -H "Accept: application/vnd.github+json" \
+        --jq '[.[]
+          | select(.event == "review_requested" or .event == "review_request_removed")
+          | {
+              event,
+              created_at,
+              actor: .actor.login,
+              requested_reviewer: .requested_reviewer.login
+            }
+        ]' \
+        > /tmp/gh-aw/agent/review-events.json
 safe-outputs:
   add-comment:
     max: 1
@@ -97,7 +112,7 @@ safe-outputs:
       steps:
         - name: Request Copilot reviewer
           env:
-            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
             REPO: ${{ github.repository }}
           run: |
             set -euo pipefail
@@ -139,7 +154,7 @@ safe-outputs:
       steps:
         - name: Merge PR
           env:
-            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
             REPO: ${{ github.repository }}
           run: |
             set -euo pipefail
@@ -210,14 +225,16 @@ Read:
 - `/tmp/gh-aw/agent/selected-pr.json`
 - `/tmp/gh-aw/agent/pr-state.json`
 - `/tmp/gh-aw/agent/review-threads.json`
+- `/tmp/gh-aw/agent/review-events.json`
 
 The deterministic prefetch step has selected the oldest non-draft open PR. Never switch to another PR during this run. If `selected-pr.json` has no `number`, call `noop`.
 
 ### Step 1: Ensure Copilot code review
 
-Inspect `reviews` and `reviewRequests` in `pr-state.json`.
+Inspect `reviews` in `pr-state.json` and the request/removal timeline in `review-events.json`.
 
-- A Copilot review request exists only when `reviewRequests` contains a login beginning with `copilot-pull-request-reviewer`. Never infer a pending request from labels or comments.
+- Treat Copilot review as pending when the latest event for requested reviewer `Copilot` is `review_requested`, it follows the newest commit, and no newer Copilot review has been submitted. A later `review_request_removed` event cancels the pending state.
+- Never infer a pending request from labels, comments, or the `reviewRequests` field; GitHub does not expose the Copilot bot there.
 - If there is no current Copilot review and Copilot is not already requested, call `request_copilot_review` with `pr_number`. That atomic job requests the reviewer, updates labels, and posts the status comment; do not emit separate comment or label outputs for this transition.
 - If Copilot review is already pending, call `noop`; do not request it again or add another comment.
 
