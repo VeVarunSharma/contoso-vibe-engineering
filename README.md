@@ -85,6 +85,7 @@ pnpm dev
 | `pnpm dev`   | Start all apps in development mode |
 | `pnpm build` | Build all apps and packages        |
 | `pnpm lint`  | Run linting across the monorepo    |
+| `pnpm typecheck` | Type-check the whole monorepo  |
 | `pnpm test`  | Run tests across the monorepo      |
 
 ### Dev Servers
