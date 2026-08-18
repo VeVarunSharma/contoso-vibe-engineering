@@ -8,22 +8,35 @@ describe("<HeroSection />", () => {
 
   it("renders the page title heading", () => {
     expect(
-      screen.getByRole("heading", { level: 1, name: /contoso vibe engineering/i }),
+      screen.getByRole("heading", {
+        level: 1,
+        name: /stock every shelf with confidence/i,
+      }),
     ).toBeInTheDocument();
   });
 
   it("renders the supporting subtitle", () => {
     expect(
-      screen.getByText(/agentic upgrades for the modern enterprise/i),
+      screen.getByText(/premium liquor and compliant cannabis/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/mary jane collection/i)).toBeInTheDocument();
   });
 
-  it("renders Get Started and Learn More CTAs", () => {
+  it("links to the catalog and distribution coverage", () => {
+    expect(screen.getByRole("link", { name: /browse catalog/i })).toHaveAttribute(
+      "href",
+      "#catalog",
+    );
     expect(
-      screen.getByRole("button", { name: /get started/i }),
-    ).toBeInTheDocument();
+      screen.getByRole("link", { name: /view delivery coverage/i }),
+    ).toHaveAttribute("href", "#distribution");
+  });
+
+  it("shows retailer safeguards and fulfillment highlights", () => {
     expect(
-      screen.getByRole("button", { name: /learn more/i }),
+      screen.getByText(/business license verification required/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/3 regional hubs/i)).toBeInTheDocument();
+    expect(screen.getByText(/99.2% fill rate/i)).toBeInTheDocument();
   });
 });
