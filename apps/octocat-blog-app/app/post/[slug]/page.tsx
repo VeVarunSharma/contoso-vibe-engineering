@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { ArrowLeft, Calendar, Clock } from "lucide-react";
 import { CategoryBadge } from "@/components/category-badge";
 import { AuthorCard } from "@/components/author-card";
+import { EngagementSection } from "@/components/engagement-section";
 import { renderMarkdown } from "@/lib/markdown";
 import type { Metadata } from "next";
 
@@ -181,8 +182,10 @@ export default async function PostPage({ params }: PostPageProps) {
         <AuthorCard author={post.author} />
       </div>
 
+      <EngagementSection slug={post.slug} />
+
       {/* Share */}
-      <div className="flex items-center gap-4 pt-8 border-t">
+      <div className="flex items-center gap-4 mt-8 pt-8 border-t">
         <span className="text-sm font-medium">Share this post:</span>
         <a
           href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`${siteUrl}/post/${post.slug}`)}`}
@@ -204,5 +207,3 @@ export default async function PostPage({ params }: PostPageProps) {
     </article>
   );
 }
-
-

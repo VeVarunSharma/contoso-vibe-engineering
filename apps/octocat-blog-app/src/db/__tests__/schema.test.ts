@@ -9,11 +9,15 @@ import {
   tags,
   posts,
   postTags,
+  comments,
+  reactions,
   authorsRelations,
   categoriesRelations,
   tagsRelations,
   postsRelations,
   postTagsRelations,
+  commentsRelations,
+  reactionsRelations,
 } from "@/src/db/schema";
 
 import type {
@@ -25,6 +29,10 @@ import type {
   NewTag,
   Post,
   NewPost,
+  Comment,
+  NewComment,
+  Reaction,
+  NewReaction,
 } from "@/src/db/schema";
 
 describe("Database Schema", () => {
@@ -115,6 +123,27 @@ describe("Database Schema", () => {
       expect(postTags).toBeDefined();
     });
 
+    describe("Comments table", () => {
+      it("exports comments with public reader fields", () => {
+        expect(comments.id).toBeDefined();
+        expect(comments.postId).toBeDefined();
+        expect(comments.displayName).toBeDefined();
+        expect(comments.content).toBeDefined();
+        expect(comments.createdAt).toBeDefined();
+        expect(commentsRelations).toBeDefined();
+      });
+    });
+
+    describe("Reactions table", () => {
+      it("exports reactions with supported fields", () => {
+        expect(reactions.id).toBeDefined();
+        expect(reactions.postId).toBeDefined();
+        expect(reactions.type).toBeDefined();
+        expect(reactions.createdAt).toBeDefined();
+        expect(reactionsRelations).toBeDefined();
+      });
+    });
+
     it("has required columns", () => {
       expect(postTags.postId).toBeDefined();
       expect(postTags.tagId).toBeDefined();
@@ -186,6 +215,32 @@ describe("Database Schema", () => {
         updatedAt: new Date(),
       };
       expect(post.title).toBe("Test Post");
+    });
+
+    it("engagement types can be used", () => {
+      const comment: Comment = {
+        id: 1,
+        postId: 1,
+        displayName: "Reader",
+        content: "Great post!",
+        createdAt: new Date(),
+      };
+      const newComment: NewComment = {
+        postId: 1,
+        displayName: "Reader",
+        content: "Great post!",
+      };
+      const reaction: Reaction = {
+        id: 1,
+        postId: 1,
+        type: "like",
+        createdAt: new Date(),
+      };
+      const newReaction: NewReaction = { postId: 1, type: "celebrate" };
+
+      expect(comment.displayName).toBe(newComment.displayName);
+      expect(reaction.type).toBe("like");
+      expect(newReaction.type).toBe("celebrate");
     });
   });
 });
