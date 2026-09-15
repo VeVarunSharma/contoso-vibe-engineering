@@ -178,17 +178,3 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
-
-  # ──────────────────────────────────────────────
-  # Terraform — infrastructure provider versions
-  # ──────────────────────────────────────────────
-  - package-ecosystem: "terraform"
-    directory: "/infra/terraform/azure-vancouver-example"
-    schedule:
-      interval: "monthly"
-    labels:
-      - "dependencies"
-      - "infrastructure"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
