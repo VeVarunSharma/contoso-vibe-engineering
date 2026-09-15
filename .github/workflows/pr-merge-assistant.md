@@ -1,12 +1,8 @@
 ---
 name: PR Merge Assistant
-description: Automatically reviews, repairs, and merges one open pull request at a time.
+description: Manually reviews, repairs, or merges one open pull request at a time.
 on:
-  schedule: every 30 minutes
-  pull_request:
-    types: [synchronize, ready_for_review]
-  pull_request_review:
-    types: [submitted]
+  workflow_dispatch:
 concurrency:
   group: pr-merge-assistant
   cancel-in-progress: false
@@ -188,23 +184,15 @@ steps:
         createdAt: .created_at
       }' "$AGENT_DIR/decision-state.json" > "$AGENT_DIR/selected-pr.json"
 safe-outputs:
-  add-comment:
-    max: 1
-    target: "*"
-    hide-older-comments: true
-  add-labels:
-    allowed: [ready-to-merge, needs-review, changes-requested]
-    target: "*"
-    max: 3
-  remove-labels:
-    allowed: [ready-to-merge, needs-review, changes-requested]
-    target: "*"
-    max: 3
+  report-failure-as-issue: false
+  report-failed-jobs: false
   noop:
     report-as-issue: false
   missing-data:
     create-issue: false
   missing-tool:
+    create-issue: false
+  report-incomplete:
     create-issue: false
   jobs:
     assign-copilot-to-pr:
@@ -216,7 +204,6 @@ safe-outputs:
           required: true
           type: string
       permissions:
-        actions: write
         contents: read
         issues: write
         pull-requests: read
@@ -224,9 +211,7 @@ safe-outputs:
         - name: Assign Copilot coding agent
           env:
             GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
-            DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
             REPO: ${{ github.repository }}
-            WORKFLOW: pr-merge-assistant.lock.yml
           run: |
             set -euo pipefail
             PR_NUMBER=$(jq -r '.items[] | select(.type == "assign_copilot_to_pr") | .pr_number' "$GH_AW_AGENT_OUTPUT")
@@ -251,14 +236,6 @@ safe-outputs:
               --method POST \
               "repos/$REPO/issues/$PR_NUMBER/labels" \
               -f 'labels[]=changes-requested'
-
-            gh pr comment "$PR_NUMBER" \
-              --repo "$REPO" \
-              --body "Copilot coding agent assigned to address unresolved review feedback or actionable CI failures. The PR will be re-reviewed after the next commit."
-
-            gh workflow run "$WORKFLOW" \
-              --repo "$REPO" \
-              --ref "$DEFAULT_BRANCH"
     request-copilot-review:
       description: "Request Copilot code review on one pull request"
       runs-on: ubuntu-latest
@@ -268,7 +245,6 @@ safe-outputs:
           required: true
           type: string
       permissions:
-        actions: write
         contents: read
         issues: write
         pull-requests: write
@@ -276,9 +252,7 @@ safe-outputs:
         - name: Request Copilot reviewer
           env:
             GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
-            DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
             REPO: ${{ github.repository }}
-            WORKFLOW: pr-merge-assistant.lock.yml
           run: |
             set -euo pipefail
             PR_NUMBER=$(jq -r '.items[] | select(.type == "request_copilot_review") | .pr_number' "$GH_AW_AGENT_OUTPUT")
@@ -301,14 +275,6 @@ safe-outputs:
               --method POST \
               "repos/$REPO/issues/$PR_NUMBER/labels" \
               -f 'labels[]=needs-review'
-
-            gh pr comment "$PR_NUMBER" \
-              --repo "$REPO" \
-              --body "⏳ Copilot code review requested for the current head commit. Waiting for review analysis before merge."
-
-            gh workflow run "$WORKFLOW" \
-              --repo "$REPO" \
-              --ref "$DEFAULT_BRANCH"
     merge-pr:
       description: "Revalidate and squash-merge one Copilot-reviewed pull request"
       runs-on: ubuntu-latest
@@ -318,16 +284,14 @@ safe-outputs:
           required: true
           type: string
       permissions:
-        actions: write
         contents: write
+        issues: write
         pull-requests: write
       steps:
         - name: Merge PR
           env:
             GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
-            DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
             REPO: ${{ github.repository }}
-            WORKFLOW: pr-merge-assistant.lock.yml
           run: |
             set -euo pipefail
             PR_NUMBER=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "merge_pr") | .pr_number')
@@ -381,11 +345,14 @@ safe-outputs:
               exit 0
             fi
 
-            gh pr merge "$PR_NUMBER" --repo "$REPO" --squash
+            CURRENT_LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '[.labels[].name]')
+            for LABEL in needs-review changes-requested; do
+              if jq -e --arg label "$LABEL" 'index($label) != null' <<< "$CURRENT_LABELS" > /dev/null; then
+                gh api --method DELETE "repos/$REPO/issues/$PR_NUMBER/labels/$LABEL"
+              fi
+            done
 
-            gh workflow run "$WORKFLOW" \
-              --repo "$REPO" \
-              --ref "$DEFAULT_BRANCH"
+            gh pr merge "$PR_NUMBER" --repo "$REPO" --squash
 timeout-minutes: 15
 ---
 
@@ -393,7 +360,7 @@ timeout-minutes: 15
 
 ## Task
 
-You are a fully automated pull request merge assistant. Process exactly one pull request per run and keep that PR moving through review, repair, re-review, and merge without requiring a person to operate the workflow.
+You are a manually invoked pull request merge assistant. Process exactly one pull request per run, perform only the selected transition, and never dispatch another run.
 
 ## Process
 
@@ -413,12 +380,12 @@ The deterministic prefetch step has scanned every open non-draft PR, skipped PRs
 
 Follow the `action` in `decision-state.json` exactly:
 
-- `request_review`: call `request_copilot_review` with `pr_number`. That atomic job requests the reviewer, updates labels, and posts the status comment; do not emit separate comment or label outputs.
+- `request_review`: call `request_copilot_review` with `pr_number`. That atomic job requests the reviewer and updates labels; do not emit separate comment or label outputs.
 - `none`: call `noop` because every open non-draft PR is already waiting on review, checks, or an assigned fix.
 
 ### Step 2: Address feedback or failing checks
 
-When `action` is `assign_agent`, call `assign_copilot_to_pr` with `pr_number` set to the selected PR number. That atomic job assigns Copilot, updates labels, and posts the status comment; do not emit separate comment or label outputs.
+When `action` is `assign_agent`, call `assign_copilot_to_pr` with `pr_number` set to the selected PR number. That atomic job assigns Copilot and updates labels; do not emit separate comment or label outputs.
 
 ### Step 3: Merge only after greenlight
 
@@ -430,11 +397,12 @@ When `action` is `merge`, call `merge_pr` with the selected PR number. The compu
 4. Every review thread is resolved.
 5. The PR is not a draft.
 
-Before merging, remove `needs-review` and `changes-requested`, add `ready-to-merge`, and post one concise greenlight comment. The merge job independently revalidates these gates before merging.
+Call `merge_pr` without emitting separate comment or label outputs. The merge job independently revalidates these gates and removes workflow status labels before merging.
 
 ## Noop Conditions
 
 Use `noop` with a brief explanation when:
+
 - No open non-draft PRs exist
 - Every open non-draft PR is already waiting on review, checks, or an assigned fix
 
@@ -446,5 +414,7 @@ Use `noop` with a brief explanation when:
 - Never merge with unresolved review threads
 - Never treat a new commit as approval; request re-review instead
 - Never process more than one PR in a run
+- Never dispatch or schedule a follow-up run
 - Do not let a waiting PR block another actionable PR
-- Avoid duplicate comments and duplicate Copilot assignments
+- Do not post transition comments
+- Avoid duplicate Copilot assignments

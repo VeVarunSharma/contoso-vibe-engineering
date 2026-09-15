@@ -2,7 +2,7 @@ name: Multi-Model AI Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -11,24 +11,47 @@ on:
         type: number
 
 concurrency:
-  group: multi-model-review-${{ github.event.pull_request.number || github.run_id }}
+  group: multi-model-review-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.run_id }}
   cancel-in-progress: true
 
 permissions:
   contents: read
   pull-requests: write
-  issues: write
 
 jobs:
+  preflight:
+    name: Review preflight
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.draft == false &&
+          github.event.pull_request.head.repo.fork == false &&
+          !endsWith(github.event.pull_request.user.login, '[bot]')
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify Copilot credentials
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$COPILOT_GITHUB_TOKEN" ]; then
+            echo "::error::COPILOT_GITHUB_TOKEN is required for eligible multi-model reviews."
+            exit 1
+          fi
+
   # ---------------------------------------------------------------------------
   # Fan-Out: Run 4 parallel code review agents, one per model
   # ---------------------------------------------------------------------------
   review:
     name: Review (${{ matrix.model }})
+    needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Skip fork PRs entirely — no secrets available, and error artifacts would fail consensus
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork != true
     strategy:
       fail-fast: false # Let all models finish even if one fails
       matrix:
@@ -234,7 +257,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: review
-    # Run if review completed (success or failure) but not if skipped (fork PRs)
+    # Aggregate completed matrix jobs, but do not run when preflight made the review ineligible.
     if: always() && !cancelled() && needs.review.result != 'skipped'
 
     steps:
@@ -246,7 +269,11 @@ jobs:
         with:
           node-version: 22
 
+      - name: Prepare review directory
+        run: mkdir -p /tmp/reviews
+
       - name: Download all review artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v8
         with:
           path: /tmp/reviews
@@ -261,12 +288,17 @@ jobs:
       - name: Run consensus engine
         id: consensus
         run: |
-          set -euo pipefail
+          set -uo pipefail
           node .github/scripts/multi-model-review/consensus.mjs /tmp/reviews /tmp/consensus
+          CONSENSUS_EXIT=$?
 
-          # Read the result for subsequent steps
-          VERDICT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/consensus/consensus-result.json','utf-8')).verdict)")
+          if [ -f /tmp/consensus/consensus-result.json ]; then
+            VERDICT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/consensus/consensus-result.json','utf-8')).verdict)")
+          else
+            VERDICT=error
+          fi
           echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+          exit "$CONSENSUS_EXIT"
         continue-on-error: true
 
       - name: Output consensus report as summary
@@ -282,7 +314,12 @@ jobs:
           fi
 
       - name: Post consensus report as PR comment
-        if: always() && (github.event_name == 'pull_request' || github.event.inputs.pr_number)
+        if: >-
+          ${{
+            always() &&
+            contains(fromJSON('["approve","request_changes"]'), steps.consensus.outputs.verdict) &&
+            (github.event_name == 'pull_request' || github.event.inputs.pr_number)
+          }}
         uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
@@ -346,24 +383,41 @@ jobs:
               }
             }
 
-            body += `\n\n---\n*Consensus from ${fs.existsSync(resultPath) ? JSON.parse(fs.readFileSync(resultPath, 'utf8')).total : '?'} AI models • [Workflow run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})*`;
+            const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+            const statusEmoji = result.verdict === 'approve' ? '✅' : '❌';
+            const statusLabel = result.verdict === 'approve' ? 'APPROVED' : 'CHANGES REQUESTED';
+            body += `\n\n### 📋 Workflow Summary\n\n`;
+            body += `| Status | Approved | Threshold | Findings |\n`;
+            body += `|--------|----------|-----------|----------|\n`;
+            body += `| ${statusEmoji} ${statusLabel} | ${result.approvals}/${result.total} | ${result.threshold}/${result.total} | ${result.totalFindingsCount} total, ${result.crossModelFindingsCount} cross-model |\n\n`;
+            body += `> 📝 This review is **advisory**. Enforce it through branch protection if required.`;
+            body += `\n\n---\n*Consensus from ${result.total} valid AI model reviews.*`;
+            body = body.replace(/@/g, '@\u200b');
 
-            // Delete old consensus comment and create fresh one at the bottom
-            // so it always appears as the latest comment on the PR
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-            });
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+              }
+            );
 
             const existing = comments.find(c => c.body.includes(marker));
             if (existing) {
-              await github.rest.issues.deleteComment({
+              if (existing.body === body) {
+                console.log(`Consensus comment ${existing.id} is already current`);
+                return;
+              }
+              await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: existing.id,
+                body,
               });
-              console.log(`Deleted old consensus comment ${existing.id}`);
+              console.log(`Updated consensus comment ${existing.id}`);
+              return;
             }
 
             await github.rest.issues.createComment({
@@ -372,39 +426,7 @@ jobs:
               issue_number: prNumber,
               body,
             });
-            console.log('Created new consensus comment at bottom of PR');
-
-      - name: Clean up stale per-model comments
-        if: always() && (github.event_name == 'pull_request' || github.event.inputs.pr_number)
-        uses: actions/github-script@v9
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const prNumber = parseInt(process.env.PR_NUMBER, 10);
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-            });
-
-            // Delete old per-model review comments (now consolidated into consensus)
-            const perModelPattern = /<!-- multi-model-review:(?!consensus)[\w.-]+ -->/;
-            const staleComments = comments.filter(c => perModelPattern.test(c.body));
-
-            for (const c of staleComments) {
-              await github.rest.issues.deleteComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: c.id,
-              });
-              console.log(`Deleted stale per-model comment ${c.id}`);
-            }
-
-            if (staleComments.length > 0) {
-              console.log(`Cleaned up ${staleComments.length} stale per-model comment(s)`);
-            }
+            console.log('Created consensus comment');
 
       - name: Upload consensus report artifact
         if: always()
@@ -423,10 +445,10 @@ jobs:
           set -euo pipefail
 
           if [ ! -f "$RESULT_FILE" ]; then
-            echo "::warning::Consensus engine failed — no result file produced."
+            echo "::error::Consensus engine failed — no result file produced."
             echo "## ⚠️ AI Code Review: No Result" >> "$GITHUB_STEP_SUMMARY"
             echo "The consensus engine did not produce a result file." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+            exit 1
           fi
 
           # Parse via env var — avoids interpolating file path into JS string
@@ -442,68 +464,13 @@ jobs:
             echo "## ✅ AI Code Review: APPROVED" >> "$GITHUB_STEP_SUMMARY"
             echo "$APPROVALS/$TOTAL models approved this PR." >> "$GITHUB_STEP_SUMMARY"
           elif [ "$VERDICT" = "error" ]; then
-            echo "::warning::Multi-model consensus: ERROR — insufficient valid reviews"
+            echo "::error::Multi-model consensus: ERROR — insufficient valid reviews"
             echo "## ⚠️ AI Code Review: ERROR" >> "$GITHUB_STEP_SUMMARY"
             echo "Insufficient valid reviews to determine a verdict." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           else
             echo "::warning::Multi-model consensus: CHANGES REQUESTED ($APPROVALS/$TOTAL approved)"
             echo "## ❌ AI Code Review: CHANGES REQUESTED" >> "$GITHUB_STEP_SUMMARY"
             echo "$APPROVALS/$TOTAL models approved. See the consensus report for details." >> "$GITHUB_STEP_SUMMARY"
           fi
           # Verdict is advisory — enforce via branch protection rules if desired
-
-      - name: Update PR comment with workflow status
-        if: always() && (github.event_name == 'pull_request' || github.event.inputs.pr_number)
-        uses: actions/github-script@v9
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
-          RESULT_FILE: /tmp/consensus/consensus-result.json
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const prNumber = parseInt(process.env.PR_NUMBER, 10);
-            const resultFile = process.env.RESULT_FILE;
-            const marker = '<!-- multi-model-review:consensus -->';
-            const statusMarker = '<!-- workflow-status -->';
-
-            let status = '';
-            if (fs.existsSync(resultFile)) {
-              const result = JSON.parse(fs.readFileSync(resultFile, 'utf8'));
-              const emoji = result.verdict === 'approve' ? '✅' : result.verdict === 'error' ? '⚠️' : '❌';
-              const label = result.verdict === 'approve' ? 'APPROVED' : result.verdict === 'error' ? 'ERROR' : 'CHANGES REQUESTED';
-
-              status += `\n\n${statusMarker}\n`;
-              status += `### 📋 Workflow Summary\n\n`;
-              status += `| Status | Verdict | Approved | Threshold | Findings |\n`;
-              status += `|--------|---------|----------|-----------|----------|\n`;
-              status += `| ${emoji} ${label} | ${result.approvals}/${result.total} approve | ${result.approvals} | ${result.threshold}/${result.total} | ${result.totalFindingsCount} total, ${result.crossModelFindingsCount} cross-model |\n\n`;
-
-              status += `> 📝 This review is **advisory**. Enforce via branch protection rules if desired.\n\n`;
-              status += `*Workflow completed at ${new Date().toISOString()} • [View run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})*`;
-            } else {
-              status += `\n\n${statusMarker}\n`;
-              status += `### 📋 Workflow Summary\n\n⚠️ Consensus engine did not produce results.\n\n`;
-              status += `*Workflow completed at ${new Date().toISOString()} • [View run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})*`;
-            }
-
-            // Find and update the consensus comment
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-            });
-
-            const existing = comments.find(c => c.body.includes(marker));
-            if (existing) {
-              let body = existing.body.replace(/\n\n<!-- workflow-status -->[\s\S]*$/, '');
-              body += status;
-
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-              console.log(`Updated consensus comment with workflow summary`);
-            }
