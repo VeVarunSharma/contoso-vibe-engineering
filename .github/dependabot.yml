@@ -8,10 +8,10 @@ updates:
   # ──────────────────────────────────────────────
   - package-ecosystem: "npm"
     directories:
-      - "/"            # root package.json + pnpm-lock.yaml
-      - "/apps/*"      # frontend applications
-      - "/packages/*"  # shared libraries & configs
-      - "/services/*"  # backend microservices
+      - "/" # root package.json + pnpm-lock.yaml
+      - "/apps/*" # frontend applications
+      - "/packages/*" # shared libraries & configs
+      - "/services/*" # backend microservices
     schedule:
       interval: "weekly"
       day: "monday"
@@ -46,7 +46,7 @@ updates:
     open-pull-requests-limit: 15
     labels:
       - "dependencies"
-      - "npm"
+      - "javascript"
     commit-message:
       prefix: "deps"
       prefix-development: "deps-dev"
@@ -58,9 +58,13 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    # npm ci confirms the standalone lockfile is valid, but Dependabot's version
+    # updater rejects this .github package. Keep alerts while stopping failed
+    # scheduled version-update attempts.
+    open-pull-requests-limit: 0
     labels:
       - "dependencies"
-      - "npm"
+      - "javascript"
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -81,9 +85,13 @@ updates:
         applies-to: security-updates
         patterns:
           - "*"
+    # gh-aw lock workflows are generated from Markdown and must be recompiled
+    # so the compiler and runtime are upgraded together.
+    exclude-paths:
+      - ".github/workflows/*.lock.yml"
     labels:
       - "dependencies"
-      - "github-actions"
+      - "github_actions"
     commit-message:
       prefix: "ci"
 
@@ -104,7 +112,7 @@ updates:
           - "minor"
     labels:
       - "dependencies"
-      - "docker"
+      - "infrastructure"
     commit-message:
       prefix: "deps"
 
@@ -117,7 +125,7 @@ updates:
       interval: "monthly"
     labels:
       - "dependencies"
-      - "docker"
+      - "infrastructure"
     commit-message:
       prefix: "deps"
 
@@ -138,7 +146,7 @@ updates:
           - "minor"
     labels:
       - "dependencies"
-      - "python"
+      - "packages"
     commit-message:
       prefix: "deps"
 
@@ -166,7 +174,7 @@ updates:
           - "minor"
     labels:
       - "dependencies"
-      - "nuget"
+      - "packages"
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -180,7 +188,7 @@ updates:
       interval: "monthly"
     labels:
       - "dependencies"
-      - "terraform"
+      - "infrastructure"
     commit-message:
       prefix: "deps"
       include: "scope"

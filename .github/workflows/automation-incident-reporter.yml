@@ -1,0 +1,369 @@
+name: Automation Incident Reporter
+
+on:
+  workflow_run:
+    workflows:
+      - PR Merge Assistant
+      - Multi-Model AI Code Review
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Completed Actions run ID to inspect"
+        required: true
+        type: string
+      dry_run:
+        description: "Preview the incident action without writing to GitHub"
+        default: true
+        required: true
+        type: boolean
+
+permissions:
+  actions: read
+  checks: read
+  issues: write
+
+concurrency:
+  group: automation-incident-${{ github.event.workflow_run.name || github.event.inputs.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: Deduplicate workflow failure
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        contains(fromJSON('["failure","timed_out","startup_failure"]'), github.event.workflow_run.conclusion)
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Create or update the canonical incident
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id || github.event.inputs.run_id }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || false }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const crypto = require("node:crypto");
+
+            const { owner, repo } = context.repo;
+            const allowedWorkflows = new Set([
+              "PR Merge Assistant",
+              "Multi-Model AI Code Review",
+            ]);
+            const reportableConclusions = new Set([
+              "failure",
+              "timed_out",
+              "startup_failure",
+            ]);
+            const runIdText = process.env.UPSTREAM_RUN_ID ?? "";
+            const dryRun =
+              context.eventName === "workflow_dispatch" &&
+              process.env.DRY_RUN === "true";
+
+            if (!/^\d+$/.test(runIdText)) {
+              core.setFailed(`Invalid workflow run ID: ${runIdText}`);
+              return;
+            }
+
+            const runId = Number(runIdText);
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+              owner,
+              repo,
+              run_id: runId,
+            });
+
+            if (!allowedWorkflows.has(run.name)) {
+              core.setFailed(`Workflow is not monitored: ${run.name}`);
+              return;
+            }
+
+            if (!reportableConclusions.has(run.conclusion)) {
+              await core.summary
+                .addHeading("Automation incident reporter")
+                .addRaw(
+                  `Run ${run.id} concluded with ${run.conclusion}; no incident write is needed.`
+                )
+                .write();
+              return;
+            }
+
+            const jobs = await github.paginate(
+              github.rest.actions.listJobsForWorkflowRun,
+              {
+                owner,
+                repo,
+                run_id: runId,
+                per_page: 100,
+              }
+            );
+            const failedJobs = jobs
+              .filter((job) => reportableConclusions.has(job.conclusion))
+              .sort(
+                (left, right) =>
+                  (left.name || "").localeCompare(right.name || "") ||
+                  left.id - right.id
+              );
+
+            async function readAnnotations(job) {
+              try {
+                return await github.paginate(
+                  github.rest.checks.listAnnotations,
+                  {
+                    owner,
+                    repo,
+                    check_run_id: job.id,
+                    per_page: 100,
+                  }
+                );
+              } catch (error) {
+                if (error.status === 403 || error.status === 404) {
+                  core.warning(
+                    `Could not read annotations for job ${job.id}: HTTP ${error.status}`
+                  );
+                  return [];
+                }
+                throw error;
+              }
+            }
+
+            let primary = {
+              job: "Workflow setup",
+              step: "Workflow setup",
+              message: `Workflow concluded with ${run.conclusion}.`,
+            };
+
+            for (const job of failedJobs) {
+              const failedStep =
+                (job.steps ?? []).find((step) =>
+                  reportableConclusions.has(step.conclusion)
+                ) ?? (job.steps ?? []).find((step) => step.conclusion === "cancelled");
+              const annotations = await readAnnotations(job);
+              const annotation =
+                annotations.find(
+                  (item) => item.annotation_level === "failure"
+                ) ?? annotations[0];
+              const annotationMessage = annotation
+                ? [annotation.title, annotation.message, annotation.raw_details]
+                    .filter(Boolean)
+                    .join(": ")
+                : "";
+
+              primary = {
+                job: job.name || "Unknown job",
+                step: failedStep?.name || "Job setup",
+                message:
+                  annotationMessage ||
+                  `${job.name || "Unknown job"} / ${
+                    failedStep?.name || "Job setup"
+                  } concluded with ${job.conclusion}.`,
+              };
+              break;
+            }
+
+            function normalizeMessage(value) {
+              return String(value)
+                .replace(/https?:\/\/[^\s)]+/gi, "<url>")
+                .replace(/\b[0-9a-f]{40}\b/gi, "<sha>")
+                .replace(
+                  /\b(run|job|check)(?:[_ -]?id)?(?:\s*[:=#-]\s*|\s+)\d+\b/gi,
+                  "$1 <id>"
+                )
+                .replace(
+                  /\b\d{4}-\d{2}-\d{2}[T ][0-9:.+-]+Z?\b/gi,
+                  "<timestamp>"
+                )
+                .replace(
+                  /(?:[A-Z]:\\|\/(?:home|tmp|runner|__w)\/)[^\s)]+/g,
+                  "<runner-path>"
+                )
+                .replace(/\s+/g, " ")
+                .trim()
+                .toLowerCase()
+                .slice(0, 2000);
+            }
+
+            function neutralizeMentions(value) {
+              return String(value)
+                .replace(/@/g, "@\u200b")
+                .replace(/```/g, "'''");
+            }
+
+            const normalizedMessage = normalizeMessage(primary.message);
+            const signatureInput = [
+              run.name,
+              run.path || String(run.workflow_id),
+              primary.job,
+              primary.step,
+              normalizedMessage,
+            ].join("\n");
+            const signature = crypto
+              .createHash("sha256")
+              .update(signatureInput)
+              .digest("hex");
+            const signatureMarker = `<!-- automation-failure-signature:${signature} -->`;
+            const now = new Date();
+            const nowIso = now.toISOString();
+            const updateMarker = `<!-- automation-failure-update:${nowIso} -->`;
+            const runLink = run.html_url;
+
+            const candidateIssues = await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                owner,
+                repo,
+                state: "all",
+                labels: "agentic-workflows",
+                per_page: 100,
+              }
+            );
+            const incident = candidateIssues.find(
+              (issue) =>
+                !issue.pull_request &&
+                typeof issue.body === "string" &&
+                issue.body.includes(signatureMarker)
+            );
+
+            const safeJob = neutralizeMentions(primary.job);
+            const safeStep = neutralizeMentions(primary.step);
+            const safeMessage = neutralizeMentions(primary.message).slice(0, 4000);
+            const issueTitle = `[automation incident] ${run.name}: ${safeJob} / ${safeStep}`.slice(
+              0,
+              256
+            );
+            const occurrence = [
+              updateMarker,
+              `- Run: [${run.id}](${runLink})`,
+              `- Observed: ${nowIso}`,
+              `- Conclusion: \`${run.conclusion}\``,
+              `- Job: \`${safeJob}\``,
+              `- Step: \`${safeStep}\``,
+              "",
+              "```text",
+              safeMessage,
+              "```",
+            ].join("\n");
+
+            if (!incident) {
+              const body = [
+                signatureMarker,
+                updateMarker,
+                "## Canonical automation failure",
+                "",
+                "This issue groups repeated runs with the same normalized failure signature.",
+                "",
+                `- Workflow: \`${neutralizeMentions(run.name)}\``,
+                `- Workflow file: \`${neutralizeMentions(
+                  run.path || String(run.workflow_id)
+                )}\``,
+                `- First observed: ${nowIso}`,
+                `- Run: [${run.id}](${runLink})`,
+                `- Conclusion: \`${run.conclusion}\``,
+                `- Job: \`${safeJob}\``,
+                `- Step: \`${safeStep}\``,
+                "",
+                "## Primary failure",
+                "",
+                "```text",
+                safeMessage,
+                "```",
+                "",
+                "Repeats are summarized in the workflow run and update this issue at most once every 24 hours.",
+              ].join("\n");
+
+              if (dryRun) {
+                await core.summary
+                  .addHeading("Automation incident dry run")
+                  .addRaw(`Would create: ${issueTitle}\n\n`)
+                  .addRaw(`Signature: \`${signature}\`\n\n`)
+                  .addRaw(`Normalized error: \`${normalizedMessage}\``)
+                  .write();
+                core.info(`Dry run: would create incident for ${signature}`);
+                return;
+              }
+
+              const { data: created } = await github.rest.issues.create({
+                owner,
+                repo,
+                title: issueTitle,
+                body,
+                labels: ["agentic-workflows", "bug"],
+              });
+              core.info(`Created canonical incident #${created.number}`);
+              return;
+            }
+
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner,
+                repo,
+                issue_number: incident.number,
+                per_page: 100,
+              }
+            );
+            const timestampPattern =
+              /<!-- automation-failure-update:([^>]+) -->/g;
+            const timestamps = [];
+
+            for (const content of [
+              incident.body || "",
+              ...comments.map((comment) => comment.body || ""),
+            ]) {
+              for (const match of content.matchAll(timestampPattern)) {
+                const value = Date.parse(match[1]);
+                if (Number.isFinite(value)) {
+                  timestamps.push(value);
+                }
+              }
+            }
+
+            const latestUpdate = timestamps.length
+              ? Math.max(...timestamps)
+              : 0;
+            const updateDue = now.getTime() - latestUpdate >= 24 * 60 * 60 * 1000;
+
+            if (!updateDue) {
+              await core.summary
+                .addHeading("Automation incident repeat suppressed")
+                .addRaw(
+                  `Run ${run.id} matches #${incident.number}; the canonical incident was updated within the last 24 hours.\n\n`
+                )
+                .addRaw(`Signature: \`${signature}\``)
+                .write();
+              core.info(
+                `Suppressed repeat for #${incident.number}; 24-hour throttle is active`
+              );
+              return;
+            }
+
+            if (dryRun) {
+              await core.summary
+                .addHeading("Automation incident dry run")
+                .addRaw(
+                  `Would update #${incident.number} with run ${run.id}.\n\n`
+                )
+                .addRaw(`Signature: \`${signature}\``)
+                .write();
+              core.info(`Dry run: would update incident #${incident.number}`);
+              return;
+            }
+
+            if (incident.state === "closed") {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: incident.number,
+                state: "open",
+              });
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: incident.number,
+              body: `## Repeated occurrence\n\n${occurrence}`,
+            });
+            core.info(`Updated canonical incident #${incident.number}`);
