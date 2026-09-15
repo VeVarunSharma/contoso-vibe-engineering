@@ -49,7 +49,7 @@ jobs:
           set -euo pipefail
 
           if ! timeout 60s copilot \
-            --model gpt-5.3-codex \
+            --model auto \
             --prompt "Reply with exactly OK." \
             --available-tools='view' \
             --allow-all-tools \
@@ -362,9 +362,9 @@ jobs:
               return;
             }
 
-            const commentResult = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
-            if (!['approve', 'request_changes'].includes(commentResult.verdict)) {
-              console.log(`Skipping PR comment for consensus verdict: ${commentResult.verdict}`);
+            const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+            if (!['approve', 'request_changes'].includes(result.verdict)) {
+              console.log(`Skipping PR comment for consensus verdict: ${result.verdict}`);
               return;
             }
 
@@ -373,8 +373,7 @@ jobs:
             body += fs.readFileSync(reportPath, 'utf8');
 
             // Add decision reasoning section
-            if (fs.existsSync(resultPath)) {
-              const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+            {
               body += '\n\n### 🧠 Decision Reasoning\n\n';
 
               if (result.verdict === 'approve') {
@@ -415,7 +414,6 @@ jobs:
               }
             }
 
-            const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
             const statusEmoji = result.verdict === 'approve' ? '✅' : '❌';
             const statusLabel = result.verdict === 'approve' ? 'APPROVED' : 'CHANGES REQUESTED';
             body += `\n\n### 📋 Workflow Summary\n\n`;
