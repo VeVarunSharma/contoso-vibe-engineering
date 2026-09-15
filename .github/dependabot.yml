@@ -16,20 +16,6 @@ updates:
       interval: "weekly"
       day: "monday"
     groups:
-      # Cross-directory grouping: 1 PR per shared dependency across all dirs
-      monorepo-deps:
-        group-by: dependency-name
-      dev-dependencies:
-        dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
-      production-dependencies:
-        dependency-type: "production"
-        update-types:
-          - "minor"
-          - "patch"
-      # Group security update PRs together
       security-patches:
         applies-to: security-updates
         patterns:
@@ -37,13 +23,10 @@ updates:
         update-types:
           - "patch"
           - "minor"
-    # Cooldown: avoid early-adopter issues on brand-new releases
-    cooldown:
-      default-days: 3
-      semver-major-days: 14
-      semver-minor-days: 5
-      semver-patch-days: 2
-    open-pull-requests-limit: 15
+    # The combined pnpm workspace version updater was canceled twice after
+    # roughly 55 minutes. Keep alerts and grouped security updates enabled
+    # while pausing the unreliable scheduled version-update scan.
+    open-pull-requests-limit: 0
     labels:
       - "dependencies"
       - "javascript"
