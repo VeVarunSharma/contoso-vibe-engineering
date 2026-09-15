@@ -1,15 +1,24 @@
 name: Security Agent Workflow
-# The GitHub Actions workflow requires you to create a secret named COPILOT_GITHUB_TOKEN. This token is a fine-grained personal access token with the Copilot Requests read-only permission. Add this token as a secret in your GitHub repository settings to enable the workflow to authenticate with Copilot.
+
+# Run the full-repository AI assessment weekly instead of on every push.
+# CodeQL, Dependabot, and Dependency Review provide change-level coverage.
 on:
-  push:
-    branches: ["main"]
-  workflow_dispatch: # Adds the ability to run manually from CLI or
+  schedule:
+    - cron: "17 6 * * 3"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: security-agent-workflow
+  cancel-in-progress: true
 
 jobs:
   security-assessment:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
+      copilot-requests: write
       contents: read
     steps:
       - name: Checkout repository
@@ -21,23 +30,43 @@ jobs:
           node-version: 22
 
       - name: Install GitHub Copilot CLI
-        run: npm i -g @github/copilot
+        run: npm i -g @github/copilot@1.0.83
 
       - name: Run Security Agent via Copilot CLI
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          mkdir -p security-reports
+          REPORT_PATH="security-reports/security-assessment-report.md"
+
           AGENT_PROMPT=$(cat .github/agents/security-reporter.agent.md)
           PROMPT="$AGENT_PROMPT"
           PROMPT+=$'\n\nContext:\n'
           PROMPT+="- Repository: $GITHUB_REPOSITORY"
           PROMPT+=$'\n\nTask:\n'
           PROMPT+=$"\n- Execute the instructions on the full codebase"
-          PROMPT+=$'\n- Generate the security report at /security-reports/security-assessment-report.md summarizing findings, severity, and remediation guidance.'
+          PROMPT+=$'\n- Return the complete security report as your final response, summarizing findings, severity, and remediation guidance.'
+          PROMPT+=$'\n- Do not modify repository files.'
 
-          copilot --prompt "$PROMPT" --allow-all-tools --allow-all-paths < /dev/null
+          if ! copilot \
+            --prompt "$PROMPT" \
+            --silent \
+            --no-color \
+            --available-tools view rg glob \
+            --allow-all-tools \
+            --disable-builtin-mcps \
+            --secret-env-vars=GITHUB_TOKEN \
+            < /dev/null > "$REPORT_PATH"; then
+            rm -f "$REPORT_PATH"
+            exit 1
+          fi
+
+          if [ ! -s "$REPORT_PATH" ]; then
+            echo "::error::Copilot completed without producing a security report."
+            exit 1
+          fi
 
       - name: Output security report as summary
         if: always()
