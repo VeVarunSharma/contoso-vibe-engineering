@@ -1,8 +1,10 @@
 name: Security Agent Workflow
 
-# Full-repository AI security scans are intentionally manual. CodeQL,
-# Dependabot, and Dependency Review provide automated change-level coverage.
+# Run the full-repository AI assessment weekly instead of on every push.
+# CodeQL, Dependabot, and Dependency Review provide change-level coverage.
 on:
+  schedule:
+    - cron: "17 6 * * 3"
   workflow_dispatch:
 
 permissions: {}
@@ -37,6 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p security-reports
+          REPORT_PATH="security-reports/security-assessment-report.md"
 
           AGENT_PROMPT=$(cat .github/agents/security-reporter.agent.md)
           PROMPT="$AGENT_PROMPT"
@@ -44,13 +47,26 @@ jobs:
           PROMPT+="- Repository: $GITHUB_REPOSITORY"
           PROMPT+=$'\n\nTask:\n'
           PROMPT+=$"\n- Execute the instructions on the full codebase"
-          PROMPT+=$'\n- Generate the security report at security-reports/security-assessment-report.md summarizing findings, severity, and remediation guidance.'
+          PROMPT+=$'\n- Return the complete security report as your final response, summarizing findings, severity, and remediation guidance.'
+          PROMPT+=$'\n- Do not modify repository files.'
 
-          copilot \
+          if ! copilot \
             --prompt "$PROMPT" \
+            --silent \
+            --no-color \
+            --available-tools view rg glob \
             --allow-all-tools \
             --disable-builtin-mcps \
-            < /dev/null
+            --secret-env-vars=GITHUB_TOKEN \
+            < /dev/null > "$REPORT_PATH"; then
+            rm -f "$REPORT_PATH"
+            exit 1
+          fi
+
+          if [ ! -s "$REPORT_PATH" ]; then
+            echo "::error::Copilot completed without producing a security report."
+            exit 1
+          fi
 
       - name: Output security report as summary
         if: always()

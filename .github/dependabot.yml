@@ -70,6 +70,21 @@ updates:
       include: "scope"
 
   # ──────────────────────────────────────────────
+  # Terraform — infrastructure provider versions
+  # ──────────────────────────────────────────────
+  - package-ecosystem: "terraform"
+    directories:
+      - "/infra/terraform/azure-vancouver-example/*"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "infrastructure"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # ──────────────────────────────────────────────
   # GitHub Actions — keep workflow actions current
   # ──────────────────────────────────────────────
   - package-ecosystem: "github-actions"
