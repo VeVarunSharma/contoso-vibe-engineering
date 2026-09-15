@@ -14,9 +14,7 @@ concurrency:
   group: multi-model-review-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.run_id }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  pull-requests: write
+permissions: {}
 
 jobs:
   preflight:
@@ -33,16 +31,36 @@ jobs:
       }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    permissions:
+      copilot-requests: write
     steps:
-      - name: Verify Copilot credentials
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install GitHub Copilot CLI
+        run: npm i -g @github/copilot@1.0.83
+
+      - name: Verify Copilot authentication
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ -z "$COPILOT_GITHUB_TOKEN" ]; then
-            echo "::error::COPILOT_GITHUB_TOKEN is required for eligible multi-model reviews."
+
+          if ! timeout 60s copilot \
+            --model gpt-5.3-codex \
+            --prompt "Reply with exactly OK." \
+            --available-tools='view' \
+            --allow-all-tools \
+            --disable-builtin-mcps \
+            < /dev/null > /tmp/copilot-preflight.log 2>&1; then
+            cat /tmp/copilot-preflight.log
+            echo "::error::Copilot CLI authentication or organization policy check failed."
             exit 1
           fi
+
+          echo "Copilot CLI authentication preflight passed."
 
   # ---------------------------------------------------------------------------
   # Fan-Out: Run 4 parallel code review agents, one per model
@@ -52,6 +70,10 @@ jobs:
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      copilot-requests: write
+      pull-requests: read
     strategy:
       fail-fast: false # Let all models finish even if one fails
       matrix:
@@ -76,7 +98,7 @@ jobs:
 
       - name: Install GitHub Copilot CLI
         # Pin version for reproducibility — update periodically via Dependabot or manual bump
-        run: npm i -g @github/copilot@1.0.11
+        run: npm i -g @github/copilot@1.0.83
 
       - name: Get PR diff
         id: pr-diff
@@ -134,7 +156,7 @@ jobs:
 
       - name: Run Copilot CLI code review
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           REVIEW_MODEL: ${{ matrix.model }}
         run: |
           set -eo pipefail
@@ -257,6 +279,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: review
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
     # Aggregate completed matrix jobs, but do not run when preflight made the review ineligible.
     if: always() && !cancelled() && needs.review.result != 'skipped'
 

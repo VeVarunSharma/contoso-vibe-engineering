@@ -7,6 +7,7 @@ concurrency:
   group: pr-merge-assistant
   cancel-in-progress: false
 permissions:
+  copilot-requests: write
   contents: read
   pull-requests: read
   checks: read
