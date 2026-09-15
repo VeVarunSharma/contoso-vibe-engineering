@@ -80,8 +80,8 @@ jobs:
         model:
           - gpt-5.3-codex
           - gpt-5.4
-          - claude-opus-4.6
-          - gemini-3-pro-preview
+          - claude-opus-4.7
+          - gemini-3.8-flash
 
     steps:
       - name: Checkout repository
@@ -343,7 +343,6 @@ jobs:
         if: >-
           ${{
             always() &&
-            contains(fromJSON('["approve","request_changes"]'), steps.consensus.outputs.verdict) &&
             (github.event_name == 'pull_request' || github.event.inputs.pr_number)
           }}
         uses: actions/github-script@v9
@@ -358,13 +357,20 @@ jobs:
             const resultPath = '/tmp/consensus/consensus-result.json';
             const marker = '<!-- multi-model-review:consensus -->';
 
+            if (!fs.existsSync(reportPath) || !fs.existsSync(resultPath)) {
+              console.log('Skipping PR comment because consensus output is incomplete');
+              return;
+            }
+
+            const commentResult = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+            if (!['approve', 'request_changes'].includes(commentResult.verdict)) {
+              console.log(`Skipping PR comment for consensus verdict: ${commentResult.verdict}`);
+              return;
+            }
+
             let body = marker + '\n';
 
-            if (fs.existsSync(reportPath)) {
-              body += fs.readFileSync(reportPath, 'utf8');
-            } else {
-              body += '# 🤖 Multi-Model AI Code Review — Consensus\n\n⚠️ Consensus engine failed to produce a report. Check the workflow logs for details.';
-            }
+            body += fs.readFileSync(reportPath, 'utf8');
 
             // Add decision reasoning section
             if (fs.existsSync(resultPath)) {
@@ -430,7 +436,9 @@ jobs:
               }
             );
 
-            const existing = comments.find(c => c.body.includes(marker));
+            const existing = comments.find(
+              c => typeof c.body === 'string' && c.body.includes(marker)
+            );
             if (existing) {
               if (existing.body === body) {
                 console.log(`Consensus comment ${existing.id} is already current`);
