@@ -100,6 +100,10 @@ pnpm dev
 
 The rules for the AI Agent are defined in [.github/copilot-instructions.md](.github/copilot-instructions.md).
 
+## Automation Noise Controls
+
+The repository's agentic workflows and dependency automation use explicit launch, deduplication, and comment budgets to prevent repeated failures from flooding Actions, issues, and pull request conversations. See [Workflow Noise Reduction](docs/workflow-noise-reduction.md) for the measured baseline, deployed controls, rollout results, and ongoing monitoring guidance.
+
 ## What's Been Hardened
 
 This repository was the subject of an end-to-end **vibe-engineering triage** sprint. All P0 (critical) and P1 (high-priority) issues have been resolved through the following themed PRs — each one independently reviewable and shipped against a milestone:
