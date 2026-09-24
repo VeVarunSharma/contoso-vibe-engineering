@@ -1,4 +1,4 @@
-name: Complete Copilot PRs
+name: Complete Copilot PRs for Factory Validation
 
 on:
   schedule:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   complete:
-    name: Label and ready completed Copilot PRs
+    name: Validate and ready completed Copilot PRs
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -123,13 +123,18 @@ jobs:
             fi
             PR_IS_DRAFT=$(jq -r '.draft' <<< "$LIVE_PR")
 
-            if ! jq -e '.labels | any(.name == "automerge")' <<< "$LIVE_PR" > /dev/null; then
+            if ! jq -e '.labels | any(.name == "factory:validating")' <<< "$LIVE_PR" > /dev/null; then
+              GH_TOKEN="$AUTOMATION_TOKEN" gh label create "factory:validating" \
+                --repo "$REPO" \
+                --color "5319E7" \
+                --description "Pull request is in automated validation" \
+                --force
               GH_TOKEN="$AUTOMATION_TOKEN" gh api \
                 --method POST \
                 "repos/$REPO/issues/$PR_NUMBER/labels" \
-                -f 'labels[]=automerge' \
+                -f 'labels[]=factory:validating' \
                 --silent
-              echo "Added automerge to PR #$PR_NUMBER."
+              echo "Added factory:validating to PR #$PR_NUMBER."
             fi
 
             if [[ "$PR_IS_DRAFT" == "true" ]]; then

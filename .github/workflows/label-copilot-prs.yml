@@ -1,0 +1,52 @@
+name: Label Copilot PRs for Factory Validation
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: label-copilot-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  label:
+    name: Add factory validation label
+    if: >-
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.user.id == 198982749 &&
+      github.event.pull_request.user.login == 'Copilot' &&
+      github.event.pull_request.user.type == 'Bot' &&
+      startsWith(github.event.pull_request.head.ref, 'copilot/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
+      REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Apply validation label
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid pull request number: $PR_NUMBER" >&2
+            exit 1
+          fi
+
+          gh label create "factory:validating" \
+            --repo "$REPO" \
+            --color "5319E7" \
+            --description "Pull request is in automated validation" \
+            --force
+
+          gh api \
+            --method POST \
+            "repos/$REPO/issues/$PR_NUMBER/labels" \
+            -f 'labels[]=factory:validating' \
+            --silent

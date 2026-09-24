@@ -124,7 +124,13 @@ The repository's agentic workflows and dependency automation use explicit launch
 
 ## Pull Request Auto-Merge
 
-Every five minutes, trusted default-branch automation finds new Copilot coding-agent pull requests whose linked GitHub Agent Task reports `completed`. It revalidates the bot identity, same-repository `copilot/*` branch, pull request ID, and exact head commit before adding `automerge` and marking drafts ready for review. The **Draft PR Auto-Merge** agentic workflow then enables native auto-merge; repository checks, reviews, conversation resolution, and merge queues remain enforced.
+Every five minutes, trusted default-branch automation finds new Copilot coding-agent pull requests whose linked GitHub Agent Task reports `completed`. It revalidates the bot identity, same-repository `copilot/*` branch, pull request ID, and exact head commit before applying `factory:validating` and marking drafts ready for review. The dark factory then applies the final `automerge` and `factory:merge-ready` labels only after its review and CI gates pass. The **Draft PR Auto-Merge** agentic workflow independently revalidates the exact pull request and head commit before enabling native auto-merge.
+
+## Dark Factory
+
+The repository includes an opt-in dark factory for bounded autonomous issue delivery. Apply `factory:queued` to an approved issue to let the **Dark Factory Dispatch** agentic workflow assign one issue at a time to the Copilot coding agent. Trusted Copilot pull requests are labeled for validation, reviewed, repaired when checks fail, and receive the final `automerge` opt-in only after the current head commit has a Copilot review, all reported checks pass, and all review conversations are resolved.
+
+Workflow, action, infrastructure, authentication, security, permissions, and database migration or schema changes are automatically removed from the factory and labeled `factory:human-review`. See [Dark Factory Operations](docs/dark-factory.md) for setup, state transitions, and repository prerequisites.
 
 ## What's Been Hardened
 

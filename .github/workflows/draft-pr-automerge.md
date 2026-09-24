@@ -52,11 +52,13 @@ steps:
           .state == "OPEN"
           and .isDraft == false
           and any(.labels[]; .name == "automerge")
+          and any(.labels[]; .name == "factory:merge-ready")
         ),
         reason: (
           if .state != "OPEN" then "Pull request is not open."
           elif .isDraft then "Pull request is still a draft."
           elif (any(.labels[]; .name == "automerge") | not) then "The automerge label is not present."
+          elif (any(.labels[]; .name == "factory:merge-ready") | not) then "The factory merge gates have not passed."
           else "Pull request is ready and explicitly opted in to auto-merge."
           end
         )
@@ -123,6 +125,7 @@ safe-outputs:
               and .isDraft == false
               and .headRefOid == $expected_head_sha
               and any(.labels[]; .name == "automerge")
+              and any(.labels[]; .name == "factory:merge-ready")
             ' <<< "$PR_STATE" > /dev/null; then
               echo "::warning::PR #$PR_NUMBER changed after evaluation and no longer satisfies auto-merge eligibility."
               exit 0
@@ -152,12 +155,13 @@ Evaluate the pull request that triggered this workflow and enable GitHub's nativ
    - `expected_head_sha`: `head_sha`
 5. If `eligible` is `false`, call `noop` with the provided `reason`.
 
-The safe-output job independently revalidates that the pull request is open, is no longer a draft, still has the `automerge` label, and still points to the evaluated head commit. GitHub native auto-merge then waits for required checks, reviews, conversation resolution, and merge-queue requirements configured by repository rules.
+The safe-output job independently revalidates that the pull request is open, is no longer a draft, still has the `automerge` and `factory:merge-ready` labels, and still points to the evaluated head commit. GitHub native auto-merge then waits for required checks, reviews, conversation resolution, and merge-queue requirements configured by repository rules.
 
 ## Important Rules
 
 - Never merge or enable auto-merge for a draft pull request.
 - Never merge or enable auto-merge without the `automerge` label.
+- Never merge or enable auto-merge without the `factory:merge-ready` label.
 - Never bypass branch protection, required reviews, required checks, or merge queues.
 - Never act on a different pull request.
 - Never use a head commit different from the evaluated SHA.
