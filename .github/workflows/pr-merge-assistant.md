@@ -128,6 +128,7 @@ steps:
                     )
                ]) as $high_risk_files
             | any($p.assignees[]?; ((.login // "") | ascii_downcase | contains("copilot"))) as $copilot_assigned
+            | any($p.labels[]?; .name == "changes-requested") as $repair_pending
             | ($latest_copilot_review != "" and $latest_copilot_review >= $latest_commit) as $review_current
             | (($latest_copilot_event.event // "") == "review_requested"
                 and ($latest_copilot_event.created_at // "") >= $latest_commit
@@ -138,7 +139,7 @@ steps:
                 elif $review_current == false then
                   if $review_pending then "wait" else "request_review" end
                 elif ($unresolved_threads > 0 or $failing_checks > 0 or $p.reviewDecision == "CHANGES_REQUESTED") then
-                  if $copilot_assigned then "wait" else "assign_agent" end
+                  if $repair_pending then "wait" else "assign_agent" end
                 elif $pending_checks > 0 then
                   "wait"
                 else
@@ -160,6 +161,7 @@ steps:
                 high_risk_files: $high_risk_files,
                 review_decision: $p.reviewDecision,
                 copilot_assigned: $copilot_assigned,
+                repair_pending: $repair_pending,
                 action: $action,
                 priority: (
                   if $action == "human_review" then 0
@@ -251,6 +253,12 @@ safe-outputs:
             fi
 
             gh api \
+              --method DELETE \
+              "repos/$REPO/issues/$PR_NUMBER/assignees" \
+              -f 'assignees[]=copilot-swe-agent[bot]' \
+              --silent
+
+            gh api \
               --method POST \
               "repos/$REPO/issues/$PR_NUMBER/assignees" \
               -f 'assignees[]=copilot-swe-agent[bot]'
@@ -340,9 +348,11 @@ safe-outputs:
               -f 'reviewers[]=copilot-pull-request-reviewer[bot]'
 
             CURRENT_LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '[.labels[].name]')
-            if jq -e 'index("ready-to-merge") != null' <<< "$CURRENT_LABELS" > /dev/null; then
-              gh api --method DELETE "repos/$REPO/issues/$PR_NUMBER/labels/ready-to-merge"
-            fi
+            for LABEL in ready-to-merge changes-requested; do
+              if jq -e --arg label "$LABEL" 'index($label) != null' <<< "$CURRENT_LABELS" > /dev/null; then
+                gh api --method DELETE "repos/$REPO/issues/$PR_NUMBER/labels/$LABEL"
+              fi
+            done
 
             gh api \
               --method POST \
