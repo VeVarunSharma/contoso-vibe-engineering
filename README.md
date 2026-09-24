@@ -1,3 +1,21 @@
+```text
+                                  🚀 VIBE ENGINEERING 🚀
+
+          /\_/\
+         ( o.o )   Contoso Multiplayer Monorepo
+          > ^ <    Next.js • Express • .NET • Drizzle • Copilot SDK
+
+   ___ ___  _  _ _____ ___  ___  ___ 
+  / __/ _ \| \| |_   _/ _ \/ __|/ _ \
+ | (__| (_) | .` | | || (_) \__ \ (_) |
+  \___|\___/|_|\_| |_| \___/|___/\___/
+
+  __   _____ ___  ___   ___ _  _  ___ ___ _  _ ___ ___ ___ ___ _  _  ___ 
+  \ \ / /_ _| _ )/ _ \ | __| \| |/ __|_ _| \| | __| __| _ \_ _| \| |/ __|
+   \ V / | || _ \ (_) || _|| .` | (_ || || .` | _|| _||   /| || .` | (_|
+    \_/ |___|___/\___/ |___|_|\_|\___|___|_|\_|___|___|_|_\_|___|_|\_|\___|
+```
+
 # Vibe Engineering Demo (Monorepo Edition) 🚀
 
 This project demonstrates the transition from "Single Player Vibe Coding" to "Multiplayer Vibe Engineering". It is a **Turborepo** monorepo containing frontend applications, shared packages, and backend microservices.
@@ -107,6 +125,7 @@ The repository's agentic workflows and dependency automation use explicit launch
 ## Pull Request Auto-Merge
 
 Every five minutes, trusted default-branch automation finds new Copilot coding-agent pull requests whose linked GitHub Agent Task reports `completed`. It revalidates the bot identity, same-repository `copilot/*` branch, pull request ID, and exact head commit before adding `automerge` and marking drafts ready for review. The **Draft PR Auto-Merge** agentic workflow then enables native auto-merge; repository checks, reviews, conversation resolution, and merge queues remain enforced.
+
 ## What's Been Hardened
 
 This repository was the subject of an end-to-end **vibe-engineering triage** sprint. All P0 (critical) and P1 (high-priority) issues have been resolved through the following themed PRs — each one independently reviewable and shipped against a milestone:
