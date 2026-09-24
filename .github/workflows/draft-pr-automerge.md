@@ -4,6 +4,7 @@ description: Enables native auto-merge for opted-in draft pull requests after th
 on:
   pull_request_target:
     types: [ready_for_review, labeled, reopened]
+  bots: [Copilot, copilot-swe-agent]
 concurrency:
   group: draft-pr-automerge-${{ github.event.pull_request.number }}
   cancel-in-progress: true
