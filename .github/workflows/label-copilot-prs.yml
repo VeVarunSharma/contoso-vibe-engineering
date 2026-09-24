@@ -3,33 +3,33 @@ name: Label Copilot PRs for Auto-Merge
 on:
   pull_request_target:
     types: [opened, reopened]
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: Existing Copilot pull request to label
-        required: true
-        type: number
 
 permissions:
   contents: read
   issues: write
-  pull-requests: read
 
 concurrency:
-  group: label-copilot-pr-${{ github.event.pull_request.number || inputs.pr_number }}
+  group: label-copilot-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 jobs:
   label:
     name: Add automerge label
+    if: >-
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.user.id == 198982749 &&
+      github.event.pull_request.user.login == 'Copilot' &&
+      github.event.pull_request.user.type == 'Bot' &&
+      startsWith(github.event.pull_request.head.ref, 'copilot/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
-      PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
     steps:
-      - name: Verify Copilot author and apply label
+      - name: Apply automerge label
         shell: bash
         run: |
           set -euo pipefail
@@ -37,20 +37,6 @@ jobs:
           if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
             echo "Invalid pull request number: $PR_NUMBER" >&2
             exit 1
-          fi
-
-          PR_STATE=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
-
-          if ! jq -e '
-            .state == "open"
-            and .user.id == 198982749
-            and .user.login == "Copilot"
-            and .user.type == "Bot"
-            and (.head.ref | startswith("copilot/"))
-            and .head.repo.full_name == $repo
-          ' --arg repo "$REPO" <<< "$PR_STATE" > /dev/null; then
-            echo "::notice::PR #$PR_NUMBER is not an eligible Copilot coding-agent pull request."
-            exit 0
           fi
 
           gh api \
