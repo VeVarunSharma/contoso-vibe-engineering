@@ -7,6 +7,7 @@ The dark factory is an opt-in agentic workflow pipeline for low-risk repository 
 - GitHub Actions and Copilot coding agent are enabled for the repository.
 - Repository auto-merge and squash merging are enabled.
 - `PR_MERGE_AUTOMATION_TOKEN` is configured as a repository secret with permission to assign the Copilot coding agent, request Copilot reviews, update labels, and enable auto-merge.
+- `COPILOT_AGENT_TASKS_TOKEN` is configured as a repository secret with permission to read GitHub Agent Tasks for the repository.
 - The default branch is `main`.
 - Protect `main` with a branch ruleset before treating the factory as production automation. At minimum, require pull requests and resolved review conversations. Add required status checks that are consistently reported for every pull request.
 - Compile agentic workflow sources with a supported `gh-aw` release and commit the generated `.lock.yml` files.
@@ -21,12 +22,13 @@ The dark factory is an opt-in agentic workflow pipeline for low-risk repository 
 
 ## Pull Request Lifecycle
 
-1. The coding agent creates a `copilot/*` pull request.
-2. `Label Copilot PRs for Factory Validation` verifies the trusted Copilot bot identity and applies `factory:validating`.
-3. `PR Merge Assistant` requests a Copilot review of the current head commit.
-4. Failed checks, requested changes, or unresolved comments cause the coding agent to be assigned back to the pull request.
-5. When the current head has a Copilot review, at least one check is reported, every check passes, and all conversations are resolved, the controller applies `automerge` and `factory:merge-ready`, then enables native squash auto-merge with an exact head-SHA match.
-6. GitHub applies branch rules and merges the pull request into `main`.
+1. The coding agent creates a draft `copilot/*` pull request.
+2. The readiness workflow waits for the linked GitHub Agent Task to report `completed` before applying `factory:validating` and marking the pull request ready for review.
+3. `Label Copilot PRs for Factory Validation` verifies the trusted Copilot bot identity and applies `factory:validating`.
+4. `PR Merge Assistant` requests a Copilot review of the current head commit.
+5. Failed checks, requested changes, or unresolved comments cause the coding agent to be assigned back to the pull request.
+6. When the current head has a Copilot review, at least one check is reported, every check passes, and all conversations are resolved, the controller applies `automerge` and `factory:merge-ready`, then enables native squash auto-merge with an exact head-SHA match.
+7. GitHub applies branch rules and merges the pull request into `main`.
 
 The controller reconciles every 15 minutes and also reacts to ready-for-review, synchronize, reopen, and label events.
 
@@ -37,8 +39,10 @@ Only pull requests satisfying all of these conditions are processed:
 - The author is the trusted Copilot coding agent.
 - The source branch starts with `copilot/`.
 - The base branch is `main`.
-- The pull request has the `automerge` label.
+- The pull request has the `factory:validating` label.
 - The pull request is not a draft.
+
+The controller applies `automerge` and `factory:merge-ready` only after every review, check, and conversation gate passes.
 
 The factory stops and applies `factory:human-review` when changed files include:
 
