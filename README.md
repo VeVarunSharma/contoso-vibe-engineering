@@ -1,3 +1,21 @@
+```text
+                                  🚀 VIBE ENGINEERING 🚀
+
+          /\_/\
+         ( o.o )   Contoso Multiplayer Monorepo
+          > ^ <    Next.js • Express • .NET • Drizzle • Copilot SDK
+
+   ___ ___  _  _ _____ ___  ___  ___ 
+  / __/ _ \| \| |_   _/ _ \/ __|/ _ \
+ | (__| (_) | .` | | || (_) \__ \ (_) |
+  \___|\___/|_|\_| |_| \___/|___/\___/
+
+  __   _____ ___  ___   ___ _  _  ___ ___ _  _ ___ ___ ___ ___ _  _  ___ 
+  \ \ / /_ _| _ )/ _ \ | __| \| |/ __|_ _| \| | __| __| _ \_ _| \| |/ __|
+   \ V / | || _ \ (_) || _|| .` | (_ || || .` | _|| _||   /| || .` | (_|
+    \_/ |___|___/\___/ |___|_|\_|\___|___|_|\_|___|___|_|_\_|___|_|\_|\___|
+```
+
 # Vibe Engineering Demo (Monorepo Edition) 🚀
 
 This project demonstrates the transition from "Single Player Vibe Coding" to "Multiplayer Vibe Engineering". It is a **Turborepo** monorepo containing frontend applications, shared packages, and backend microservices.
