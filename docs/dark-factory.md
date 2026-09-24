@@ -25,10 +25,14 @@ The dark factory is an opt-in agentic workflow pipeline for low-risk repository 
 2. `Label Copilot PRs for Factory Validation` verifies the trusted Copilot bot identity and applies `factory:validating`.
 3. `PR Merge Assistant` requests a Copilot review of the current head commit.
 4. Failed checks, requested changes, or unresolved comments cause the coding agent to be assigned back to the pull request.
-5. When the current head has a Copilot review, at least one check is reported, every check passes, and all conversations are resolved, the controller applies `automerge` and `factory:merge-ready`, then enables native squash auto-merge with an exact head-SHA match.
+5. When the current head has a Copilot review, at least one non-factory check is reported, every non-factory check passes, and all conversations are resolved, the controller applies `automerge` and `factory:merge-ready`, then enables native squash auto-merge with an exact head-SHA match.
 6. GitHub applies branch rules and merges the pull request into `main`.
 
 The controller reconciles every 15 minutes and also reacts to ready-for-review, synchronize, reopen, and label events.
+
+Check runs created by the factory control plane (`PR Merge Assistant`, `Draft PR Auto-Merge`, and `Label Copilot PRs for Factory Validation`) are excluded from merge-gate evaluation so their skipped or cancelled orchestration jobs do not look like product failures. Product, security, and CI check runs remain mandatory: at least one non-factory check must be reported, every non-factory check run must complete with `SUCCESS`, `NEUTRAL`, or `SKIPPED`, and every non-factory status context must be `SUCCESS`.
+
+Eligible low-risk factory pull requests do not require human review or approval to merge. A current Copilot reviewer result is the automated review gate; the controller blocks only requested changes, unresolved conversations, failed or pending non-factory checks, missing non-factory checks, or high-risk paths. High-risk pull requests remain labeled `factory:human-review` and are excluded from autonomous merging.
 
 ## Safety Boundary
 
