@@ -124,7 +124,7 @@ The repository's agentic workflows and dependency automation use explicit launch
 
 ## Pull Request Auto-Merge
 
-For draft Copilot coding-agent pull requests, automation waits for the linked GitHub Agent Task to report `completed`, revalidates the exact pull request and head commit, and marks the pull request ready for review. The dark factory then validates the trusted Copilot pull request and applies the final `automerge` opt-in only after its review and CI gates pass. The **Draft PR Auto-Merge** agentic workflow independently revalidates the exact pull request, head commit, and `factory:merge-ready` state before enabling native auto-merge.
+Every five minutes, trusted default-branch automation finds new Copilot coding-agent pull requests whose linked GitHub Agent Task reports `completed`. It revalidates the bot identity, same-repository `copilot/*` branch, pull request ID, and exact head commit before applying `factory:validating` and marking drafts ready for review. The dark factory then applies the final `automerge` and `factory:merge-ready` labels only after its review and CI gates pass. The **Draft PR Auto-Merge** agentic workflow independently revalidates the exact pull request and head commit before enabling native auto-merge.
 
 ## Dark Factory
 
