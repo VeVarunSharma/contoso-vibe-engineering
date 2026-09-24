@@ -125,6 +125,13 @@ The repository's agentic workflows and dependency automation use explicit launch
 ## Pull Request Auto-Merge
 
 Draft pull requests can opt into native GitHub auto-merge by applying the `automerge` label and then marking the PR ready for review. The **Draft PR Auto-Merge** agentic workflow revalidates the exact PR and head commit before enabling auto-merge; repository checks, reviews, conversation resolution, and merge queues remain enforced.
+
+## Dark Factory
+
+The repository includes an opt-in dark factory for bounded autonomous issue delivery. Apply `factory:queued` to an approved issue to let the **Dark Factory Dispatch** agentic workflow assign one issue at a time to the Copilot coding agent. Trusted Copilot pull requests are labeled for validation, reviewed, repaired when checks fail, and receive the final `automerge` opt-in only after the current head commit has a Copilot review, all reported checks pass, and all review conversations are resolved.
+
+Workflow, action, infrastructure, authentication, security, permissions, and database migration or schema changes are automatically removed from the factory and labeled `factory:human-review`. See [Dark Factory Operations](docs/dark-factory.md) for setup, state transitions, and repository prerequisites.
+
 ## What's Been Hardened
 
 This repository was the subject of an end-to-end **vibe-engineering triage** sprint. All P0 (critical) and P1 (high-priority) issues have been resolved through the following themed PRs — each one independently reviewable and shipped against a milestone:

@@ -1,8 +1,8 @@
-name: Label Copilot PRs for Auto-Merge
+name: Label Copilot PRs for Factory Validation
 
 on:
   pull_request_target:
-    types: [opened, reopened]
+    types: [opened, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   label:
-    name: Add automerge label
+    name: Add factory validation label
     if: >-
       github.event.pull_request.state == 'open' &&
       github.event.pull_request.user.id == 198982749 &&
@@ -29,7 +29,7 @@ jobs:
       REPO: ${{ github.repository }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
     steps:
-      - name: Apply automerge label
+      - name: Apply validation label
         shell: bash
         run: |
           set -euo pipefail
@@ -39,8 +39,14 @@ jobs:
             exit 1
           fi
 
+          gh label create "factory:validating" \
+            --repo "$REPO" \
+            --color "5319E7" \
+            --description "Pull request is in automated validation" \
+            --force
+
           gh api \
             --method POST \
             "repos/$REPO/issues/$PR_NUMBER/labels" \
-            -f 'labels[]=automerge' \
+            -f 'labels[]=factory:validating' \
             --silent
