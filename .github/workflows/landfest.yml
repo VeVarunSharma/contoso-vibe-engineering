@@ -1,0 +1,81 @@
+name: Landfest
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: landfest-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  land:
+    name: Land pull request
+    if: >-
+      github.event.issue.pull_request &&
+      github.event.comment.body == '/landfest'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Validate command and land pull request
+        env:
+          ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN || github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          PERMISSION=$(gh api \
+            "repos/$REPO/collaborators/$ACTOR/permission" \
+            --jq '.permission')
+
+          case "$PERMISSION" in
+            admin|maintain|write)
+              ;;
+            *)
+              echo "Refusing /landfest from @$ACTOR with '$PERMISSION' permission." >&2
+              exit 1
+              ;;
+          esac
+
+          PR_STATE=$(gh pr view "$PR_NUMBER" \
+            --repo "$REPO" \
+            --json state,isDraft,baseRefName)
+
+          if ! jq -e '.state == "OPEN"' <<< "$PR_STATE" > /dev/null; then
+            echo "PR #$PR_NUMBER is not open." >&2
+            exit 1
+          fi
+
+          if ! jq -e '.baseRefName == "main"' <<< "$PR_STATE" > /dev/null; then
+            BASE_BRANCH=$(jq -r '.baseRefName' <<< "$PR_STATE")
+            echo "Refusing to merge PR #$PR_NUMBER because its base branch is '$BASE_BRANCH', not 'main'." >&2
+            exit 1
+          fi
+
+          if jq -e '.isDraft == true' <<< "$PR_STATE" > /dev/null; then
+            gh pr ready "$PR_NUMBER" --repo "$REPO"
+          fi
+
+          CHECK_COUNT=$(gh pr view "$PR_NUMBER" \
+            --repo "$REPO" \
+            --json statusCheckRollup \
+            --jq '.statusCheckRollup | length')
+
+          if [[ "$CHECK_COUNT" -gt 0 ]]; then
+            gh pr checks "$PR_NUMBER" \
+              --repo "$REPO" \
+              --watch \
+              --fail-fast \
+              --interval 10
+          fi
+
+          gh pr merge "$PR_NUMBER" \
+            --repo "$REPO" \
+            --squash \
+            --delete-branch

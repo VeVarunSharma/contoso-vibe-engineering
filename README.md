@@ -104,6 +104,9 @@ The rules for the AI Agent are defined in [.github/copilot-instructions.md](.git
 
 The repository's agentic workflows and dependency automation use explicit launch, deduplication, and comment budgets to prevent repeated failures from flooding Actions, issues, and pull request conversations. See [Workflow Noise Reduction](docs/workflow-noise-reduction.md) for the measured baseline, deployed controls, rollout results, and ongoing monitoring guidance.
 
+## Pull Request Auto-Merge
+
+Draft pull requests can opt into native GitHub auto-merge by applying the `automerge` label and then marking the PR ready for review. The **Draft PR Auto-Merge** agentic workflow revalidates the exact PR and head commit before enabling auto-merge; repository checks, reviews, conversation resolution, and merge queues remain enforced.
 ## What's Been Hardened
 
 This repository was the subject of an end-to-end **vibe-engineering triage** sprint. All P0 (critical) and P1 (high-priority) issues have been resolved through the following themed PRs — each one independently reviewable and shipped against a milestone:
