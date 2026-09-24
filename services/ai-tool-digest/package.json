@@ -9,6 +9,7 @@
     "start": "npm run build && func start",
     "start:watch": "func start",
     "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "dependencies": {
