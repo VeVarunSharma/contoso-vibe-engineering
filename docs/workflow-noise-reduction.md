@@ -31,7 +31,7 @@ The remediation was delivered in [#436](https://github.com/VeVarunSharma/contoso
 
 | Surface                         | Control                                                                                                                          |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| PR Merge Assistant              | Manual dispatch only; no schedule, pull request trigger, recursive dispatch, or redundant transition comments                    |
+| PR Merge Assistant              | 15-minute bounded reconciliation schedule plus event-driven reconciliation; processes one actionable factory pull request per run |
 | Generated gh-aw workflow        | Recompiled with the official gh-aw v0.85.4 compiler and immutable runtime references                                             |
 | Automation incidents            | One canonical issue per normalized failure signature, with at most one update per 24 hours                                       |
 | Multi-model review              | Human-authored, non-draft, same-repository pull requests only; valid-review quorum required; one stable consensus comment        |
@@ -87,7 +87,8 @@ The partial-window rate was approximately 3.9 runs per day, 92.7% below the orig
 
 ## Operational guidance
 
-- Keep PR Merge Assistant manual-only unless a new trigger policy is explicitly approved and measured.
+- Keep PR Merge Assistant reconciliation bounded to one actionable pull request per scheduled or event-driven run.
+- Exclude factory control-plane checks from merge gates while keeping external product, CI, security, and deployment checks mandatory.
 - Edit `.github/workflows/pr-merge-assistant.md`, then recompile its `.lock.yml`; never hand-edit the generated lock.
 - Keep `report-failure-as-issue` disabled in gh-aw while the deterministic incident reporter is active.
 - Treat the weekly Security Agent run as expected activity. Investigate additional non-manual runs.
