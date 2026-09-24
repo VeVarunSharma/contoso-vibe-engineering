@@ -19,6 +19,7 @@ jobs:
       github.event.issue.pull_request &&
       github.event.comment.body == '/landfest'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Validate command and land pull request
         env:
@@ -59,6 +60,19 @@ jobs:
 
           if jq -e '.isDraft == true' <<< "$PR_STATE" > /dev/null; then
             gh pr ready "$PR_NUMBER" --repo "$REPO"
+          fi
+
+          CHECK_COUNT=$(gh pr view "$PR_NUMBER" \
+            --repo "$REPO" \
+            --json statusCheckRollup \
+            --jq '.statusCheckRollup | length')
+
+          if [[ "$CHECK_COUNT" -gt 0 ]]; then
+            gh pr checks "$PR_NUMBER" \
+              --repo "$REPO" \
+              --watch \
+              --fail-fast \
+              --interval 10
           fi
 
           gh pr merge "$PR_NUMBER" \
