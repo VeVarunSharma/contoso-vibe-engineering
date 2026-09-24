@@ -64,5 +64,4 @@ jobs:
           gh pr merge "$PR_NUMBER" \
             --repo "$REPO" \
             --squash \
-            --auto \
             --delete-branch
