@@ -95,6 +95,19 @@ steps:
             $pr[0] as $p
             | ($threads[0].nodes // []) as $review_threads
             | ($events[0] // []) as $review_events
+            | [
+                "PR Merge Assistant",
+                "Draft PR Auto-Merge",
+                "Label Copilot PRs for Factory Validation"
+              ] as $factory_workflows
+            | ([ $p.statusCheckRollup[]
+                  | . as $check
+                  | select(
+                      ($check.__typename == "CheckRun"
+                        and ($factory_workflows | index($check.workflowName)) != null)
+                      | not
+                    )
+               ]) as $external_checks
             | ([ $p.commits[].committedDate ] | max // "") as $latest_commit
             | ([ $p.reviews[]
                   | select(.author.login | startswith("copilot-pull-request-reviewer"))
@@ -104,7 +117,8 @@ steps:
                   | select((.requested_reviewer // "") == "Copilot")
                ] | sort_by(.created_at) | last // {}) as $latest_copilot_event
             | ([ $review_threads[] | select(.isResolved == false) ] | length) as $unresolved_threads
-            | ([ $p.statusCheckRollup[]
+            | ($external_checks | length) as $reported_checks
+            | ([ $external_checks[]
                   | select(
                       (.__typename == "CheckRun"
                         and .status == "COMPLETED"
@@ -113,7 +127,7 @@ steps:
                       or (.__typename != "CheckRun" and .__typename != "StatusContext")
                     )
                ] | length) as $failing_checks
-            | ([ $p.statusCheckRollup[]
+            | ([ $external_checks[]
                   | select(
                       (.__typename == "CheckRun" and .status != "COMPLETED")
                       or (.__typename == "StatusContext" and .state == "PENDING")
@@ -140,7 +154,7 @@ steps:
                   if $review_pending then "wait" else "request_review" end
                 elif ($unresolved_threads > 0 or $failing_checks > 0 or $p.reviewDecision == "CHANGES_REQUESTED") then
                   if $repair_pending then "wait" else "assign_agent" end
-                elif $pending_checks > 0 then
+                elif ($reported_checks == 0 or $pending_checks > 0) then
                   "wait"
                 else
                   "merge"
@@ -156,6 +170,7 @@ steps:
                 review_current: $review_current,
                 review_pending: $review_pending,
                 unresolved_threads: $unresolved_threads,
+                reported_checks: $reported_checks,
                 failing_checks: $failing_checks,
                 pending_checks: $pending_checks,
                 high_risk_files: $high_risk_files,
@@ -348,16 +363,11 @@ safe-outputs:
               -f 'reviewers[]=copilot-pull-request-reviewer[bot]'
 
             CURRENT_LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '[.labels[].name]')
-            for LABEL in ready-to-merge changes-requested; do
+            for LABEL in ready-to-merge changes-requested needs-review; do
               if jq -e --arg label "$LABEL" 'index($label) != null' <<< "$CURRENT_LABELS" > /dev/null; then
                 gh api --method DELETE "repos/$REPO/issues/$PR_NUMBER/labels/$LABEL"
               fi
             done
-
-            gh api \
-              --method POST \
-              "repos/$REPO/issues/$PR_NUMBER/labels" \
-              -f 'labels[]=needs-review'
     enable-pr-automerge:
       description: "Revalidate one factory pull request and enable native GitHub auto-merge"
       runs-on: ubuntu-latest
@@ -389,6 +399,19 @@ safe-outputs:
 
             if ! jq -e '
               . as $pr
+              | [
+                  "PR Merge Assistant",
+                  "Draft PR Auto-Merge",
+                  "Label Copilot PRs for Factory Validation"
+                ] as $factory_workflows
+              | ([ $pr.statusCheckRollup[]
+                    | . as $check
+                    | select(
+                        ($check.__typename == "CheckRun"
+                          and ($factory_workflows | index($check.workflowName)) != null)
+                        | not
+                      )
+                 ]) as $external_checks
               | ([ $pr.commits[].committedDate ] | max // "") as $latest_commit
               | ([ $pr.reviews[]
                     | select(.author.login | startswith("copilot-pull-request-reviewer"))
@@ -413,9 +436,9 @@ safe-outputs:
               and $pr.reviewDecision != "CHANGES_REQUESTED"
               and $latest_copilot_review != ""
               and $latest_copilot_review >= $latest_commit
-              and ($pr.statusCheckRollup | length) > 0
+              and ($external_checks | length) > 0
               and all(
-                $pr.statusCheckRollup[];
+                $external_checks[];
                 if .__typename == "CheckRun" then
                   .status == "COMPLETED"
                   and (.conclusion == "SUCCESS" or .conclusion == "NEUTRAL" or .conclusion == "SKIPPED")
@@ -509,8 +532,8 @@ When `action` is `assign_agent`, call `assign_copilot_to_pr` with `pr_number` se
 When `action` is `merge`, call `enable_pr_automerge` with the selected PR number. The computed state guarantees:
 
 1. A Copilot code review was submitted after the newest commit.
-2. `reviewDecision` is not `CHANGES_REQUESTED`.
-3. Every check run is completed with `SUCCESS`, `NEUTRAL`, or `SKIPPED`, and every status context is `SUCCESS`.
+2. `reviewDecision` is not `CHANGES_REQUESTED`; eligible low-risk PRs do not require a human approval.
+3. At least one non-factory check is reported; every non-factory check run is completed with `SUCCESS`, `NEUTRAL`, or `SKIPPED`, and every non-factory status context is `SUCCESS`.
 4. Every review thread is resolved.
 5. The PR is not a draft.
 
@@ -530,8 +553,9 @@ Use `noop` with a brief explanation when:
 - Never process a PR not authored by the trusted Copilot coding agent
 - Never auto-merge changes to workflows, actions, infrastructure, authentication, security, permissions, or database migration/schema paths
 - Never override an explicit `CHANGES_REQUESTED` decision
-- Never merge with failing or pending checks
-- Never merge when no checks are reported
+- Never require human approval for an otherwise eligible low-risk factory PR
+- Never merge with failing or pending product, security, or CI checks
+- Never merge when no non-factory checks are reported
 - Never merge with unresolved review threads
 - Never treat a new commit as approval; request re-review instead
 - Never process more than one PR in a run
