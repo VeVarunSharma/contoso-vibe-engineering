@@ -1,82 +1,34 @@
 # Dark Factory Operations
 
-The dark factory is an opt-in agentic workflow pipeline for low-risk repository work. GitHub issues and pull requests are the durable state store; GitHub Actions provides isolation; Copilot implements and reviews changes; native GitHub auto-merge performs the final squash merge.
+> **Authoritative reference:** [Dark Factory Enterprise Architecture](dark-factory-architecture.md) documents the live control plane, trust model, workflow triggers, state machine, deterministic merge gates, ruleset, repair behavior, credentials, audit evidence, and verified #465/#466 autonomous merge.
 
-## Prerequisites
+Use this page as the concise operator entry point. The dark factory is an explicit opt-in for low-risk work: create a focused issue, add testable acceptance criteria, confirm the change is outside the high-risk path boundary, and apply `factory:queued`.
 
-- GitHub Actions and Copilot coding agent are enabled for the repository.
-- Repository auto-merge and squash merging are enabled.
-- `PR_MERGE_AUTOMATION_TOKEN` is configured as a repository secret with permission to assign the Copilot coding agent, request Copilot reviews, update labels, and enable auto-merge.
-- The default branch is `main`.
-- Protect `main` with a branch ruleset before treating the factory as production automation. At minimum, require pull requests and resolved review conversations. Add required status checks that are consistently reported for every pull request.
-- Compile agentic workflow sources with a supported `gh-aw` release and commit the generated `.lock.yml` files.
+## Operator checklist
 
-## Starting Work
+1. Confirm GitHub Actions, Copilot coding agent, native auto-merge, and squash merging are enabled.
+2. Confirm `COPILOT_AGENT_TASKS_TOKEN` and `PR_MERGE_AUTOMATION_TOKEN` are configured with only the permissions described in the [architecture guide](dark-factory-architecture.md#tokens-secrets-and-least-privilege).
+3. Confirm the active `Dark factory main guardrails` ruleset targets `main`.
+4. Confirm the issue is focused, testable, low risk, and not labeled `factory:blocked` or `factory:human-review`.
+5. Apply `factory:queued`; do not manually add `automerge` or `factory:merge-ready`.
 
-1. Create a focused issue with testable acceptance criteria.
-2. Confirm the change is safe for autonomous delivery.
-3. Apply the `factory:queued` label.
-
-`Dark Factory Dispatch` runs on the label event and every 15 minutes. It selects the oldest eligible issue, assigns the Copilot coding agent, replaces `factory:queued` with `factory:building`, and processes at most one issue per run.
-
-## Pull Request Lifecycle
-
-1. The coding agent creates a `copilot/*` pull request.
-2. `Label Copilot PRs for Factory Validation` verifies the trusted Copilot bot identity and applies `factory:validating`.
-3. `PR Merge Assistant` requests a Copilot review of the current head commit.
-4. Failed checks, requested changes, or unresolved comments cause the coding agent to be assigned back to the pull request.
-5. When the current head has a Copilot review, at least one non-factory check is reported, every non-factory check passes, and all conversations are resolved, the controller applies `automerge` and `factory:merge-ready`, then enables native squash auto-merge with an exact head-SHA match.
-6. GitHub applies branch rules and merges the pull request into `main`.
-
-The controller reconciles every 15 minutes and also reacts to ready-for-review, synchronize, reopen, and label events.
-
-Check runs created by the factory control plane (`PR Merge Assistant`, `Draft PR Auto-Merge`, and `Label Copilot PRs for Factory Validation`) are excluded from merge-gate evaluation so their skipped or cancelled orchestration jobs do not look like product failures. Product, security, and CI check runs remain mandatory: at least one non-factory check must be reported, every non-factory check run must complete with `SUCCESS`, `NEUTRAL`, or `SKIPPED`, and every non-factory status context must be `SUCCESS`.
-
-Eligible low-risk factory pull requests do not require human review or approval to merge. A current Copilot reviewer result is the automated review gate; the controller blocks only requested changes, unresolved conversations, failed or pending non-factory checks, missing non-factory checks, or high-risk paths. High-risk pull requests remain labeled `factory:human-review` and are excluded from autonomous merging.
-
-## Safety Boundary
-
-Only pull requests satisfying all of these conditions are processed:
-
-- The author is the trusted Copilot coding agent.
-- The source branch starts with `copilot/`.
-- The base branch is `main`.
-- The pull request has the `automerge` label.
-- The pull request is not a draft.
-
-The factory stops and applies `factory:human-review` when changed files include:
-
-- `.github/workflows/` or `.github/actions/`
-- `infra/`
-- Authentication, security, or permissions paths
-- Database migration or schema paths
-
-Human-authored and Dependabot pull requests are outside this pipeline.
-
-## State Labels
-
-| Label | Meaning |
-| --- | --- |
-| `factory:queued` | Explicitly approved for dispatch |
-| `factory:building` | Assigned to the coding agent |
-| `factory:validating` | Pull request is in automated review and CI |
-| `factory:merge-ready` | All automated merge gates passed |
-| `factory:human-review` | Automation stopped because the change is high risk |
-| `factory:blocked` | Automation cannot continue |
-| `automerge` | Pull request opted into guarded native auto-merge |
-
-## Operations
+## Common commands
 
 ```powershell
-# Compile the agentic workflows after editing their Markdown sources
-gh aw compile dark-factory-dispatch pr-merge-assistant --approve --actionlint --validate
-
-# View workflow status
 gh aw status
 
-# Manually reconcile queued work or pull requests
+# Compile only after editing agentic Markdown sources
+gh aw compile dark-factory-dispatch pr-merge-assistant draft-pr-automerge --approve --actionlint --validate
+
+# Start bounded reconciliation
 gh aw run dark-factory-dispatch
+gh workflow run complete-copilot-prs.yml
 gh aw run pr-merge-assistant
+
+# Inspect state
+gh issue list --label "factory:queued" --state open
+gh pr list --label "factory:validating" --state open
+gh run list --workflow pr-merge-assistant.lock.yml --limit 20
 ```
 
-Do not edit generated `.lock.yml` files directly. Update the corresponding Markdown source and recompile it.
+Do not edit generated `.lock.yml` files directly. Update the matching Markdown source, compile it, and review both source and generated changes. Follow the [troubleshooting sequence](dark-factory-architecture.md#operations-and-troubleshooting) before changing labels or rerunning workflows.

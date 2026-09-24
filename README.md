@@ -130,7 +130,7 @@ Every five minutes, trusted default-branch automation finds new Copilot coding-a
 
 The repository includes an opt-in dark factory for bounded autonomous issue delivery. Apply `factory:queued` to an approved issue to let the **Dark Factory Dispatch** agentic workflow assign one issue at a time to the Copilot coding agent. Trusted Copilot pull requests are labeled for validation, reviewed, repaired when checks fail, and receive the final `automerge` opt-in only after the current head commit has a Copilot review, all reported checks pass, and all review conversations are resolved.
 
-Workflow, action, infrastructure, authentication, security, permissions, and database migration or schema changes are automatically removed from the factory and labeled `factory:human-review`. See [Dark Factory Operations](docs/dark-factory.md) for setup, state transitions, and repository prerequisites.
+Workflow, action, infrastructure, authentication, security, permissions, and database migration or schema changes are automatically removed from the factory and labeled `factory:human-review`. See the [Dark Factory Enterprise Architecture](docs/dark-factory-architecture.md) for the control plane, trust boundaries, state machine, merge gates, ruleset, and verified autonomous merge proof; use [Dark Factory Operations](docs/dark-factory.md) as the concise runbook.
 
 ## What's Been Hardened
 
