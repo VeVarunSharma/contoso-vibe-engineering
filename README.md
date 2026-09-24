@@ -124,7 +124,7 @@ The repository's agentic workflows and dependency automation use explicit launch
 
 ## Pull Request Auto-Merge
 
-Draft pull requests can opt into native GitHub auto-merge by applying the `automerge` label and then marking the PR ready for review. The **Draft PR Auto-Merge** agentic workflow revalidates the exact PR and head commit before enabling auto-merge; repository checks, reviews, conversation resolution, and merge queues remain enforced.
+For draft Copilot coding-agent pull requests, automation waits for the linked GitHub Agent Task to report `completed`, revalidates the exact pull request and head commit, and marks the pull request ready for review. The dark factory then validates the trusted Copilot pull request and applies the final `automerge` opt-in only after its review and CI gates pass. The **Draft PR Auto-Merge** agentic workflow independently revalidates the exact pull request, head commit, and `factory:merge-ready` state before enabling native auto-merge.
 
 ## Dark Factory
 

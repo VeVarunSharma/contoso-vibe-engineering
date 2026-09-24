@@ -1,0 +1,147 @@
+name: Ready Completed Copilot PRs
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ready-copilot-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ready:
+    name: Wait for Copilot completion
+    if: >-
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.draft == true &&
+      github.event.pull_request.user.id == 198982749 &&
+      github.event.pull_request.user.login == 'Copilot' &&
+      github.event.pull_request.user.type == 'Bot' &&
+      startsWith(github.event.pull_request.head.ref, 'copilot/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AGENT_TASKS_TOKEN: ${{ secrets.COPILOT_AGENT_TASKS_TOKEN }}
+      AUTOMATION_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
+      REPO: ${{ github.repository }}
+      PR_ID: ${{ github.event.pull_request.id }}
+      PR_NODE_ID: ${{ github.event.pull_request.node_id }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      EXPECTED_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+    steps:
+      - name: Wait for matching Agent Task to complete
+        id: task
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$AGENT_TASKS_TOKEN" ]]; then
+            echo "COPILOT_AGENT_TASKS_TOKEN is not configured." >&2
+            exit 1
+          fi
+          if [[ -z "$AUTOMATION_TOKEN" ]]; then
+            echo "PR_MERGE_AUTOMATION_TOKEN is not configured." >&2
+            exit 1
+          fi
+          if [[ ! "$PR_ID" =~ ^[0-9]+$ || ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid pull request identity." >&2
+            exit 1
+          fi
+          if [[ ! "$EXPECTED_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid expected head SHA." >&2
+            exit 1
+          fi
+
+          for attempt in $(seq 1 40); do
+            TASKS=$(GH_TOKEN="$AGENT_TASKS_TOKEN" gh api \
+              "/agents/repos/$REPO/tasks" \
+              -H "X-GitHub-Api-Version: 2026-03-10")
+
+            TASK=$(jq -c \
+              --argjson pr_id "$PR_ID" \
+              --arg head_ref "$EXPECTED_HEAD_REF" \
+              '
+                [
+                  .tasks[]
+                  | select(any(.artifacts[]?;
+                      .type == "pull" and .provider == "github" and .data.id == $pr_id
+                    ))
+                  | select(any(.artifacts[]?;
+                      .type == "branch"
+                      and .provider == "github"
+                      and .data.head_ref == $head_ref
+                    ))
+                ]
+                | sort_by(.updated_at)
+                | last // empty
+              ' <<< "$TASKS")
+
+            if [[ -z "$TASK" ]]; then
+              echo "No matching Agent Task yet (attempt $attempt/40)."
+              sleep 30
+              continue
+            fi
+
+            TASK_ID=$(jq -r '.id' <<< "$TASK")
+            TASK_STATE=$(jq -r '.state' <<< "$TASK")
+            echo "Matched Agent Task $TASK_ID in state $TASK_STATE."
+
+            case "$TASK_STATE" in
+              completed)
+                echo "completed=true" >> "$GITHUB_OUTPUT"
+                echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
+                exit 0
+                ;;
+              failed|timed_out|cancelled|waiting_for_user)
+                echo "::notice::Agent Task $TASK_ID stopped in state $TASK_STATE; leaving PR #$PR_NUMBER as draft."
+                echo "completed=false" >> "$GITHUB_OUTPUT"
+                exit 0
+                ;;
+              *)
+                sleep 30
+                ;;
+            esac
+          done
+
+          echo "::notice::Timed out waiting for the Agent Task linked to PR #$PR_NUMBER."
+          echo "completed=false" >> "$GITHUB_OUTPUT"
+
+      - name: Revalidate PR and mark ready
+        if: steps.task.outputs.completed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          PR_STATE=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+
+          if ! jq -e \
+            --argjson pr_id "$PR_ID" \
+            --arg expected_head_sha "$EXPECTED_HEAD_SHA" \
+            --arg expected_head_ref "$EXPECTED_HEAD_REF" \
+            --arg repo "$REPO" \
+            '
+              .id == $pr_id
+              and .state == "open"
+              and .draft == true
+              and .user.id == 198982749
+              and .user.login == "Copilot"
+              and .user.type == "Bot"
+              and .head.sha == $expected_head_sha
+              and .head.ref == $expected_head_ref
+              and .head.repo.full_name == $repo
+            ' <<< "$PR_STATE" > /dev/null; then
+            echo "::warning::PR #$PR_NUMBER changed after Agent Task evaluation; leaving it unchanged."
+            exit 0
+          fi
+
+          gh api graphql \
+            -f query='mutation($pullRequestId:ID!){markPullRequestReadyForReview(input:{pullRequestId:$pullRequestId}){pullRequest{number isDraft headRefOid}}}' \
+            -f pullRequestId="$PR_NODE_ID" \
+            --silent
