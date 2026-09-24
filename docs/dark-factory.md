@@ -1,6 +1,6 @@
 # Dark Factory Operations
 
-The dark factory is an opt-in agentic workflow pipeline for low-risk repository work. GitHub issues and pull requests are the durable state store; GitHub Actions provides isolation; Copilot implements and reviews changes; native GitHub auto-merge performs the final squash merge.
+The dark factory is an opt-in agentic workflow pipeline for autonomous repository work across the full codebase. GitHub issues and pull requests are the durable state store; GitHub Actions provides isolation; Copilot implements and reviews changes; native GitHub auto-merge performs the final squash merge. See [Dark Factory Enterprise Architecture](dark-factory-architecture.md) for the complete control-plane, trust-boundary, and enforcement design.
 
 ## Prerequisites
 
@@ -32,24 +32,22 @@ The controller reconciles every 15 minutes and also reacts to ready-for-review, 
 
 Check runs created by the factory control plane (`PR Merge Assistant`, `Draft PR Auto-Merge`, and `Label Copilot PRs for Factory Validation`) are excluded from merge-gate evaluation so their skipped or cancelled orchestration jobs do not look like product failures. Product, security, and CI check runs remain mandatory: at least one non-factory check must be reported, every non-factory check run must complete with `SUCCESS`, `NEUTRAL`, or `SKIPPED`, and every non-factory status context must be `SUCCESS`.
 
-Eligible low-risk factory pull requests do not require human review or approval to merge. A current Copilot reviewer result is the automated review gate; the controller blocks only requested changes, unresolved conversations, failed or pending non-factory checks, missing non-factory checks, or high-risk paths. High-risk pull requests remain labeled `factory:human-review` and are excluded from autonomous merging.
+Eligible factory pull requests do not require human review or approval to merge, including changes to workflows, GitHub Actions, infrastructure, authentication, security, permissions, migrations, and schemas. A current Copilot reviewer result is the automated review gate; the controller blocks requested changes, unresolved conversations, failed or pending non-factory checks, missing non-factory checks, merge conflicts, or an explicitly applied `factory:human-review` emergency-stop label.
 
 ## Safety Boundary
 
 Only pull requests satisfying all of these conditions are processed:
 
-- The author is the trusted Copilot coding agent.
-- The source branch starts with `copilot/`.
+- The author login and immutable bot ID match the trusted Copilot coding agent.
+- The source branch starts with `copilot/` and belongs to this repository, not a fork.
 - The base branch is `main`.
-- The pull request has the `automerge` label.
+- The pull request has the `factory:validating` label.
 - The pull request is not a draft.
+- The current head commit has a Copilot review, no `CHANGES_REQUESTED` decision, no unresolved review threads, and no merge conflict.
+- At least one external/non-control-plane check is reported; all external check runs and status contexts satisfy the required conclusions.
+- The manual `factory:human-review` emergency-stop label is not applied.
 
-The factory stops and applies `factory:human-review` when changed files include:
-
-- `.github/workflows/` or `.github/actions/`
-- `infra/`
-- Authentication, security, or permissions paths
-- Database migration or schema paths
+Changed paths do not alter eligibility. Workflow, action, infrastructure, authentication, security, permissions, migration, and schema changes follow the same automated assurance gates as every other factory pull request. Operators may apply `factory:human-review` manually as an emergency stop or explicit exception; the controller will exclude the pull request until that label is removed.
 
 Human-authored and Dependabot pull requests are outside this pipeline.
 
@@ -61,7 +59,7 @@ Human-authored and Dependabot pull requests are outside this pipeline.
 | `factory:building` | Assigned to the coding agent |
 | `factory:validating` | Pull request is in automated review and CI |
 | `factory:merge-ready` | All automated merge gates passed |
-| `factory:human-review` | Automation stopped because the change is high risk |
+| `factory:human-review` | Manual emergency stop or explicit human-review exception |
 | `factory:blocked` | Automation cannot continue |
 | `automerge` | Pull request opted into guarded native auto-merge |
 

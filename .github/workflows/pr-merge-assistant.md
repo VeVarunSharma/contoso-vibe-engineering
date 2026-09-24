@@ -36,14 +36,17 @@ steps:
         --repo "$REPO" \
         --state open \
         --limit 100 \
-        --json number,isDraft,createdAt,baseRefName,headRefName,author,labels \
-        --jq '
+        --json number,isDraft,createdAt,baseRefName,headRefName,headRepository,isCrossRepository,author,labels \
+        | jq -r --arg repo "$REPO" '
           sort_by(.createdAt)
           | .[]
           | select(
               .isDraft == false
               and .baseRefName == "main"
               and (.headRefName | startswith("copilot/"))
+              and .isCrossRepository == false
+              and .headRepository.nameWithOwner == $repo
+              and .author.is_bot == true
               and (.author.login == "app/copilot-swe-agent" or .author.login == "Copilot")
               and any(.labels[]; .name == "factory:validating")
               and (any(.labels[]; .name == "factory:human-review") | not)
@@ -60,9 +63,26 @@ steps:
         PR_DIR="$CANDIDATE_DIR/$PR_NUMBER"
         mkdir -p "$PR_DIR"
 
+        gh api "repos/$REPO/pulls/$PR_NUMBER" > "$PR_DIR/trusted-pr-state.json"
+
+        if ! jq -e --arg repo "$REPO" '
+          .state == "open"
+          and .draft == false
+          and .base.ref == "main"
+          and (.head.ref | startswith("copilot/"))
+          and .head.repo.full_name == $repo
+          and .user.login == "Copilot"
+          and .user.id == 198982749
+          and .user.type == "Bot"
+          and any(.labels[]; .name == "factory:validating")
+          and (any(.labels[]; .name == "factory:human-review") | not)
+        ' "$PR_DIR/trusted-pr-state.json" > /dev/null; then
+          continue
+        fi
+
         gh pr view "$PR_NUMBER" \
           --repo "$REPO" \
-          --json number,title,url,state,author,assignees,isDraft,createdAt,updatedAt,baseRefName,headRefName,headRefOid,mergeStateStatus,reviewDecision,reviewRequests,reviews,commits,comments,labels,statusCheckRollup,files \
+          --json number,title,url,state,author,assignees,isDraft,createdAt,updatedAt,baseRefName,headRefName,headRefOid,mergeStateStatus,reviewDecision,reviewRequests,reviews,commits,comments,labels,statusCheckRollup \
           > "$PR_DIR/pr-state.json"
 
         gh api graphql \
@@ -133,14 +153,6 @@ steps:
                       or (.__typename == "StatusContext" and .state == "PENDING")
                     )
                ] | length) as $pending_checks
-            | ([ $p.files[].path
-                  | select(
-                      test("^\\.github/(workflows|actions)/")
-                      or startswith("infra/")
-                      or test("(^|/)(auth|security|permissions?)(/|\\.)"; "i")
-                      or test("(^|/)(migrations?|schema)(/|\\.)"; "i")
-                    )
-               ]) as $high_risk_files
             | any($p.assignees[]?; ((.login // "") | ascii_downcase | contains("copilot"))) as $copilot_assigned
             | any($p.labels[]?; .name == "changes-requested") as $repair_pending
             | ($p.mergeStateStatus == "DIRTY") as $merge_conflicted
@@ -149,9 +161,7 @@ steps:
                 and ($latest_copilot_event.created_at // "") >= $latest_commit
                 and ($latest_copilot_event.created_at // "") > $latest_copilot_review) as $review_pending
             | (
-                if ($high_risk_files | length) > 0 then
-                  "human_review"
-                elif $review_current == false then
+                if $review_current == false then
                   if $review_pending then "wait" else "request_review" end
                 elif ($merge_conflicted or $unresolved_threads > 0 or $failing_checks > 0 or $p.reviewDecision == "CHANGES_REQUESTED") then
                   if $repair_pending then "wait" else "assign_agent" end
@@ -176,15 +186,13 @@ steps:
                 reported_checks: $reported_checks,
                 failing_checks: $failing_checks,
                 pending_checks: $pending_checks,
-                high_risk_files: $high_risk_files,
                 review_decision: $p.reviewDecision,
                 copilot_assigned: $copilot_assigned,
                 repair_pending: $repair_pending,
                 merge_conflicted: $merge_conflicted,
                 action: $action,
                 priority: (
-                  if $action == "human_review" then 0
-                  elif $action == "merge" then 1
+                  if $action == "merge" then 1
                   elif $action == "request_review" then 2
                   elif $action == "assign_agent" then 3
                   else 9
@@ -293,49 +301,6 @@ safe-outputs:
               --method POST \
               "repos/$REPO/issues/$PR_NUMBER/labels" \
               -f 'labels[]=changes-requested'
-    require-human-review:
-      description: "Remove factory auto-merge from a pull request that changes high-risk paths"
-      runs-on: ubuntu-latest
-      inputs:
-        pr_number:
-          description: "The PR number requiring human review"
-          required: true
-          type: string
-      permissions:
-        contents: read
-        issues: write
-        pull-requests: read
-      steps:
-        - name: Stop factory automation
-          env:
-            GH_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
-            REPO: ${{ github.repository }}
-          run: |
-            set -euo pipefail
-            PR_NUMBER=$(jq -r '.items[] | select(.type == "require_human_review") | .pr_number' "$GH_AW_AGENT_OUTPUT")
-            if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
-              echo "Invalid pull request number: $PR_NUMBER" >&2
-              exit 1
-            fi
-
-            gh label create "factory:human-review" \
-              --repo "$REPO" \
-              --color "B60205" \
-              --description "Automation stopped for human review" \
-              --force
-
-            CURRENT_LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '[.labels[].name]')
-            for LABEL in automerge factory:merge-ready; do
-              if jq -e --arg label "$LABEL" 'index($label) != null' <<< "$CURRENT_LABELS" > /dev/null; then
-                ENCODED_LABEL=${LABEL/:/%3A}
-                gh api --method DELETE "repos/$REPO/issues/$PR_NUMBER/labels/$ENCODED_LABEL"
-              fi
-            done
-
-            gh api \
-              --method POST \
-              "repos/$REPO/issues/$PR_NUMBER/labels" \
-              -f 'labels[]=factory:human-review'
     request-copilot-review:
       description: "Request Copilot code review on one pull request"
       runs-on: ubuntu-latest
@@ -397,11 +362,31 @@ safe-outputs:
               exit 1
             fi
 
+            TRUSTED_PR_STATE=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+
+            if ! jq -e --arg repo "$REPO" '
+              .state == "open"
+              and .draft == false
+              and .base.ref == "main"
+              and (.head.ref | startswith("copilot/"))
+              and .head.repo.full_name == $repo
+              and .user.login == "Copilot"
+              and .user.id == 198982749
+              and .user.type == "Bot"
+              and any(.labels[]; .name == "factory:validating")
+              and (any(.labels[]; .name == "factory:human-review") | not)
+            ' <<< "$TRUSTED_PR_STATE" > /dev/null; then
+              echo "::warning::PR #$PR_NUMBER no longer satisfies trusted factory identity and repository gates."
+              exit 0
+            fi
+
+            TRUSTED_HEAD_SHA=$(jq -r '.head.sha' <<< "$TRUSTED_PR_STATE")
+
             PR_STATE=$(gh pr view "$PR_NUMBER" \
               --repo "$REPO" \
-              --json state,author,isDraft,baseRefName,headRefName,headRefOid,mergeStateStatus,labels,reviewDecision,statusCheckRollup,reviews,commits,files)
+              --json state,isDraft,baseRefName,headRefName,headRefOid,mergeStateStatus,labels,reviewDecision,statusCheckRollup,reviews,commits)
 
-            if ! jq -e '
+            if ! jq -e --arg trusted_head_sha "$TRUSTED_HEAD_SHA" '
               . as $pr
               | [
                   "PR Merge Assistant",
@@ -421,24 +406,15 @@ safe-outputs:
                     | select(.author.login | startswith("copilot-pull-request-reviewer"))
                     | .submittedAt
                  ] | max // "") as $latest_copilot_review
-              | ([ $pr.files[].path
-                    | select(
-                        test("^\\.github/(workflows|actions)/")
-                        or startswith("infra/")
-                        or test("(^|/)(auth|security|permissions?)(/|\\.)"; "i")
-                        or test("(^|/)(migrations?|schema)(/|\\.)"; "i")
-                      )
-                 ] | length) as $high_risk_count
               | $pr.state == "OPEN"
               and $pr.isDraft == false
               and $pr.baseRefName == "main"
               and ($pr.headRefName | startswith("copilot/"))
-              and ($pr.author.login == "app/copilot-swe-agent" or $pr.author.login == "Copilot")
+              and $pr.headRefOid == $trusted_head_sha
               and any($pr.labels[]; .name == "factory:validating")
               and (any($pr.labels[]; .name == "factory:human-review") | not)
               and (any($pr.labels[]; .name == "changes-requested") | not)
               and $pr.mergeStateStatus != "DIRTY"
-              and $high_risk_count == 0
               and $pr.reviewDecision != "CHANGES_REQUESTED"
               and $latest_copilot_review != ""
               and $latest_copilot_review >= $latest_commit
@@ -473,7 +449,7 @@ safe-outputs:
               exit 0
             fi
 
-            EXPECTED_HEAD_SHA=$(jq -r '.headRefOid' <<< "$PR_STATE")
+            EXPECTED_HEAD_SHA="$TRUSTED_HEAD_SHA"
 
             gh label create "automerge" \
               --repo "$REPO" \
@@ -526,7 +502,6 @@ The deterministic prefetch step has scanned every open non-draft PR, skipped PRs
 Follow the `action` in `decision-state.json` exactly:
 
 - `request_review`: call `request_copilot_review` with `pr_number`. That atomic job requests the reviewer and updates labels; do not emit separate comment or label outputs.
-- `human_review`: call `require_human_review` with `pr_number`. High-risk files must never be auto-merged.
 - `none`: call `noop` because every eligible factory PR is already waiting on review, checks, or an assigned fix.
 
 ### Step 2: Address feedback or failing checks
@@ -538,7 +513,7 @@ When `action` is `assign_agent`, call `assign_copilot_to_pr` with `pr_number` se
 When `action` is `merge`, call `enable_pr_automerge` with the selected PR number. The computed state guarantees:
 
 1. A Copilot code review was submitted after the newest commit.
-2. `reviewDecision` is not `CHANGES_REQUESTED`; eligible low-risk PRs do not require a human approval.
+2. `reviewDecision` is not `CHANGES_REQUESTED`; eligible factory PRs do not require a human approval.
 3. At least one non-factory check is reported; every non-factory check run is completed with `SUCCESS`, `NEUTRAL`, or `SKIPPED`, and every non-factory status context is `SUCCESS`.
 4. Every review thread is resolved.
 5. The PR is not a draft.
@@ -557,9 +532,10 @@ Use `noop` with a brief explanation when:
 - Never merge before Copilot reviews the current head commit
 - Never process a PR without the `factory:validating` label
 - Never process a PR not authored by the trusted Copilot coding agent
-- Never auto-merge changes to workflows, actions, infrastructure, authentication, security, permissions, or database migration/schema paths
+- Never process a fork or a source branch outside the same-repository `copilot/*` namespace
+- Never merge while the manual `factory:human-review` emergency-stop label is applied
 - Never override an explicit `CHANGES_REQUESTED` decision
-- Never require human approval for an otherwise eligible low-risk factory PR
+- Never require human approval based solely on changed paths
 - Never merge with failing or pending product, security, or CI checks
 - Never merge when no non-factory checks are reported
 - Never merge with unresolved review threads
