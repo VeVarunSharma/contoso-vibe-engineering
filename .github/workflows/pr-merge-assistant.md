@@ -143,6 +143,7 @@ steps:
                ]) as $high_risk_files
             | any($p.assignees[]?; ((.login // "") | ascii_downcase | contains("copilot"))) as $copilot_assigned
             | any($p.labels[]?; .name == "changes-requested") as $repair_pending
+            | ($p.mergeStateStatus == "DIRTY") as $merge_conflicted
             | ($latest_copilot_review != "" and $latest_copilot_review >= $latest_commit) as $review_current
             | (($latest_copilot_event.event // "") == "review_requested"
                 and ($latest_copilot_event.created_at // "") >= $latest_commit
@@ -152,8 +153,10 @@ steps:
                   "human_review"
                 elif $review_current == false then
                   if $review_pending then "wait" else "request_review" end
-                elif ($unresolved_threads > 0 or $failing_checks > 0 or $p.reviewDecision == "CHANGES_REQUESTED") then
+                elif ($merge_conflicted or $unresolved_threads > 0 or $failing_checks > 0 or $p.reviewDecision == "CHANGES_REQUESTED") then
                   if $repair_pending then "wait" else "assign_agent" end
+                elif $repair_pending then
+                  "wait"
                 elif ($reported_checks == 0 or $pending_checks > 0) then
                   "wait"
                 else
@@ -177,6 +180,7 @@ steps:
                 review_decision: $p.reviewDecision,
                 copilot_assigned: $copilot_assigned,
                 repair_pending: $repair_pending,
+                merge_conflicted: $merge_conflicted,
                 action: $action,
                 priority: (
                   if $action == "human_review" then 0
@@ -395,7 +399,7 @@ safe-outputs:
 
             PR_STATE=$(gh pr view "$PR_NUMBER" \
               --repo "$REPO" \
-              --json state,author,isDraft,baseRefName,headRefName,headRefOid,labels,reviewDecision,statusCheckRollup,reviews,commits,files)
+              --json state,author,isDraft,baseRefName,headRefName,headRefOid,mergeStateStatus,labels,reviewDecision,statusCheckRollup,reviews,commits,files)
 
             if ! jq -e '
               . as $pr
@@ -432,6 +436,8 @@ safe-outputs:
               and ($pr.author.login == "app/copilot-swe-agent" or $pr.author.login == "Copilot")
               and any($pr.labels[]; .name == "factory:validating")
               and (any($pr.labels[]; .name == "factory:human-review") | not)
+              and (any($pr.labels[]; .name == "changes-requested") | not)
+              and $pr.mergeStateStatus != "DIRTY"
               and $high_risk_count == 0
               and $pr.reviewDecision != "CHANGES_REQUESTED"
               and $latest_copilot_review != ""
