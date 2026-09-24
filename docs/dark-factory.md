@@ -1,6 +1,6 @@
 # Dark Factory Operations
 
-The dark factory is an opt-in agentic workflow pipeline for autonomous repository work across the full codebase. GitHub issues and pull requests are the durable state store; GitHub Actions provides isolation; Copilot implements and reviews changes; native GitHub auto-merge performs the final squash merge.
+The dark factory is an opt-in agentic workflow pipeline for autonomous repository work across the full codebase. GitHub issues and pull requests are the durable state store; GitHub Actions provides isolation; Copilot implements and reviews changes; native GitHub auto-merge performs the final squash merge. See [Dark Factory Enterprise Architecture](dark-factory-architecture.md) for the complete control-plane, trust-boundary, and enforcement design.
 
 ## Prerequisites
 
