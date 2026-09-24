@@ -106,7 +106,7 @@ The repository's agentic workflows and dependency automation use explicit launch
 
 ## Pull Request Auto-Merge
 
-Copilot coding-agent pull requests are automatically labeled `automerge`. For draft PRs, the automation waits for the linked GitHub Agent Task to report `completed`, revalidates the exact PR and head commit, and marks the PR ready for review. The **Draft PR Auto-Merge** agentic workflow then enables native auto-merge; repository checks, reviews, conversation resolution, and merge queues remain enforced.
+Every five minutes, trusted default-branch automation finds new Copilot coding-agent pull requests whose linked GitHub Agent Task reports `completed`. It revalidates the bot identity, same-repository `copilot/*` branch, pull request ID, and exact head commit before adding `automerge` and marking drafts ready for review. The **Draft PR Auto-Merge** agentic workflow then enables native auto-merge; repository checks, reviews, conversation resolution, and merge queues remain enforced.
 ## What's Been Hardened
 
 This repository was the subject of an end-to-end **vibe-engineering triage** sprint. All P0 (critical) and P1 (high-priority) issues have been resolved through the following themed PRs — each one independently reviewable and shipped against a milestone:

@@ -1,0 +1,144 @@
+name: Complete Copilot PRs
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: complete-copilot-prs
+  cancel-in-progress: false
+
+jobs:
+  complete:
+    name: Label and ready completed Copilot PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AGENT_TASKS_TOKEN: ${{ secrets.COPILOT_AGENT_TASKS_TOKEN }}
+      AUTOMATION_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
+      REPO: ${{ github.repository }}
+      MIN_CREATED_AT: "2026-09-24T02:23:42Z"
+    steps:
+      - name: Process completed Copilot pull requests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$AGENT_TASKS_TOKEN" ]]; then
+            echo "COPILOT_AGENT_TASKS_TOKEN is not configured." >&2
+            exit 1
+          fi
+          if [[ -z "$AUTOMATION_TOKEN" ]]; then
+            echo "PR_MERGE_AUTOMATION_TOKEN is not configured." >&2
+            exit 1
+          fi
+
+          TASKS=$(GH_TOKEN="$AGENT_TASKS_TOKEN" gh api \
+            --method GET \
+            "/agents/repos/$REPO/tasks" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            -f state=completed \
+            -f since="$MIN_CREATED_AT" \
+            -F per_page=100)
+
+          PULLS=$(GH_TOKEN="$AUTOMATION_TOKEN" gh api \
+            --method GET \
+            "repos/$REPO/pulls" \
+            -f state=open \
+            -F per_page=100)
+
+          jq -c \
+            --arg repo "$REPO" \
+            --arg min_created_at "$MIN_CREATED_AT" \
+            '
+              .[]
+              | select(.created_at >= $min_created_at)
+              | select(.user.id == 198982749)
+              | select(.user.login == "Copilot" and .user.type == "Bot")
+              | select(.head.repo.full_name == $repo)
+              | select(.head.ref | startswith("copilot/"))
+              | {
+                  id,
+                  node_id,
+                  number,
+                  draft,
+                  head_ref: .head.ref,
+                  head_sha: .head.sha,
+                  labels: [.labels[].name]
+                }
+            ' <<< "$PULLS" |
+          while IFS= read -r PR; do
+            PR_ID=$(jq -r '.id' <<< "$PR")
+            PR_NODE_ID=$(jq -r '.node_id' <<< "$PR")
+            PR_NUMBER=$(jq -r '.number' <<< "$PR")
+            PR_HEAD_REF=$(jq -r '.head_ref' <<< "$PR")
+            PR_HEAD_SHA=$(jq -r '.head_sha' <<< "$PR")
+            TASK=$(jq -c \
+              --argjson pr_id "$PR_ID" \
+              --arg head_ref "$PR_HEAD_REF" \
+              '
+                [
+                  .tasks[]
+                  | select(.state == "completed")
+                  | select(any(.artifacts[]?;
+                      .type == "pull" and .provider == "github" and .data.id == $pr_id
+                    ))
+                  | select(any(.artifacts[]?;
+                      .type == "branch"
+                      and .provider == "github"
+                      and .data.head_ref == $head_ref
+                    ))
+                ]
+                | sort_by(.updated_at)
+                | last // empty
+              ' <<< "$TASKS")
+
+            if [[ -z "$TASK" ]]; then
+              echo "No completed Agent Task matches PR #$PR_NUMBER."
+              continue
+            fi
+
+            LIVE_PR=$(GH_TOKEN="$AUTOMATION_TOKEN" gh api "repos/$REPO/pulls/$PR_NUMBER")
+            if ! jq -e \
+              --argjson pr_id "$PR_ID" \
+              --arg expected_head_ref "$PR_HEAD_REF" \
+              --arg expected_head_sha "$PR_HEAD_SHA" \
+              --arg repo "$REPO" \
+              '
+                .id == $pr_id
+                and .state == "open"
+                and .user.id == 198982749
+                and .user.login == "Copilot"
+                and .user.type == "Bot"
+                and .head.ref == $expected_head_ref
+                and .head.sha == $expected_head_sha
+                and .head.repo.full_name == $repo
+              ' <<< "$LIVE_PR" > /dev/null; then
+              echo "::warning::PR #$PR_NUMBER changed during evaluation; leaving it unchanged."
+              continue
+            fi
+            PR_IS_DRAFT=$(jq -r '.draft' <<< "$LIVE_PR")
+
+            if ! jq -e '.labels | any(.name == "automerge")' <<< "$LIVE_PR" > /dev/null; then
+              GH_TOKEN="$AUTOMATION_TOKEN" gh api \
+                --method POST \
+                "repos/$REPO/issues/$PR_NUMBER/labels" \
+                -f 'labels[]=automerge' \
+                --silent
+              echo "Added automerge to PR #$PR_NUMBER."
+            fi
+
+            if [[ "$PR_IS_DRAFT" == "true" ]]; then
+              GH_TOKEN="$AUTOMATION_TOKEN" gh api graphql \
+                -f query='mutation($pullRequestId:ID!){markPullRequestReadyForReview(input:{pullRequestId:$pullRequestId}){pullRequest{number isDraft headRefOid}}}' \
+                -f pullRequestId="$PR_NODE_ID" \
+                --silent
+              echo "Marked completed Copilot PR #$PR_NUMBER ready for review."
+            else
+              echo "Completed Copilot PR #$PR_NUMBER is already ready."
+            fi
+          done
