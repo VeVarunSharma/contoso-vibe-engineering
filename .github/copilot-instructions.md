@@ -24,6 +24,38 @@ This repository contains frontend applications, shared packages, and backend mic
 - **Database**: PostgreSQL.
 - **Testing**: Jest, React Testing Library, @swc/jest.
 
+## Build, Test & Validation Commands
+
+Run these from the **monorepo root** (they orchestrate every workspace package via Turborepo):
+
+| Command          | What it does                                                        |
+| ---------------- | ------------------------------------------------------------------ |
+| `pnpm install`   | Install all dependencies (always run from the root, never a subdir) |
+| `pnpm lint`      | Lint every app, package, and service                               |
+| `pnpm typecheck` | Type-check every workspace package (`tsc --noEmit`)                 |
+| `pnpm test`      | Run the Jest suites across the monorepo                            |
+| `pnpm build`     | Build all apps and packages                                        |
+
+**Scope to a single package for faster, targeted validation** (prefer this while iterating):
+
+```bash
+pnpm --filter octocat-support-app test        # one app's tests
+pnpm --filter platform-api typecheck          # one service's type check
+pnpm --filter octocat-blog-app lint           # one app's lint
+```
+
+Notes for agents:
+
+- **Validate the narrowest scope that covers your change first** (`pnpm --filter <pkg> ...`),
+  then run the root command only if the change spans packages.
+- Frontend apps are built by Turborepo; **services in `services/*` are deployed independently
+  and are *not* part of the turbo `build` pipeline**, but they *are* covered by root
+  `lint`, `typecheck`, and `test`.
+- Package/app names for `--filter` match the `name` field in each `package.json`
+  (e.g. `contoso-web-app`, `octocat-blog-app`, `octocat-support-app`, `platform-api`,
+  `medical-api`, `ai-tool-digest`, `@workspace/ui`).
+
+
 ## Rule 1: Architecture & Monorepo
 
 - **ALWAYS** use the workspace protocol for internal dependencies (e.g., `"@workspace/ui": "workspace:*"`).
@@ -57,7 +89,9 @@ This repository contains frontend applications, shared packages, and backend mic
   - `src/db/__tests__/` - Database schema tests (next to schema files)
   - `config/jest/__mocks__/` - Shared mock implementations
 - **ALWAYS** import shared mocks using the `@test-mocks/` alias (e.g., `@test-mocks/db`).
-- **ALWAYS** run `pnpm test` before submitting pull requests.
+- **ALWAYS** validate before submitting a PR: run the targeted `pnpm --filter <package> test`
+  (and `typecheck`/`lint`) for the packages you changed, then `pnpm test` from the root if the
+  change spans multiple packages. See **Build, Test & Validation Commands** above.
 - **NEVER** commit code that breaks existing tests.
 
 ## Rule 5: General Best Practices
