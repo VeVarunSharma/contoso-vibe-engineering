@@ -220,41 +220,44 @@ app.post(
  * Withdraw consent.
  * PIPA BC Requirement: Individuals can withdraw consent at any time.
  */
-app.delete("/:id/consent/:consentId", async (c) => {
-  const patientId = c.req.param("id");
-  const consentId = c.req.param("consentId");
-  const user = c.get("user");
-  const metadata = getRequestMetadata(c);
+app.delete(
+  "/:id/consent/:consentId",
+  requireRole(["admin"]),
+  async (c) => {
+    const { id: patientId, consentId } = c.req.param();
+    const user = c.get("user");
+    const metadata = getRequestMetadata(c);
 
-  // Find and update consent record
-  const consent = await db.query.consentRecords.findFirst({
-    where: eq(consentRecords.id, consentId),
-  });
+    // Find and update consent record
+    const consent = await db.query.consentRecords.findFirst({
+      where: eq(consentRecords.id, consentId),
+    });
 
-  if (!consent || consent.patientId !== patientId) {
-    return c.json({ error: "Consent record not found" }, 404);
+    if (!consent || consent.patientId !== patientId) {
+      return c.json({ error: "Consent record not found" }, 404);
+    }
+
+    // Mark consent as withdrawn
+    await db
+      .update(consentRecords)
+      .set({
+        isActive: false,
+        withdrawnAt: new Date(),
+      })
+      .where(eq(consentRecords.id, consentId));
+
+    // PIPA BC Requirement: Log consent withdrawal
+    await createAuditLog({
+      action: "CONSENT_WITHDRAWN",
+      resourceType: "consent",
+      resourceId: consentId,
+      userId: user.id,
+      purpose: consent.purpose,
+      ...metadata,
+    });
+
+    return c.json({ message: "Consent withdrawn successfully" });
   }
-
-  // Mark consent as withdrawn
-  await db
-    .update(consentRecords)
-    .set({
-      isActive: false,
-      withdrawnAt: new Date(),
-    })
-    .where(eq(consentRecords.id, consentId));
-
-  // PIPA BC Requirement: Log consent withdrawal
-  await createAuditLog({
-    action: "CONSENT_WITHDRAWN",
-    resourceType: "consent",
-    resourceId: consentId,
-    userId: user.id,
-    purpose: consent.purpose,
-    ...metadata,
-  });
-
-  return c.json({ message: "Consent withdrawn successfully" });
-});
+);
 
 export default app;
