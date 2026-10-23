@@ -114,6 +114,7 @@ await createAuditLog({
 **Implementation:**
 
 - `DELETE /patients/:id/consent/:consentId` endpoint
+- Restricted to the `admin` role before consent records are read or changed
 - Consent records track `withdrawnAt` timestamp
 - Subsequent access checks fail for withdrawn consent
 
