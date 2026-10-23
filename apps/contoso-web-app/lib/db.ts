@@ -1,7 +1,10 @@
+const sanitizeForLog = (value: unknown): string =>
+  String(value).replace(/[\r\n\u2028\u2029]/g, "");
+
 export const db = {
   // Simulating a raw SQL driver (vulnerable if used incorrectly)
   query: async (sql: string) => {
-    console.log(`[DB] Executing Raw SQL: ${sql}`);
+    console.log(`[DB] Executing Raw SQL: ${sanitizeForLog(sql)}`);
     // Mock return data including sensitive fields
     return [
       {
