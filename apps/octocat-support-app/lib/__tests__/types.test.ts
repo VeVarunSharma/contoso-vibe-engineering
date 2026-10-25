@@ -24,6 +24,16 @@ describe("ticketFormSchema", () => {
     }
   });
 
+  it.each(["name", "subject", "description"])(
+    "rejects whitespace-only %s",
+    (field) => {
+      expect(
+        ticketFormSchema.safeParse({ ...valid, [field]: " ".repeat(30) })
+          .success,
+      ).toBe(false);
+    },
+  );
+
   it("rejects invalid email addresses", () => {
     const parsed = ticketFormSchema.safeParse({
       ...valid,

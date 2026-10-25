@@ -1,155 +1,75 @@
-# Octocat Support App 🎫
+# Octocat Support
 
-An AI-powered support ticket portal that converts user-submitted tickets into structured, actionable GitHub Issues — routed to the right team instantly. Built with Next.js 15, GitHub Copilot SDK, and Zod.
+A support analyst turns a customer report into a structured, reviewable engineering handoff. Rehearse with synthetic data and download real Markdown; optionally publish to GitHub after explicit approval.
 
-## Features
+![The running application reviewing a synthetic order-search report, its suggested labels, and the rules behind those labels](../../docs/images/support-review.png)
 
-- 🤖 **AI-powered triage** via GitHub Copilot SDK (`gpt-4o`) with smart categorization
-- 📋 **Template-based fallback** — direct triage mode with no external AI dependency
-- ✅ **Zod validation** on both client and server for type-safe ticket submission
-- 🐙 **GitHub Issues integration** — tickets are created as real GitHub Issues with labels and structured bodies
-- 🏷️ **Auto-labeling** — category labels (`bug`, `enhancement`, `question`, `documentation`, `security`) and priority labels (`priority:low` through `priority:critical`)
-- 🌙 **Dark/light mode** with `next-themes`
-- 📱 **Fully responsive** design with mobile navigation
-- 🎨 **Design system** — uses `@workspace/ui` components exclusively (zero local UI)
+_Template preview from the actual application. No model call, order-system lookup, or GitHub issue creation is represented by this screenshot._
 
-## Tech Stack
+## Run locally
 
-- **Framework**: Next.js 15 (App Router, Turbopack)
-- **UI Components**: shadcn/ui (from `@workspace/ui`)
-- **Styling**: Tailwind CSS 4
-- **AI**: GitHub Copilot SDK (`@github/copilot-sdk`)
-- **Validation**: Zod
-- **Icons**: Lucide React
-- **Theme**: next-themes for dark/light mode
+Use Node.js 20+ and pnpm 10.26.2. From the **monorepo root**:
 
-## How It Works
-
-```
-┌──────────────┐     ┌──────────────────┐     ┌─────────────────────┐     ┌──────────────┐
-│  Ticket Form │────▶│  POST /api/tickets│────▶│  Triage Engine      │────▶│ GitHub Issue  │
-│  (Client)    │     │  Zod Validation   │     │  Copilot SDK or     │     │ Created with  │
-│              │     │                   │     │  Direct Templates   │     │ labels & body │
-└──────────────┘     └──────────────────┘     └─────────────────────┘     └──────────────┘
+```powershell
+pnpm install --frozen-lockfile --filter octocat-support-app...
+$env:SUPPORT_MODE = "preview"
+$env:NEXT_TELEMETRY_DISABLED = "1"
+pnpm --filter octocat-support-app dev
 ```
 
-1. **User submits a ticket** — fills out name, email, category, priority, subject, and description
-2. **Server validates** — Zod schema validates all fields server-side
-3. **Triage runs** — one of two modes depending on `USE_COPILOT_SDK` env var:
-   - **Copilot SDK mode**: Creates a session with `gpt-4o`, provides a system prompt with triage rules, defines a `create_github_issue` tool — the model triages and calls the tool
-   - **Direct mode** (default): Template-based triage maps categories to labels, generates structured issue bodies with category-specific templates, and creates the issue via the GitHub REST API
-4. **GitHub Issue created** — returns issue URL, number, title, and labels to the client
+Open **http://127.0.0.1:3002**. Choose **Use sample report -> Review issue draft -> Download handoff**. Open `support-handoff.md` to inspect the report, suggested labels, provenance, and review checklist. Editing preserves the source report; starting another report clears only browser memory.
 
-## Getting Started
+No `.env.local`, database, Copilot account, or GitHub token is needed. The preview uses the same deterministic builder as direct live publishing, not prerecorded success output. Fonts use the local system stack.
 
-### Prerequisites
+**[Presenter walkthrough and recovery](../../docs/support-demo.md)** · **[Adaptation points](../../docs/support-demo.md#adapt-it)** · **[Repository overview](../../README.md)**
 
-- Node.js 20+
-- pnpm 10+
-- A GitHub Personal Access Token (PAT) with `repo` scope
+## Modes and configuration
 
-### Installation
+Preview stays available in every mode. Live configuration never changes a preview into an external request.
 
-1. Install dependencies from the monorepo root:
+| Configuration                                          | Behavior                                                                                                                                         |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SUPPORT_MODE=preview` (default)                       | Template draft and local Markdown export. The publishing endpoint returns 403, even if credentials exist.                                        |
+| `SUPPORT_MODE=live`, `USE_COPILOT_SDK=false` (default) | Optional confirmed publishing through the GitHub REST API. Uses the reviewed template's title, body, and labels.                                 |
+| `SUPPORT_MODE=live`, `USE_COPILOT_SDK=true`            | Optional confirmed live AI triage and issue creation. AI may change the template draft; inspect the returned issue. No silent template fallback. |
 
-```bash
-cd contoso-vibe-engineering
-pnpm install
+For live mode, use a private local configuration based on [`.env.local.example`](.env.local.example). Supply `GITHUB_OWNER`, `GITHUB_REPO`, and `GITHUB_TOKEN`. Prefer a fine-grained PAT restricted to a dedicated test repository with **Issues: read/write**; verify it can apply the existing labels. Never commit credentials. Invalid or missing configuration disables publishing with an actionable message. Restart after configuration changes.
+
+AI mode additionally needs an installed, authenticated Copilot CLI and access to the model configured in [`lib/copilot-triage.ts`](lib/copilot-triage.ts), currently `gpt-4o`. Model availability and usage costs depend on the account. The SDK remains a preview dependency. The application permits one issue-creation attempt per SDK session; it does not deduplicate separate requests.
+
+## API and extension points
+
+Both endpoints validate with Zod. Error responses are `{ success: false, error: string }`.
+
+| Endpoint                    | Contract                                                                                                                                                                                 |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/tickets/preview` | Report fields from [`lib/types.ts`](lib/types.ts). Returns 200 with `mode: "template-preview"` and `{ title, body, labels }` under `draft`; never returns a fabricated issue URL/number. |
+| `POST /api/tickets`         | Same report fields **plus `confirmSubmission: true`**. Requires live mode. Returns 201 with the GitHub-confirmed issue URL, number, title, and labels.                                   |
+
+Malformed/invalid input returns 400; disabled publishing or a security report returns 403; missing live configuration returns 503; integration failures return 502. Unexpected internal failures return 500. After an ambiguous live failure, check the repository before retrying.
+
+**Compatibility change:** existing publishing callers must explicitly enable live mode and send confirmation. Security reports are export-only. AI failures no longer silently use direct triage.
+
+The Server Component reads publishing availability without exposing credentials. [`ticket-form.tsx`](components/ticket-form.tsx) handles intake; [`ticket-review.tsx`](components/ticket-review.tsx) handles review/export/consent. [`ticket-draft.ts`](lib/ticket-draft.ts) owns reusable templates and label rules; [`prompts.ts`](lib/prompts.ts) owns optional AI guidance. Both reuse `@workspace/ui`.
+
+## Validate
+
+From the monorepo root:
+
+```powershell
+pnpm --filter octocat-support-app test:ci
+pnpm --filter octocat-support-app lint
+pnpm --filter octocat-support-app typecheck
+pnpm --filter octocat-support-app build
 ```
 
-2. Copy the environment file and configure it:
+Jest/SWC covers components, input validation, preview, publishing gates, and mocked integration failures. [Browser checks and screenshot reproduction](../../docs/support-demo.md#reproduce-and-validate) exercise the real local workflow and verify the downloaded bytes.
 
-```bash
-cd apps/octocat-support-app
-cp .env.local.example .env.local
-```
+## Boundaries
 
-3. Edit `.env.local` with your values:
+Use synthetic or approved data. Reporter details are included in downloads and any explicitly published issue; repository visibility determines who can read them. Security concerns must go through an approved private channel, never this portal's publishing endpoint.
 
-```env
-# GitHub PAT with `repo` scope for creating issues
-GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# Target repository for issue creation
-GITHUB_OWNER=your-username
-GITHUB_REPO=your-repo
-
-# (Optional) Set to "true" to enable AI triage via Copilot SDK
-# When omitted or "false", uses direct template-based triage
-USE_COPILOT_SDK=false
-```
-
-4. Start the development server:
-
-```bash
-pnpm dev
-```
-
-The app will be running at [http://localhost:3002](http://localhost:3002).
-
-## Environment Variables
-
-| Variable          | Required | Description                                                                    |
-| ----------------- | -------- | ------------------------------------------------------------------------------ |
-| `GITHUB_TOKEN`    | ✅       | PAT with `repo` scope for creating issues                                      |
-| `GITHUB_OWNER`    | ✅       | Target repository owner (e.g., `VeVarunSharma`)                                |
-| `GITHUB_REPO`     | ✅       | Target repository name (e.g., `contoso-vibe-engineering`)                      |
-| `USE_COPILOT_SDK` | ❌       | Set to `"true"` to enable AI triage via Copilot SDK. Defaults to direct triage |
-
-## Ticket Categories & Labels
-
-| Category         | GitHub Label    | Title Prefix | Template                                     |
-| ---------------- | --------------- | ------------ | -------------------------------------------- |
-| Bug Report       | `bug`           | `[Bug]`      | Steps to reproduce, expected/actual behavior |
-| Feature Request  | `enhancement`   | `[Feature]`  | Summary, motivation, acceptance criteria     |
-| General Question | `question`      | `[Question]` | Summary, details, expected outcome           |
-| Documentation    | `documentation` | `[Docs]`     | Summary, details, expected outcome           |
-| Security Concern | `security`      | `[Security]` | Summary, severity assessment, next steps     |
-
-## Project Structure
-
-```
-apps/octocat-support-app/
-├── app/
-│   ├── layout.tsx              # Root layout — Geist fonts, metadata, providers
-│   ├── page.tsx                # Home page — hero section + ticket form
-│   └── api/
-│       └── tickets/
-│           └── route.ts        # POST /api/tickets — Zod validation + triage
-├── components/
-│   ├── providers.tsx           # ThemeProvider wrapper (dark mode default)
-│   ├── site-header.tsx         # Sticky header with nav, theme toggle, mobile menu
-│   ├── site-footer.tsx         # 4-column footer with links
-│   └── ticket-form.tsx         # Client Component — full ticket submission form
-├── lib/
-│   ├── types.ts                # Zod schemas, TypeScript types, constants
-│   ├── prompts.ts              # System prompt for Copilot SDK triage
-│   ├── copilot-triage.ts       # AI-powered triage via @github/copilot-sdk
-│   └── direct-triage.ts        # Template-based triage (no SDK dependency)
-├── .env.local.example          # Example environment variables
-├── next.config.mjs             # Next.js config (transpiles @workspace/ui)
-├── package.json
-└── tsconfig.json               # Extends @workspace/typescript-config
-```
-
-## Available Scripts
-
-| Script           | Description                               |
-| ---------------- | ----------------------------------------- |
-| `pnpm dev`       | Start dev server on port 3002 (Turbopack) |
-| `pnpm build`     | Production build                          |
-| `pnpm start`     | Start production server                   |
-| `pnpm lint`      | Run ESLint                                |
-| `pnpm lint:fix`  | Run ESLint with auto-fix                  |
-| `pnpm typecheck` | TypeScript type checking                  |
-
-## Contributing
-
-1. Create a new branch for your feature
-2. Make your changes
-3. Run linting: `pnpm lint`
-4. Run type checking: `pnpm typecheck`
-5. Submit a pull request
+This is not an official GitHub support channel or a production help desk. There is no portal authentication, rate limiting, persistence, automatic assignment, SLA engine, or cross-request deduplication. Keep it on loopback; assess access, retention, abuse controls, and approval policy before external use. A template draft is not an independently verified recommendation. Live GitHub/Copilot execution requires separate authorization and is not demonstrated by the local screenshots.
 
 ## License
 

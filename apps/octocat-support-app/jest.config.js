@@ -25,5 +25,5 @@ module.exports = {
     "^lucide-react$":
       "<rootDir>/node_modules/lucide-react/dist/cjs/lucide-react.js",
   },
-  testPathIgnorePatterns: ["/node_modules/", "/.next/"],
+  testPathIgnorePatterns: ["/node_modules/", "/.next/", "/e2e/"],
 };

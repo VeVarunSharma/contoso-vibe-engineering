@@ -1,4 +1,8 @@
+/**
+ * @jest-environment node
+ */
 import { triageAndCreateIssueDirect } from "@/lib/direct-triage";
+import { buildIssueDraft } from "@/lib/ticket-draft";
 import type { TicketFormData } from "@/lib/types";
 
 const baseTicket: TicketFormData = {
@@ -7,7 +11,8 @@ const baseTicket: TicketFormData = {
   category: "bug",
   priority: "medium",
   subject: "Search returns no results",
-  description: "When I search for anything in the catalog the results are empty.",
+  description:
+    "When I search for anything in the catalog the results are empty.",
 };
 
 const config = { token: "secret-token", owner: "octo", repo: "blog" };
@@ -54,6 +59,7 @@ describe("triageAndCreateIssueDirect", () => {
     const result = await triageAndCreateIssueDirect(baseTicket, config);
 
     expect(result.success).toBe(true);
+    if (!result.success) throw new Error(result.error);
     expect(result.issueNumber).toBe(42);
     expect(result.issueUrl).toBe("https://github.com/octo/blog/issues/42");
     expect(result.title).toContain("[Bug]");
@@ -67,6 +73,7 @@ describe("triageAndCreateIssueDirect", () => {
     const headers = (init as RequestInit).headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer secret-token");
     const body = JSON.parse((init as RequestInit).body as string);
+    expect(body).toEqual(buildIssueDraft(baseTicket));
     expect(body.title).toMatch(/^\[Bug\] /);
     expect(body.labels).toEqual(["bug", "priority:medium"]);
     expect(body.body).toContain("## Description");
@@ -135,6 +142,7 @@ describe("triageAndCreateIssueDirect", () => {
     mockFail(401, '{"message":"Bad credentials"}');
     const result = await triageAndCreateIssueDirect(baseTicket, config);
     expect(result.success).toBe(false);
+    if (result.success) throw new Error("Expected GitHub rejection");
     expect(result.error).toMatch(/HTTP 401/);
   });
 
@@ -143,6 +151,7 @@ describe("triageAndCreateIssueDirect", () => {
     fetchMock.mockRejectedValueOnce(new Error("network down"));
     const result = await triageAndCreateIssueDirect(baseTicket, config);
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/network down/);
+    if (result.success) throw new Error("Expected connection failure");
+    expect(result.error).toMatch(/Check the repository/);
   });
 });

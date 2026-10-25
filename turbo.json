@@ -3,6 +3,32 @@
   "ui": "tui",
   "globalEnv": ["ALERT_WEBHOOK_URL", "LOG_LEVEL", "NODE_ENV"],
   "tasks": {
+    "octocat-support-app#test:demo": {
+      "cache": false,
+      "passThroughEnv": [
+        "SUPPORT_DEMO_PORT",
+        "PLAYWRIGHT_CHANNEL",
+        "UPDATE_DEMO_SCREENSHOTS"
+      ]
+    },
+    "octocat-support-app#build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": ["SUPPORT_MODE", "GITHUB_OWNER", "GITHUB_REPO", "USE_COPILOT_SDK"],
+      "passThroughEnv": ["GITHUB_TOKEN"]
+    },
+    "octocat-support-app#dev": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": [
+        "SUPPORT_MODE",
+        "GITHUB_TOKEN",
+        "GITHUB_OWNER",
+        "GITHUB_REPO",
+        "USE_COPILOT_SDK"
+      ]
+    },
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
