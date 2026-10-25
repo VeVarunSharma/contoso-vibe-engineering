@@ -68,6 +68,7 @@ export async function triageAndCreateIssue(
 ): Promise<TicketResponse> {
   let issueResult: GitHubIssueResult | null = null;
   let toolError: string | null = null;
+  let creationAttempted = false;
 
   interface IssueParams {
     title: string;
@@ -85,6 +86,7 @@ export async function triageAndCreateIssue(
         mode: "append",
         content: TICKET_TRIAGE_SYSTEM_PROMPT,
       },
+      availableTools: ["create_github_issue"],
       tools: [
         defineTool<IssueParams>("create_github_issue", {
           description:
@@ -112,6 +114,14 @@ export async function triageAndCreateIssue(
             required: ["title", "body", "labels"],
           },
           handler: async (args: IssueParams) => {
+            if (creationAttempted) {
+              return {
+                textResultForLlm:
+                  "Issue creation was already attempted for this report. Do not retry.",
+                resultType: "failure" as const,
+              };
+            }
+            creationAttempted = true;
             try {
               issueResult = await createGitHubIssue(
                 config,

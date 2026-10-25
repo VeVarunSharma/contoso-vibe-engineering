@@ -29,6 +29,7 @@ const validTicket = {
   subject: "A reasonable subject line",
   description:
     "A description that is at least twenty characters in length so it parses.",
+  confirmSubmission: true,
 };
 
 function makeRequest(body: unknown): NextRequest {
@@ -50,13 +51,15 @@ describe("POST /api/tickets", () => {
       GITHUB_OWNER: "octo",
       GITHUB_REPO: "blog",
       USE_COPILOT_SDK: "false",
+      SUPPORT_MODE: "live",
     };
     jest.spyOn(console, "error").mockImplementation(() => {});
     jest.spyOn(console, "warn").mockImplementation(() => {});
   });
 
-  afterAll(() => {
+  afterEach(() => {
     process.env = originalEnv;
+    jest.restoreAllMocks();
   });
 
   it("returns 400 when the request body fails Zod validation", async () => {
@@ -68,17 +71,17 @@ describe("POST /api/tickets", () => {
     expect(directMock).not.toHaveBeenCalled();
   });
 
-  it("returns 500 when required env vars are missing", async () => {
+  it("returns an actionable 503 when required env vars are missing", async () => {
     delete process.env.GITHUB_TOKEN;
     const res = await POST(makeRequest(validTicket));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(503);
     const data = await res.json();
     expect(data.success).toBe(false);
-    expect(data.error).toMatch(/configuration error/i);
+    expect(data.error).toMatch(/GITHUB_TOKEN/);
     expect(directMock).not.toHaveBeenCalled();
   });
 
-  it("returns 201 when direct triage succeeds (default mode)", async () => {
+  it("returns 201 when explicitly enabled and confirmed direct publishing succeeds", async () => {
     directMock.mockResolvedValueOnce({
       success: true,
       issueNumber: 7,
@@ -95,19 +98,19 @@ describe("POST /api/tickets", () => {
     expect(sdkMock).not.toHaveBeenCalled();
   });
 
-  it("returns 500 when triage reports failure", async () => {
+  it("returns 502 when triage reports failure", async () => {
     directMock.mockResolvedValueOnce({
       success: false,
       error: "boom",
     });
     const res = await POST(makeRequest(validTicket));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(502);
     const data = await res.json();
     expect(data.success).toBe(false);
     expect(data.error).toBe("boom");
   });
 
-  it("falls back to direct triage when the Copilot SDK throws", async () => {
+  it("never silently falls back or publishes twice when the Copilot SDK throws", async () => {
     process.env.USE_COPILOT_SDK = "true";
     sdkMock.mockRejectedValueOnce(new Error("sdk down"));
     directMock.mockResolvedValueOnce({
@@ -118,9 +121,56 @@ describe("POST /api/tickets", () => {
       labels: [],
     });
     const res = await POST(makeRequest(validTicket));
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toMatch(/No template fallback/);
     expect(sdkMock).toHaveBeenCalledTimes(1);
-    expect(directMock).toHaveBeenCalledTimes(1);
+    expect(directMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["preview", undefined])(
+    "blocks publishing when SUPPORT_MODE is %s, even with credentials",
+    async (mode) => {
+      if (mode === undefined) delete process.env.SUPPORT_MODE;
+      else process.env.SUPPORT_MODE = mode;
+      const res = await POST(makeRequest(validTicket));
+      expect(res.status).toBe(403);
+      expect((await res.json()).error).toMatch(/disabled in preview mode/);
+      expect(directMock).not.toHaveBeenCalled();
+      expect(sdkMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, undefined])(
+    "requires explicit confirmation, received %s",
+    async (confirmation) => {
+      const res = await POST(
+        makeRequest({ ...validTicket, confirmSubmission: confirmation }),
+      );
+      expect(res.status).toBe(400);
+      expect(directMock).not.toHaveBeenCalled();
+      expect(sdkMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps security reports out of ordinary GitHub issues", async () => {
+    const res = await POST(
+      makeRequest({ ...validTicket, category: "security" }),
+    );
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/private security channel/);
+    expect(directMock).not.toHaveBeenCalled();
+    expect(sdkMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400, not 500, for malformed JSON", async () => {
+    const res = await POST(
+      new NextRequest("http://localhost/api/tickets", {
+        method: "POST",
+        body: "{",
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(directMock).not.toHaveBeenCalled();
   });
 
   it("uses the Copilot SDK path when USE_COPILOT_SDK=true and it succeeds", async () => {

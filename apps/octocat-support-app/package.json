@@ -3,14 +3,15 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack --port 3002",
+    "dev": "next dev --turbopack --hostname 127.0.0.1 --port 3002",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "test:ci": "jest --ci --maxWorkers=2"
+    "test:ci": "jest --ci --maxWorkers=2",
+    "test:demo": "playwright test"
   },
   "dependencies": {
     "@github/copilot-sdk": "^0.1.0",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
+    "@playwright/test": "1.59.1",
     "@swc/jest": "^0.2.39",
     "@tailwindcss/postcss": "^4.1.11",
     "@testing-library/jest-dom": "^6.9.1",
