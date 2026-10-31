@@ -5,7 +5,14 @@ on:
     workflows:
       - PR Merge Assistant
       - Multi-Model AI Code Review
+      - Dark Factory Intake
+      - Dark Factory Dispatch
+      - Complete Copilot PRs for Factory Validation
+      - Label Copilot PRs for Factory Validation
+      - Draft PR Auto-Merge
     types: [completed]
+  schedule:
+    - cron: "11 * * * *"
   workflow_dispatch:
     inputs:
       run_id:
@@ -24,7 +31,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: automation-incident-${{ github.event.workflow_run.name || github.event.inputs.run_id }}
+  group: automation-incidents
   cancel-in-progress: false
 
 jobs:
@@ -33,6 +40,7 @@ jobs:
     if: >-
       ${{
         github.event_name == 'workflow_dispatch' ||
+        github.event_name == 'schedule' ||
         contains(fromJSON('["failure","timed_out","startup_failure"]'), github.event.workflow_run.conclusion)
       }}
     runs-on: ubuntu-latest
@@ -52,16 +60,63 @@ jobs:
             const allowedWorkflows = new Set([
               "PR Merge Assistant",
               "Multi-Model AI Code Review",
+              "Dark Factory Intake",
+              "Dark Factory Dispatch",
+              "Complete Copilot PRs for Factory Validation",
+              "Label Copilot PRs for Factory Validation",
+              "Draft PR Auto-Merge",
+              "Automation Incident Reporter",
+            ]);
+            const allowedPaths = new Set([
+              ".github/workflows/pr-merge-assistant.lock.yml",
+              ".github/workflows/multi-model-code-review.yml",
+              ".github/workflows/dark-factory-intake.lock.yml",
+              ".github/workflows/dark-factory-dispatch.lock.yml",
+              ".github/workflows/complete-copilot-prs.yml",
+              ".github/workflows/label-copilot-prs.yml",
+              ".github/workflows/draft-pr-automerge.lock.yml",
+              ".github/workflows/automation-incident-reporter.yml",
             ]);
             const reportableConclusions = new Set([
               "failure",
               "timed_out",
               "startup_failure",
             ]);
-            const runIdText = process.env.UPSTREAM_RUN_ID ?? "";
+            let runIdText = process.env.UPSTREAM_RUN_ID ?? "";
             const dryRun =
               context.eventName === "workflow_dispatch" &&
               process.env.DRY_RUN === "true";
+
+            if (context.eventName === "schedule") {
+              const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+              const incidents = await github.paginate(github.rest.issues.listForRepo, {
+                owner, repo, state: "all", labels: "agentic-workflows", per_page: 100,
+              });
+              const reported = new Set();
+              for (const incident of incidents.filter(i => !i.pull_request && i.user?.id === 41898282)) {
+                const comments = await github.paginate(github.rest.issues.listComments, {
+                  owner, repo, issue_number: incident.number, per_page: 100,
+                });
+                for (const text of [incident.body || "", ...comments.filter(c => c.user?.id === 41898282).map(c => c.body || "")]) {
+                  for (const match of text.matchAll(/\/actions\/runs\/(\d+)/g)) reported.add(match[1]);
+                }
+              }
+              const candidates = [];
+              for (const path of allowedPaths) {
+                const { data } = await github.rest.actions.listWorkflowRuns({
+                  owner, repo, workflow_id: path.split("/").pop(), created: `>=${since}`, per_page: 20,
+                });
+                candidates.push(...data.workflow_runs.filter(run =>
+                  reportableConclusions.has(run.conclusion) && !reported.has(String(run.id))
+                ));
+              }
+              candidates.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id - b.id);
+              runIdText = String(candidates[0]?.id ?? "");
+              if (!runIdText) {
+                core.info("Incident backstop: no unreported failure in the recent sample.");
+                return;
+              }
+            }
 
             if (!/^\d+$/.test(runIdText)) {
               core.setFailed(`Invalid workflow run ID: ${runIdText}`);
@@ -75,7 +130,10 @@ jobs:
               run_id: runId,
             });
 
-            if (!allowedWorkflows.has(run.name)) {
+            if (!allowedWorkflows.has(run.name) || !allowedPaths.has(run.path) ||
+                run.repository.full_name !== `${owner}/${repo}` ||
+                run.head_repository?.full_name !== `${owner}/${repo}` ||
+                (run.head_branch !== "main" && run.event !== "pull_request_target")) {
               core.setFailed(`Workflow is not monitored: ${run.name}`);
               return;
             }
@@ -222,6 +280,7 @@ jobs:
             const incident = candidateIssues.find(
               (issue) =>
                 !issue.pull_request &&
+                issue.user?.id === 41898282 &&
                 typeof issue.body === "string" &&
                 issue.body.includes(signatureMarker)
             );
@@ -236,6 +295,7 @@ jobs:
             const occurrence = [
               updateMarker,
               `- Run: [${run.id}](${runLink})`,
+              `- Attempt: ${run.run_attempt}`,
               `- Observed: ${nowIso}`,
               `- Conclusion: \`${run.conclusion}\``,
               `- Job: \`${safeJob}\``,
@@ -260,6 +320,7 @@ jobs:
                 )}\``,
                 `- First observed: ${nowIso}`,
                 `- Run: [${run.id}](${runLink})`,
+                `- Attempt: ${run.run_attempt}`,
                 `- Conclusion: \`${run.conclusion}\``,
                 `- Job: \`${safeJob}\``,
                 `- Step: \`${safeStep}\``,
