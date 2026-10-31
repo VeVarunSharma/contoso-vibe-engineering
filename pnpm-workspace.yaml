@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - services/*
+  - .github/scripts/dark-factory
 
 ignoredBuiltDependencies:
   - better-sqlite3

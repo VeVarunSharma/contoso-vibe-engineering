@@ -1,0 +1,59 @@
+name: Apply a verified factory transition
+description: Revalidate one decision and keep native exact-head auto-merge in the privileged job.
+inputs:
+  lane:
+    description: Controller lane
+    required: true
+  output-type:
+    description: GH-AW custom safe-output type; omit for a deterministic scheduled caller
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Revalidate selected transition
+      id: transition
+      shell: bash
+      env:
+        FACTORY_LANE: ${{ inputs.lane }}
+        FACTORY_OUTPUT_TYPE: ${{ inputs.output-type }}
+      run: |
+        set -euo pipefail
+        RESULT="$RUNNER_TEMP/factory-transition.json"
+        if [[ -n "$FACTORY_OUTPUT_TYPE" ]]; then
+          KEY=$(jq -er --arg type "$FACTORY_OUTPUT_TYPE" '.items | map(select(.type == $type)) | if length == 1 then .[0].decision_key else error("Expected one factory decision") end' "$GH_AW_AGENT_OUTPUT")
+        else
+          node .github/scripts/dark-factory/dist/cli.js plan "$FACTORY_LANE" --output "$RUNNER_TEMP/factory-plan.json"
+          KEY=$(jq -r '.selected.key // empty' "$RUNNER_TEMP/factory-plan.json")
+          if [[ -z "$KEY" ]]; then
+            echo "No actionable factory transition."
+            exit 0
+          fi
+        fi
+        node .github/scripts/dark-factory/dist/cli.js apply "$FACTORY_LANE" --decision-key "$KEY" --output "$RESULT"
+        if [[ "$(jq -r '.outcome' "$RESULT")" == "merge-authorized" ]]; then
+          echo "merge=true" >> "$GITHUB_OUTPUT"
+        fi
+    - name: Enable native exact-head auto-merge
+      if: steps.transition.outputs.merge == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ env.PR_MERGE_AUTOMATION_TOKEN }}
+      run: |
+        set -euo pipefail
+        RESULT="$RUNNER_TEMP/factory-transition.json"
+        PR_NUMBER=$(jq -er '.decision.prNumber' "$RESULT")
+        ISSUE_NUMBER=$(jq -er '.decision.issueNumber' "$RESULT")
+        HEAD_SHA=$(jq -er '.decision.headSha' "$RESULT")
+        [[ "$PR_NUMBER" =~ ^[0-9]+$ && "$ISSUE_NUMBER" =~ ^[0-9]+$ && "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+        gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER" | jq -e '
+          .state == "open" and (any(.labels[]; .name == "factory:human-review" or .name == "factory:blocked") | not)
+        ' > /dev/null
+        gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" | jq -e --arg sha "$HEAD_SHA" --arg repo "$GITHUB_REPOSITORY" '
+          .state == "open" and .draft == false and .head.sha == $sha
+          and .user.id == 198982749 and .user.type == "Bot" and .user.login == "Copilot"
+          and .base.ref == "main" and .head.repo.full_name == $repo
+          and (.head.ref | startswith("copilot/"))
+          and any(.labels[]; .name == "factory:merge-ready")
+          and (any(.labels[]; .name == "factory:human-review" or .name == "factory:blocked" or .name == "factory:repair-requested") | not)
+        ' > /dev/null
+        gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto --squash --match-head-commit "$HEAD_SHA"

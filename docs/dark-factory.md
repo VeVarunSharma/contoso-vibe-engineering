@@ -1,80 +1,207 @@
 # Dark Factory Operations
 
-The dark factory is an opt-in agentic workflow pipeline for autonomous repository work across the full codebase. GitHub issues and pull requests are the durable state store; GitHub Actions provides isolation; Copilot implements and reviews changes; native GitHub auto-merge performs the final squash merge. See [Dark Factory Enterprise Architecture](dark-factory-architecture.md) for the complete control-plane, trust-boundary, and enforcement design.
+The factory admits actionable issues, tracks Copilot tasks, repairs failures,
+and enables guarded native squash merges. GitHub issues, PRs, task IDs, and
+bot-owned state comments are the durable record. The default is **observe**:
+installing these workflows does not activate autonomous backlog intake.
+
+See [the architecture](dark-factory-architecture.md) for ownership and assurance
+boundaries. This pipeline's delivery boundary is a verified merge and source
+issue reconciliation, not a claim that production deployment succeeded.
 
 ## Prerequisites
 
-- GitHub Actions and Copilot coding agent are enabled for the repository.
-- Repository auto-merge and squash merging are enabled.
-- `PR_MERGE_AUTOMATION_TOKEN` is configured as a repository secret with permission to assign the Copilot coding agent, request Copilot reviews, update labels, and enable auto-merge.
-- The default branch is `main`.
-- Protect `main` with a branch ruleset before treating the factory as production automation. At minimum, require pull requests and resolved review conversations. Add required status checks that are consistently reported for every pull request.
-- Compile agentic workflow sources with a supported `gh-aw` release and commit the generated `.lock.yml` files.
+- GitHub Actions and Copilot cloud agent are enabled; the default branch is `main`.
+- The account can start tasks through the public-preview
+  [Agent Tasks API](https://docs.github.com/en/rest/agent-tasks/agent-tasks).
+  Successful reads do not establish task-creation eligibility.
+- `COPILOT_AGENT_TASKS_TOKEN` is a supported **user** token with repository
+  **Agent tasks: read and write**. Installation tokens are not supported by
+  this API. Do not put credentials in files or workflow inputs.
+- `PR_MERGE_AUTOMATION_TOKEN` can read PRs/checks, request Copilot reviews,
+  change readiness, rerun failed Actions jobs, and enable/disable native
+  auto-merge. Task creation no longer uses Copilot assignee toggling.
+- `GITHUB_TOKEN` writes labels and state comments in privileged jobs.
+  `FACTORY_STATE_TOKEN` is a step-local alias for that token, not another secret.
+- Native auto-merge and squash merging are enabled. Protect `main` with a PR
+  ruleset and resolved-conversation requirements; require consistently reported
+  external CI checks before treating this as production assurance.
+- Use GH-AW **v0.89.21**, matching the compiler pinned by factory CI, and include
+  regenerated lockfiles with source changes.
 
-## Starting Work
+Existing secrets are reused, but an operator must explicitly provide any
+missing permissions. No workflow grants itself access or bypasses branch rules.
 
-1. Create a focused issue with testable acceptance criteria.
-2. Confirm the change is safe for autonomous delivery.
-3. Apply the `factory:queued` label.
+## Modes and rollout
 
-`Dark Factory Dispatch` runs on the label event and every 15 minutes. It selects the oldest eligible issue, assigns the Copilot coding agent, replaces `factory:queued` with `factory:building`, and processes at most one issue per run.
+The repository Actions variable `FACTORY_MODE` controls the loop:
 
-## Pull Request Lifecycle
+| Value              | Behavior                                                                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unset or `observe` | Report automatic admission/recovery decisions without applying them. Current, explicitly maintainer-queued work and its tracked descendants can still proceed. |
+| `live`             | Admit policy-qualified backlog and verified incidents, then run bounded execution and recovery.                                                                |
+| `paused`           | Do not start work or change readiness. Reconcile disabling pending auto-merge on owned PRs. Existing agents are not automatically cancelled.                   |
 
-1. The coding agent creates a `copilot/*` pull request.
-2. `Label Copilot PRs for Factory Validation` verifies the trusted Copilot bot identity and applies `factory:validating`.
-3. `PR Merge Assistant` requests a Copilot review of the current head commit.
-4. Failed checks, requested changes, or unresolved comments cause the coding agent to be assigned back to the pull request.
-5. When the current head has a Copilot review, at least one non-factory check is reported, every non-factory check passes, and all conversations are resolved, the controller applies `automerge` and `factory:merge-ready`, then enables native squash auto-merge with an exact head-SHA match.
-6. GitHub applies branch rules and merges the pull request into `main`.
-
-The controller reconciles every 15 minutes and also reacts to ready-for-review, synchronize, reopen, and label events.
-
-Check runs created by the factory control plane (`PR Merge Assistant`, `Draft PR Auto-Merge`, and `Label Copilot PRs for Factory Validation`) are excluded from merge-gate evaluation so their skipped or cancelled orchestration jobs do not look like product failures. Product, security, and CI check runs remain mandatory: at least one non-factory check must be reported, every non-factory check run must complete with `SUCCESS`, `NEUTRAL`, or `SKIPPED`, and every non-factory status context must be `SUCCESS`.
-
-Eligible factory pull requests do not require human review or approval to merge, including changes to workflows, GitHub Actions, infrastructure, authentication, security, permissions, migrations, and schemas. A current Copilot reviewer result is the automated review gate; the controller blocks requested changes, unresolved conversations, failed or pending non-factory checks, missing non-factory checks, merge conflicts, or an explicitly applied `factory:human-review` emergency-stop label.
-
-## Safety Boundary
-
-Only pull requests satisfying all of these conditions are processed:
-
-- The author login and immutable bot ID match the trusted Copilot coding agent.
-- The source branch starts with `copilot/` and belongs to this repository, not a fork.
-- The base branch is `main`.
-- The pull request has the `factory:validating` label.
-- The pull request is not a draft.
-- The current head commit has a Copilot review, no `CHANGES_REQUESTED` decision, no unresolved review threads, and no merge conflict.
-- At least one external/non-control-plane check is reported; all external check runs and status contexts satisfy the required conclusions.
-- The manual `factory:human-review` emergency-stop label is not applied.
-
-Changed paths do not alter eligibility. Workflow, action, infrastructure, authentication, security, permissions, migration, and schema changes follow the same automated assurance gates as every other factory pull request. Operators may apply `factory:human-review` manually as an emergency stop or explicit exception; the controller will exclude the pull request until that label is removed.
-
-Human-authored and Dependabot pull requests are outside this pipeline.
-
-## State Labels
-
-| Label | Meaning |
-| --- | --- |
-| `factory:queued` | Explicitly approved for dispatch |
-| `factory:building` | Assigned to the coding agent |
-| `factory:validating` | Pull request is in automated review and CI |
-| `factory:merge-ready` | All automated merge gates passed |
-| `factory:human-review` | Manual emergency stop or explicit human-review exception |
-| `factory:blocked` | Automation cannot continue |
-| `automerge` | Pull request opted into guarded native auto-merge |
-
-## Operations
+Start with local tests and report-only assessment. Install the implementation on
+`main` through the normal PR process. Confirm the task API/account prerequisites,
+then enable `live` as a separate, deliberate operator action:
 
 ```powershell
-# Compile the agentic workflows after editing their Markdown sources
-gh aw compile dark-factory-dispatch pr-merge-assistant --approve --actionlint --validate
-
-# View workflow status
-gh aw status
-
-# Manually reconcile queued work or pull requests
-gh aw run dark-factory-dispatch
-gh aw run pr-merge-assistant
+# These commands change the operating mode; do not run as a diagnostic probe.
+gh variable set FACTORY_MODE --body live
+gh variable set FACTORY_MODE --body paused
+gh variable set FACTORY_MODE --body observe
 ```
 
-Do not edit generated `.lock.yml` files directly. Update the corresponding Markdown source and recompile it.
+Each workflow receives a mode snapshot. A mode change or issue label is not an
+instantaneous cancellation of a running job, agent, or native auto-merge request.
+For an emergency, pause, apply `factory:human-review`, explicitly disable any
+already-pending auto-merge, and inspect in-flight tasks.
+
+## What enters the factory
+
+Automatic admission accepts maintainer-authored, scoped issues and canonical
+automation incidents verified against their actual Actions run, attempt, job,
+step, and failure annotations. External issues require explicit maintainer
+enrollment. A matching title, label, or embedded marker alone is insufficient.
+
+Features need concrete acceptance criteria; bugs can instead provide concrete
+reproduction steps and expected behavior. Template placeholders, epics, research
+requests, and ambiguous dependencies receive `factory:needs-scope`, not invented
+requirements or decomposition tickets. The classifier is deliberately
+conservative and structural; it does not claim to understand arbitrary prose.
+
+Native blocking relationships and explicit `Blocked by:`, `Depends on:`, and
+`Dependencies:` sections are respected. `Parent:` does not imply a prerequisite.
+Cycles, missing references, and unsupported cross-repository prerequisites are
+held with a reason. Human-only assignments, Squad-owned work, unverified existing
+PRs, and duplicates are not taken over. Dependabot and direct security-alert
+intake are out of scope.
+
+A maintainer can still enroll a focused issue with `factory:queued`. Its
+eligibility, scope, dependencies, ownership, and stop state are rechecked at
+dispatch. Removing the queue label is not a permanent opt-out; use the stop label.
+
+## Execution and recovery
+
+There are **three in-flight work slots**, with one selected transition per run.
+An issue, its task, and its PR consume one slot, including review and CI waiting.
+The dispatcher is the only owner of task starts and retries.
+
+Every task starts with a persisted attempt intent and correlation key. The
+returned task ID is saved before success is reported. A lost response or failed
+bookkeeping write keeps the reservation; later reconciliation searches the exact
+correlation marker. It never blindly resubmits a task POST.
+
+Each item has one initial attempt and **at most five recovery attempts**.
+Failures, repeated lost-review requests, and infrastructure reruns share this
+budget. Observations and ordinary first reviews do not spend it. Backoff starts
+at 15 minutes and doubles up to eight hours; it is based on durable state, not a
+runner sleeping. Repeated events do not reset attempts.
+
+| Condition                                                 | Response                                                                              |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Task queued/running                                       | Wait; no competing task                                                               |
+| Completed task with matching PR/branch                    | Mark ready and apply `factory:validating`; older work has no arbitrary date cutoff    |
+| Failed/timed-out task                                     | Retry within budget, using the existing PR branch when one is verified                |
+| Failed CI, conflict, requested changes, unresolved thread | Record a repair request; dispatcher creates the repair task                           |
+| Missing artifact                                          | Wait for propagation, then reconcile; an existing unmatched PR prevents a replacement |
+| Cancelled task or manually closed unmerged PR             | Block rather than recreate work                                                       |
+| Idle/waiting-for-user task                                | Hold with the blocker; do not fabricate an answer                                     |
+| Ambiguous request outcome                                 | Retain the reservation and reconcile positive evidence; never guess it failed         |
+| Five recoveries exhausted                                 | Mark `factory:blocked`; continue other work where capacity is available               |
+| Credential rejection                                      | Open a controller launch circuit; do not consume every issue's budget                 |
+
+Infra failures are not automatically code bugs. A retry must still target the
+current trusted workflow revision. An incident is resolved only after its
+previously failing job **and step** execute successfully, not because another
+run is green or the failing step was skipped. Historical incidents with missing
+or unverifiable evidence remain visible and are not automatically repaired.
+A failure on an older revision without later recovery proof is held for current
+evidence rather than becoming a new code-repair task.
+
+### Resetting blocked work
+
+Inspect the durable record and fix the reported cause first. A maintainer can
+explicitly reset a terminal blocked item:
+
+```powershell
+gh workflow run complete-copilot-prs.yml -f reset_issue=123
+```
+
+The reset verifies the actor's current repository permission, refuses ambiguous
+or active attempts and closed PRs, and preserves previous attempts in history.
+It does not remove a manual emergency stop. Merely deleting a blocked label or
+editing an automation comment is not a supported reset.
+
+## PR assurance
+
+The completion and merge paths require tracked source ownership, the immutable
+Copilot author identity, this repository's `copilot/*` branch to `main`, and the
+latest matching completed task. A newer task on that branch blocks stale
+completion evidence.
+
+Copilot review must name the **current commit SHA**. Review timestamps alone are
+not sufficient. At least one external check must exist, all external check runs
+must finish with `success`, `neutral`, or `skipped`, and all status contexts must
+be `success`. Unresolved conversations and requested changes block merging.
+
+Known controller workflows are excluded by both name and workflow path.
+**Dark Factory Tests is external assurance and is never excluded.** Primary and
+secondary merge paths use the same checks and stop controls. Native auto-merge
+is requested with `--match-head-commit`; no bypass option is used. GitHub branch
+rules remain the server-side protection if the PR changes after that request.
+
+There is no changed-path human approval lane. Workflow, infrastructure, security,
+and schema changes use these same gates. `factory:human-review` is an explicit
+manual stop, not an automatic classification.
+
+## State labels and evidence
+
+| Label                              | Meaning                                               |
+| ---------------------------------- | ----------------------------------------------------- |
+| `factory:queued`                   | Authorized for dispatch                               |
+| `factory:building`                 | A factory execution record exists                     |
+| `factory:validating`               | Latest tracked task completion verified on the PR     |
+| `factory:repair-requested`         | Dispatcher must reconcile a repair                    |
+| `factory:needs-scope`              | Missing scope or unsupported/ambiguous evidence       |
+| `factory:blocked`                  | Work cannot safely continue; inspect the state record |
+| `factory:human-review`             | Manual emergency stop on issue or PR                  |
+| `factory:merge-ready`, `automerge` | Current automated merge gates passed                  |
+
+Versioned bot-owned comments retain admission, execution attempts, completion,
+and review requests. Malformed, forged, or duplicate state fails closed.
+Labels are a view of this state, not sole authorization. A verified merged PR
+closes its source issue and releases the slot; a successful workflow alone does
+neither.
+
+## Development and diagnostics
+
+```powershell
+pnpm --filter @workspace/dark-factory test --runInBand
+pnpm --filter @workspace/dark-factory typecheck
+pnpm --filter @workspace/dark-factory lint
+pnpm --filter @workspace/dark-factory build
+
+# Read-only; no labels, tasks, reruns, readiness changes, or merges.
+$env:GH_TOKEN = gh auth token
+pnpm --filter @workspace/dark-factory plan intake --repo VeVarunSharma/contoso-vibe-engineering
+pnpm --filter @workspace/dark-factory plan --repo VeVarunSharma/contoso-vibe-engineering
+
+gh aw compile dark-factory-intake dark-factory-dispatch pr-merge-assistant draft-pr-automerge --approve --actionlint --validate
+gh aw status
+```
+
+Use `--output <path>` to save a read-only assessment. The root repository has no
+`pnpm test` script; the focused command above is the factory suite. Never edit
+generated `.lock.yml` files directly.
+
+Run summaries distinguish no work, dependency waits, capacity, missing scope,
+recovery, and degraded evidence. The incident reporter deduplicates failures and
+limits repeated comments; its scheduled backstop samples recent unreported
+failures, including its own, without recursive workflow dispatch.
+
+After authorized live activation, verify one issue through intake, task, PR,
+current-head review/checks, actual merge, and issue closure. Record those IDs and
+the merge SHA. Do not claim the factory is operational merely because scheduled
+runs are green.

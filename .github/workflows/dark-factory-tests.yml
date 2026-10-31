@@ -1,0 +1,73 @@
+name: Dark Factory Tests
+
+on:
+  pull_request:
+    paths:
+      - ".github/scripts/dark-factory/**"
+      - ".github/actions/factory-*/**"
+      - ".github/workflows/dark-factory*"
+      - ".github/workflows/pr-merge-assistant*"
+      - ".github/workflows/draft-pr-automerge*"
+      - ".github/workflows/complete-copilot-prs.yml"
+      - ".github/workflows/label-copilot-prs.yml"
+      - ".github/workflows/automation-incident-reporter.yml"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+  push:
+    branches: [main]
+    paths:
+      - ".github/scripts/dark-factory/**"
+      - ".github/actions/factory-*/**"
+      - ".github/workflows/dark-factory*"
+      - ".github/workflows/pr-merge-assistant*"
+      - ".github/workflows/draft-pr-automerge*"
+      - ".github/workflows/complete-copilot-prs.yml"
+      - ".github/workflows/label-copilot-prs.yml"
+      - ".github/workflows/automation-incident-reporter.yml"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: factory-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Factory policy and transition regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/factory-runtime
+      - run: pnpm --filter @workspace/dark-factory test --runInBand
+      - run: pnpm --filter @workspace/dark-factory typecheck
+      - run: pnpm --filter @workspace/dark-factory lint
+      - name: Install pinned GH-AW compiler
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh extension install github/gh-aw --pin v0.89.21
+      - name: Validate workflow sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh aw compile dark-factory-intake dark-factory-dispatch pr-merge-assistant draft-pr-automerge --approve --actionlint --validate
+      - name: Require committed lockfiles to match their sources
+        run: >-
+          git diff --exit-code --
+          .github/workflows/dark-factory-intake.lock.yml
+          .github/workflows/dark-factory-dispatch.lock.yml
+          .github/workflows/pr-merge-assistant.lock.yml
+          .github/workflows/draft-pr-automerge.lock.yml
+      - name: Lint conventional factory workflows
+        run: >-
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          -shellcheck= -pyflakes=
+          .github/workflows/dark-factory-tests.yml
+          .github/workflows/complete-copilot-prs.yml
+          .github/workflows/label-copilot-prs.yml
+          .github/workflows/automation-incident-reporter.yml

@@ -3,6 +3,10 @@
   "ui": "tui",
   "globalEnv": ["ALERT_WEBHOOK_URL", "LOG_LEVEL", "NODE_ENV"],
   "tasks": {
+    "@workspace/dark-factory#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
     "octocat-support-app#test:demo": {
       "cache": false,
       "passThroughEnv": [

@@ -1,68 +1,38 @@
 ---
 name: Draft PR Auto-Merge
-description: Enables native auto-merge for opted-in draft pull requests after they are marked ready.
+description: Secondary reconciliation path using the same factory assurance and stop gates.
 on:
   pull_request_target:
     types: [ready_for_review, labeled, reopened]
   bots: [Copilot, copilot-swe-agent]
+if: ${{ github.event.pull_request.draft == false }}
 concurrency:
-  group: draft-pr-automerge-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: dark-factory-mutation
+  cancel-in-progress: false
 permissions:
   copilot-requests: write
   contents: read
   pull-requests: read
-if: ${{ github.event.pull_request.draft == false }}
+  checks: read
+  issues: read
+  actions: read
 checkout: false
 strict: true
 tools:
   bash: [cat, jq]
 steps:
-  - name: Capture trusted pull request state
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    with:
+      ref: main
+      persist-credentials: false
+  - uses: ./.github/actions/factory-runtime
+  - name: Re-evaluate the triggering factory PR
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      REPO: ${{ github.repository }}
-      PR_NUMBER: ${{ github.event.pull_request.number }}
-    run: |
-      set -euo pipefail
-      AGENT_DIR=/tmp/gh-aw/agent
-      mkdir -p "$AGENT_DIR"
-
-      if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
-        echo "Invalid pull request number: $PR_NUMBER" >&2
-        exit 1
-      fi
-
-      gh pr view "$PR_NUMBER" \
-        --repo "$REPO" \
-        --json number,title,url,state,isDraft,headRefOid,baseRefName,author,labels \
-        > "$AGENT_DIR/pr-state.json"
-
-      jq '{
-        pull_request_number: .number,
-        title,
-        url,
-        state,
-        is_draft: .isDraft,
-        head_sha: .headRefOid,
-        base_branch: .baseRefName,
-        author: .author.login,
-        labels: [.labels[].name],
-        eligible: (
-          .state == "OPEN"
-          and .isDraft == false
-          and any(.labels[]; .name == "automerge")
-          and any(.labels[]; .name == "factory:merge-ready")
-        ),
-        reason: (
-          if .state != "OPEN" then "Pull request is not open."
-          elif .isDraft then "Pull request is still a draft."
-          elif (any(.labels[]; .name == "automerge") | not) then "The automerge label is not present."
-          elif (any(.labels[]; .name == "factory:merge-ready") | not) then "The factory merge gates have not passed."
-          else "Pull request is ready and explicitly opted in to auto-merge."
-          end
-        )
-      }' "$AGENT_DIR/pr-state.json" > "$AGENT_DIR/decision-state.json"
+      COPILOT_AGENT_TASKS_TOKEN: ${{ secrets.COPILOT_AGENT_TASKS_TOKEN }}
+      FACTORY_MODE: ${{ vars.FACTORY_MODE || 'observe' }}
+      FACTORY_PR_NUMBER: ${{ github.event.pull_request.number }}
+    run: node .github/scripts/dark-factory/dist/cli.js plan merge --output /tmp/gh-aw/agent/decision-state.json
 safe-outputs:
   report-failure-as-issue: false
   report-failed-jobs: false
@@ -75,94 +45,46 @@ safe-outputs:
   report-incomplete:
     create-issue: false
   jobs:
-    enable-pr-automerge:
-      description: Revalidate an opted-in pull request and enable native GitHub auto-merge
+    reconcile-triggering-pr:
+      description: Revalidate only the triggering PR using shared assurance logic
       runs-on: ubuntu-latest
       inputs:
-        pr_number:
-          description: Pull request number
-          required: true
-          type: string
-        expected_head_sha:
-          description: Head commit evaluated by the agent
+        decision_key:
+          description: Exact selected decision key
           required: true
           type: string
       permissions:
-        contents: write
-        pull-requests: write
+        contents: read
+        issues: write
+        pull-requests: read
+        actions: read
+        checks: read
       steps:
-        - name: Enable auto-merge
+        - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+          with:
+            ref: main
+            persist-credentials: false
+        - uses: ./.github/actions/factory-runtime
+        - uses: ./.github/actions/factory-transition
+          with:
+            lane: merge
+            output-type: reconcile_triggering_pr
           env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            REPO: ${{ github.repository }}
-            TRIGGER_PR_NUMBER: ${{ github.event.pull_request.number }}
-            TRIGGER_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          run: |
-            set -euo pipefail
-
-            PR_NUMBER=$(jq -r '.items[] | select(.type == "enable_pr_automerge") | .pr_number' "$GH_AW_AGENT_OUTPUT")
-            EXPECTED_HEAD_SHA=$(jq -r '.items[] | select(.type == "enable_pr_automerge") | .expected_head_sha' "$GH_AW_AGENT_OUTPUT")
-
-            if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
-              echo "Invalid pull request number: $PR_NUMBER" >&2
-              exit 1
-            fi
-            if [[ ! "$EXPECTED_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-              echo "Invalid expected head SHA: $EXPECTED_HEAD_SHA" >&2
-              exit 1
-            fi
-            if [[ "$PR_NUMBER" != "$TRIGGER_PR_NUMBER" || "$EXPECTED_HEAD_SHA" != "$TRIGGER_HEAD_SHA" ]]; then
-              echo "Agent output does not match the triggering pull request and head commit." >&2
-              exit 1
-            fi
-
-            PR_STATE=$(gh pr view "$PR_NUMBER" \
-              --repo "$REPO" \
-              --json state,isDraft,headRefOid,labels)
-
-            if ! jq -e --arg expected_head_sha "$EXPECTED_HEAD_SHA" '
-              .state == "OPEN"
-              and .isDraft == false
-              and .headRefOid == $expected_head_sha
-              and any(.labels[]; .name == "automerge")
-              and any(.labels[]; .name == "factory:merge-ready")
-            ' <<< "$PR_STATE" > /dev/null; then
-              echo "::warning::PR #$PR_NUMBER changed after evaluation and no longer satisfies auto-merge eligibility."
-              exit 0
-            fi
-
-            gh pr merge "$PR_NUMBER" \
-              --repo "$REPO" \
-              --auto \
-              --squash \
-              --match-head-commit "$EXPECTED_HEAD_SHA"
-timeout-minutes: 10
+            FACTORY_STATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            COPILOT_AGENT_TASKS_TOKEN: ${{ secrets.COPILOT_AGENT_TASKS_TOKEN }}
+            PR_MERGE_AUTOMATION_TOKEN: ${{ secrets.PR_MERGE_AUTOMATION_TOKEN }}
+            FACTORY_MODE: ${{ vars.FACTORY_MODE || 'observe' }}
+            FACTORY_PR_NUMBER: ${{ github.event.pull_request.number }}
+timeout-minutes: 20
 ---
 
-# Draft PR Auto-Merge
+# Secondary factory PR reconciliation
 
-## Task
+Read `/tmp/gh-aw/agent/decision-state.json`. Call `reconcile_triggering_pr`
+once with the exact `selected.key` as `decision_key`, or `noop` when absent.
 
-Evaluate the pull request that triggered this workflow and enable GitHub's native auto-merge only when the deterministic eligibility decision allows it.
-
-## Process
-
-1. Read `/tmp/gh-aw/agent/pr-state.json`.
-2. Read `/tmp/gh-aw/agent/decision-state.json`.
-3. Treat `decision-state.json` as authoritative. Do not override its eligibility result.
-4. If `eligible` is `true`, call `enable_pr_automerge` exactly once with:
-   - `pr_number`: `pull_request_number`
-   - `expected_head_sha`: `head_sha`
-5. If `eligible` is `false`, call `noop` with the provided `reason`.
-
-The safe-output job independently revalidates that the pull request is open, is no longer a draft, still has the `automerge` and `factory:merge-ready` labels, and still points to the evaluated head commit. GitHub native auto-merge then waits for required checks, reviews, conversation resolution, and merge-queue requirements configured by repository rules.
-
-## Important Rules
-
-- Never merge or enable auto-merge for a draft pull request.
-- Never merge or enable auto-merge without the `automerge` label.
-- Never merge or enable auto-merge without the `factory:merge-ready` label.
-- Never bypass branch protection, required reviews, required checks, or merge queues.
-- Never act on a different pull request.
-- Never use a head commit different from the evaluated SHA.
-- Never post comments or modify labels.
+The trusted controller restricts selection to the triggering PR and rechecks
+all ownership, task, review, check, conversation, stop, and exact-head gates.
+Stale `automerge` or `factory:merge-ready` labels never bypass these checks.
+Do not assign agents, override policy, or schedule follow-up runs.
