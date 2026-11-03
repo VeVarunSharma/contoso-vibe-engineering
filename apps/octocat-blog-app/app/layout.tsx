@@ -67,8 +67,16 @@ export default function RootLayout({
       >
         <Providers>
           <div className="relative flex min-h-screen flex-col">
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:absolute focus:z-[60] focus:bg-background focus:p-4 focus:underline"
+            >
+              Skip to main content
+            </a>
             <SiteHeader />
-            <main className="flex-1">{children}</main>
+            <main id="main-content" tabIndex={-1} className="flex-1">
+              {children}
+            </main>
             <SiteFooter />
           </div>
         </Providers>
