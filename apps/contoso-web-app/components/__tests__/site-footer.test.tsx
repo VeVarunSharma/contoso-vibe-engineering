@@ -7,7 +7,7 @@ describe("<SiteFooter />", () => {
   it("renders the footer attribution text", () => {
     render(<SiteFooter />);
     expect(
-      screen.getByText(/built by the fantastic four at microsoft/i),
+      screen.getByText(/for licensed retailers and authorized buyers only/i),
     ).toBeInTheDocument();
   });
 
