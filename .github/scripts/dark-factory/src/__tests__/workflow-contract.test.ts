@@ -68,3 +68,52 @@ describe("factory workflow integration contract", () => {
     expect(workflow("label-copilot-prs.yml")).toContain("lane: complete");
   });
 });
+
+describe("multi-model review workflow trust contract", () => {
+  const source = workflow("multi-model-code-review.yml");
+
+  it("uses the trusted PR trigger while preserving eligibility and manual dispatch", () => {
+    expect(source).toMatch(
+      /^ {2}pull_request_target:\n {4}types: \[opened, synchronize, reopened, ready_for_review\]/m,
+    );
+    expect(source).not.toMatch(/^ {2}pull_request:/m);
+    expect(source).toContain("github.event_name == 'pull_request_target'");
+    expect(source).not.toContain("github.event_name == 'pull_request'");
+    expect(source).toContain("workflow_dispatch:");
+    expect(source).toContain("github.event.pull_request.draft == false");
+    expect(source).toContain("github.event.pull_request.head.repo.fork == false");
+    expect(source).toContain(
+      "!endsWith(github.event.pull_request.user.login, '[bot]')",
+    );
+  });
+
+  it("checks out only trusted code without persisting credentials in both jobs", () => {
+    const checkouts = [
+      ...source.matchAll(
+        /uses: actions\/checkout@[^\n]+\n {8}with:\n((?: {10}[^\n]*\n)+)/g,
+      ),
+    ];
+    expect(checkouts).toHaveLength(2);
+    for (const checkout of checkouts) {
+      expect(checkout[1]).toContain(
+        "ref: ${{ github.event.pull_request.base.sha || github.sha }}",
+      );
+      expect(checkout[1]).toContain("persist-credentials: false");
+    }
+    expect(source).not.toContain("refs/pull/");
+    expect(source).not.toContain("github.event.pull_request.head.sha");
+    expect(source).toContain(
+      "BASE_REF: ${{ github.event.pull_request.base.sha || github.sha }}",
+    );
+    expect(source).toContain('gh pr diff "$PR_NUMBER"');
+    expect(source).toContain("--available-tools='view,grep,glob,list_directory'");
+    expect(source).toContain("--disable-builtin-mcps");
+  });
+
+  it("runs regression checks when the review workflow changes", () => {
+    const checks = workflow("dark-factory-tests.yml");
+    expect(
+      checks.match(/\.github\/workflows\/multi-model-code-review\.yml/g),
+    ).toHaveLength(3);
+  });
+});
