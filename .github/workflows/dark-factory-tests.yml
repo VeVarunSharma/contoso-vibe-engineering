@@ -11,6 +11,7 @@ on:
       - ".github/workflows/complete-copilot-prs.yml"
       - ".github/workflows/label-copilot-prs.yml"
       - ".github/workflows/automation-incident-reporter.yml"
+      - ".github/workflows/multi-model-code-review.yml"
       - "pnpm-workspace.yaml"
       - "pnpm-lock.yaml"
   push:
@@ -24,6 +25,7 @@ on:
       - ".github/workflows/complete-copilot-prs.yml"
       - ".github/workflows/label-copilot-prs.yml"
       - ".github/workflows/automation-incident-reporter.yml"
+      - ".github/workflows/multi-model-code-review.yml"
       - "pnpm-workspace.yaml"
       - "pnpm-lock.yaml"
   workflow_dispatch:
@@ -71,3 +73,10 @@ jobs:
           .github/workflows/complete-copilot-prs.yml
           .github/workflows/label-copilot-prs.yml
           .github/workflows/automation-incident-reporter.yml
+      - name: Lint trusted multi-model review workflow
+        # actionlint v1.7.7 predates the supported copilot-requests permission.
+        run: >-
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          -shellcheck= -pyflakes=
+          -ignore '^unknown permission scope "copilot-requests"\.'
+          .github/workflows/multi-model-code-review.yml

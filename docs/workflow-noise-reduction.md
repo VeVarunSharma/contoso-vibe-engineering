@@ -92,6 +92,7 @@ The partial-window rate was approximately 3.9 runs per day, 92.7% below the orig
 - Edit `.github/workflows/pr-merge-assistant.md`, then recompile its `.lock.yml`; never hand-edit the generated lock.
 - Keep `report-failure-as-issue` disabled in gh-aw while the deterministic incident reporter is active.
 - Treat the weekly Security Agent run as expected activity. Investigate additional non-manual runs.
+- Multi-model review uses `pull_request_target` to avoid approval-expiry setup failures such as [run 35946213020](https://github.com/VeVarunSharma/contoso-vibe-engineering/actions/runs/35946213020). Both review and consensus check out only the trusted base SHA (the dispatch SHA for manual runs), with persisted credentials disabled; PR changes are fetched only as diff data. Never check out or execute PR head or merge code in this workflow. The trigger change takes effect after the workflow reaches the default branch.
 - Do not re-enable the combined npm/pnpm version updater until its workspace runtime and package-age behavior are bounded and validated.
 - Preserve Dependabot alerts and security-update pull requests even while routine version scans are paused.
 - Measure notification-producing writes separately from workflow runs: issues, issue comments, pull request comments, inline review comments, and issue reopen events.
