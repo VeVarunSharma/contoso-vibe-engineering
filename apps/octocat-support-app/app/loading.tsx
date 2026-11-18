@@ -2,7 +2,7 @@ import { Loader2 } from "lucide-react";
 
 export default function Loading() {
   return (
-    <main
+    <div
       className="flex items-center justify-center min-h-[60vh]"
       aria-busy="true"
       aria-label="Loading"
@@ -11,6 +11,6 @@ export default function Loading() {
         className="h-8 w-8 animate-spin text-muted-foreground"
         aria-hidden="true"
       />
-    </main>
+    </div>
   );
 }

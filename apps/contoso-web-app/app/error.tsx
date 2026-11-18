@@ -15,12 +15,15 @@ export default function Error({
   }, [error]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+    <section
+      className="flex min-h-screen flex-col items-center justify-center px-6 text-center"
+      aria-labelledby="error-title"
+    >
       <div className="max-w-md">
         <p className="text-sm font-semibold text-red-600 uppercase tracking-wider mb-2">
           Error
         </p>
-        <h1 className="text-3xl font-bold tracking-tight mb-3">
+        <h1 id="error-title" className="text-3xl font-bold tracking-tight mb-3">
           Something went wrong
         </h1>
         <p className="text-muted-foreground mb-6">
@@ -35,18 +38,18 @@ export default function Error({
         <div className="flex justify-center gap-3">
           <button
             onClick={reset}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90 transition-colors"
+            className="min-h-11 rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90 transition-colors"
           >
             Try again
           </button>
           <Link
             href="/"
-            className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+            className="inline-flex min-h-11 items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
           >
             Go home
           </Link>
         </div>
       </div>
-    </main>
+    </section>
   );
 }

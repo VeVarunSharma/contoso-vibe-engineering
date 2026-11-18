@@ -13,7 +13,7 @@ export function HeroSection() {
       <div className="container mx-auto relative px-4 md:px-8">
         <div className="flex flex-col items-center text-center">
           <div className="inline-flex items-center gap-2 rounded-full border bg-muted/50 px-4 py-1.5 text-sm mb-6">
-            <Sparkles className="h-4 w-4 text-yellow-500" />
+            <Sparkles className="h-4 w-4 text-yellow-500" aria-hidden="true" />
             <span>The official Octocat Blog</span>
           </div>
 
@@ -32,7 +32,7 @@ export function HeroSection() {
           <div className="flex flex-wrap gap-4 justify-center">
             <Button size="lg" asChild>
               <Link href="#latest-posts">
-                <Rocket className="mr-2 h-5 w-5" />
+                <Rocket className="mr-2 h-5 w-5" aria-hidden="true" />
                 Explore Posts
               </Link>
             </Button>
@@ -42,7 +42,7 @@ export function HeroSection() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Github className="mr-2 h-5 w-5" />
+                <Github className="mr-2 h-5 w-5" aria-hidden="true" />
                 Visit GitHub
               </a>
             </Button>

@@ -8,7 +8,10 @@ describe("<HeroSection />", () => {
 
   it("renders the page title heading", () => {
     expect(
-      screen.getByRole("heading", { level: 1, name: /contoso vibe engineering/i }),
+      screen.getByRole("heading", {
+        level: 1,
+        name: /contoso vibe engineering/i,
+      }),
     ).toBeInTheDocument();
   });
 
@@ -18,12 +21,14 @@ describe("<HeroSection />", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders Get Started and Learn More CTAs", () => {
-    expect(
-      screen.getByRole("button", { name: /get started/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /learn more/i }),
-    ).toBeInTheDocument();
+  it("renders Get Started and Learn More as actionable links", () => {
+    expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute(
+      "href",
+      "#mission",
+    );
+    expect(screen.getByRole("link", { name: /learn more/i })).toHaveAttribute(
+      "href",
+      "#team",
+    );
   });
 });

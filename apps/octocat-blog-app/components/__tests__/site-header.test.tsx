@@ -1,6 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SiteHeader } from "@/components/site-header";
+import { axe } from "jest-axe";
 
 // Mock the @workspace/ui Button component
 jest.mock("@workspace/ui/components/button", () => ({
@@ -34,7 +35,7 @@ describe("SiteHeader", () => {
 
   it("renders the home link pointing to root", () => {
     render(<SiteHeader />);
-    const homeLink = screen.getByRole("link", { name: /home/i });
+    const homeLink = screen.getByRole("link", { name: "Home" });
     expect(homeLink).toHaveAttribute("href", "/");
   });
 
@@ -43,18 +44,18 @@ describe("SiteHeader", () => {
       render(<SiteHeader />);
       expect(screen.getByRole("link", { name: /releases/i })).toHaveAttribute(
         "href",
-        "/category/releases"
+        "/category/releases",
       );
       expect(screen.getByRole("link", { name: /features/i })).toHaveAttribute(
         "href",
-        "/category/features"
+        "/category/features",
       );
       expect(screen.getByRole("link", { name: /changelog/i })).toHaveAttribute(
         "href",
-        "/category/changelog"
+        "/category/changelog",
       );
       expect(
-        screen.getByRole("link", { name: /engineering/i })
+        screen.getByRole("link", { name: /engineering/i }),
       ).toHaveAttribute("href", "/category/engineering");
     });
   });
@@ -81,6 +82,8 @@ describe("SiteHeader", () => {
       render(<SiteHeader />);
       const menuButton = screen.getByLabelText("Toggle menu");
       expect(menuButton).toBeInTheDocument();
+      expect(menuButton).toHaveAttribute("aria-expanded", "false");
+      expect(menuButton).toHaveAttribute("aria-controls", "mobile-navigation");
     });
 
     it("toggles mobile menu when button is clicked", () => {
@@ -95,11 +98,23 @@ describe("SiteHeader", () => {
 
       // Click to open mobile menu
       fireEvent.click(menuButton);
+      expect(menuButton).toHaveAttribute("aria-expanded", "true");
+      expect(
+        screen.getByRole("navigation", { name: "Mobile navigation" }),
+      ).toBeInTheDocument();
 
       // After clicking, mobile navigation links should be visible
       // We check for multiple Home links - one in desktop, one in mobile
       const homeLinks = screen.getAllByText("Home");
       expect(homeLinks.length).toBeGreaterThanOrEqual(1);
     });
+  });
+
+  it("provides a skip link and passes the axe audit", async () => {
+    const { container } = render(<SiteHeader />);
+    expect(
+      screen.getByRole("link", { name: /skip to main content/i }),
+    ).toHaveAttribute("href", "#main-content");
+    expect(await axe(container)).toHaveNoViolations();
   });
 });

@@ -1,4 +1,5 @@
 import { Button } from "@workspace/ui";
+import Link from "next/link";
 
 export function HeroSection() {
   return (
@@ -15,9 +16,11 @@ export function HeroSection() {
             </p>
           </div>
           <div className="space-x-4">
-            <Button size="lg">Get Started</Button>
-            <Button variant="outline" size="lg">
-              Learn More
+            <Button size="lg" asChild>
+              <Link href="#mission">Get Started</Link>
+            </Button>
+            <Button variant="outline" size="lg" asChild>
+              <Link href="#team">Learn More</Link>
             </Button>
           </div>
         </div>

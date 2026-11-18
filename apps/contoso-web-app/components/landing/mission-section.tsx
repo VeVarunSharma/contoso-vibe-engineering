@@ -24,7 +24,7 @@ export function MissionSection() {
         <div className="mx-auto grid max-w-5xl items-center gap-6 py-12 lg:grid-cols-3 lg:gap-12">
           <div className="flex flex-col items-center space-y-4 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-              <Zap className="h-8 w-8 text-primary" />
+              <Zap className="h-8 w-8 text-primary" aria-hidden="true" />
             </div>
             <h3 className="text-xl font-bold">Velocity</h3>
             <p className="text-muted-foreground">
@@ -33,7 +33,7 @@ export function MissionSection() {
           </div>
           <div className="flex flex-col items-center space-y-4 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-              <Shield className="h-8 w-8 text-primary" />
+              <Shield className="h-8 w-8 text-primary" aria-hidden="true" />
             </div>
             <h3 className="text-xl font-bold">Safety</h3>
             <p className="text-muted-foreground">
@@ -43,7 +43,7 @@ export function MissionSection() {
           </div>
           <div className="flex flex-col items-center space-y-4 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-              <Rocket className="h-8 w-8 text-primary" />
+              <Rocket className="h-8 w-8 text-primary" aria-hidden="true" />
             </div>
             <h3 className="text-xl font-bold">Agentic Upgrades</h3>
             <p className="text-muted-foreground">

@@ -17,12 +17,15 @@ export default function Error({
   }, [error]);
 
   return (
-    <main className="container flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
+    <section
+      className="container flex flex-col items-center justify-center min-h-[70vh] px-4 text-center"
+      aria-labelledby="error-title"
+    >
       <AlertCircle
         className="h-16 w-16 text-destructive mb-6"
         aria-hidden="true"
       />
-      <h1 className="text-3xl font-bold tracking-tight mb-3">
+      <h1 id="error-title" className="text-3xl font-bold tracking-tight mb-3">
         Something went wrong
       </h1>
       <p className="text-muted-foreground max-w-md mb-6">
@@ -46,6 +49,6 @@ export default function Error({
           </Link>
         </Button>
       </div>
-    </main>
+    </section>
   );
 }
