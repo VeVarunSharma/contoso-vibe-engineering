@@ -37,14 +37,15 @@ export default function Error({
         )}
         <div className="flex justify-center gap-3">
           <button
+            type="button"
             onClick={reset}
-            className="min-h-11 rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90 transition-colors"
+            className="min-h-11 rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black/90 outline-offset-4 focus-visible:outline-2"
           >
             Try again
           </button>
           <Link
             href="/"
-            className="inline-flex min-h-11 items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+            className="inline-flex min-h-11 items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent outline-offset-4 focus-visible:outline-2"
           >
             Go home
           </Link>
