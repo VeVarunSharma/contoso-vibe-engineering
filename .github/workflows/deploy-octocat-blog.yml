@@ -1,0 +1,165 @@
+name: Deploy Octocat Blog to Azure
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/deploy-octocat-blog.yml"
+      - "apps/octocat-blog-app/**"
+      - "infra/terraform/octocat-blog-app/**"
+      - "packages/ui/**"
+      - "pnpm-lock.yaml"
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/deploy-octocat-blog.yml"
+      - "apps/octocat-blog-app/**"
+      - "infra/terraform/octocat-blog-app/**"
+      - "packages/ui/**"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: octocat-blog-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PNPM_VERSION: "10.26.2"
+  NODE_VERSION: "22.11"
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  validate:
+    name: Validate app and Terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.9
+
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Octocat Blog
+        run: pnpm --filter octocat-blog-app test:ci
+
+      - name: Build Octocat Blog
+        run: pnpm --filter octocat-blog-app build
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: "1.17.2"
+
+      - name: Format Terraform
+        run: terraform fmt -check -recursive
+        working-directory: infra/terraform/octocat-blog-app
+
+      - name: Validate Terraform
+        run: |
+          terraform init -backend=false
+          terraform validate
+        working-directory: infra/terraform/octocat-blog-app
+
+  deploy:
+    name: Deploy production
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_USE_OIDC: "true"
+      TF_VAR_cost_center: ${{ vars.COST_CENTER }}
+      TF_VAR_name_prefix: ${{ vars.OCTOCAT_BLOG_NAME_PREFIX }}
+      TF_VAR_owner: ${{ vars.OWNER }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Sign in to Azure with OIDC
+        uses: azure/login@v2.3.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.9
+
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: "1.17.2"
+          terraform_wrapper: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Plan infrastructure
+        working-directory: infra/terraform/octocat-blog-app
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.TERRAFORM_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TERRAFORM_STATE_CONTAINER }}" \
+            -backend-config="key=octocat-blog-app.tfstate"
+          terraform plan -out=tfplan
+          terraform apply -auto-approve tfplan
+
+      - name: Build deployment package
+        run: |
+          pnpm --filter octocat-blog-app build
+          rm -rf /tmp/octocat-blog-package
+          mkdir -p /tmp/octocat-blog-package/apps/octocat-blog-app/.next
+          cp -R apps/octocat-blog-app/.next/standalone/. /tmp/octocat-blog-package/
+          cp -R apps/octocat-blog-app/.next/static \
+            /tmp/octocat-blog-package/apps/octocat-blog-app/.next/static
+          if [ -d apps/octocat-blog-app/public ]; then
+            cp -R apps/octocat-blog-app/public \
+              /tmp/octocat-blog-package/apps/octocat-blog-app/public
+          fi
+          cp -R apps/octocat-blog-app/drizzle \
+            /tmp/octocat-blog-package/apps/octocat-blog-app/drizzle
+          cd /tmp/octocat-blog-package
+          zip -qr "$RUNNER_TEMP/octocat-blog.zip" .
+
+      - name: Deploy and verify app
+        working-directory: infra/terraform/octocat-blog-app
+        run: |
+          app_name="$(terraform output -raw web_app_name)"
+          resource_group="$(terraform output -raw resource_group_name)"
+          app_url="$(terraform output -raw web_app_url)"
+          az webapp deploy \
+            --resource-group "$resource_group" \
+            --name "$app_name" \
+            --src-path "$RUNNER_TEMP/octocat-blog.zip" \
+            --type zip \
+            --restart true
+          curl --fail --show-error --silent --retry 12 --retry-delay 10 \
+            "$app_url/api/posts" >/dev/null

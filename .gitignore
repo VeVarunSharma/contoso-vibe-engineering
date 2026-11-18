@@ -30,6 +30,9 @@ out/
 build
 dist
 
+# Terraform
+**/.terraform/
+
 
 # Debug
 npm-debug.log*
