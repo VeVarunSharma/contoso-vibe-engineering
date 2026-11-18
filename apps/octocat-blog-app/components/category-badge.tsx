@@ -18,7 +18,7 @@ export function CategoryBadge({ category, size = "sm" }: CategoryBadgeProps) {
   return (
     <Link
       href={`/category/${category.slug}`}
-      className={`inline-flex items-center gap-1 rounded-full font-medium text-white transition-opacity hover:opacity-90 ${sizeClasses[size]}`}
+      className={`inline-flex min-h-11 items-center gap-1 rounded-full font-medium text-white transition-opacity hover:opacity-90 outline-offset-4 focus-visible:outline-2 ${sizeClasses[size]}`}
       style={{ backgroundColor: category.color || "#24292f" }}
       aria-label={`View all posts in category: ${category.name}`}
     >
@@ -27,4 +27,3 @@ export function CategoryBadge({ category, size = "sm" }: CategoryBadgeProps) {
     </Link>
   );
 }
-

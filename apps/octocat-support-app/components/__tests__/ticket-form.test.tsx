@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { axe } from "jest-axe";
 import { TicketForm } from "@/components/ticket-form";
 import { SAMPLE_TICKET } from "@/lib/sample-ticket";
 import { buildIssueDraft, formatDraftMarkdown } from "@/lib/ticket-draft";
@@ -51,6 +52,11 @@ describe("<TicketForm />", () => {
     expect(
       screen.queryByRole("button", { name: "Create GitHub issue" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("passes the axe audit for the intake form", async () => {
+    const { container } = render(<TicketForm />);
+    expect(await axe(container)).toHaveNoViolations();
   });
 
   it("focuses and associates inline validation errors without calling the API", async () => {

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { render, screen } from "@testing-library/react";
+import { axe } from "jest-axe";
 
 import { SiteHeader } from "@/components/site-header";
 
@@ -10,7 +11,10 @@ jest.mock("next/link", () => {
       children,
       href,
       ...rest
-    }: { children: React.ReactNode; href: string }) {
+    }: {
+      children: React.ReactNode;
+      href: string;
+    }) {
       return React.createElement("a", { href, ...rest }, children);
     },
   };
@@ -47,5 +51,12 @@ describe("<SiteHeader />", () => {
 
   it("uses a semantic <header> element", () => {
     expect(screen.getByRole("banner")).toBeInTheDocument();
+  });
+
+  it("provides a skip link and passes the axe audit", async () => {
+    expect(
+      screen.getByRole("link", { name: /skip to main content/i }),
+    ).toHaveAttribute("href", "#main-content");
+    expect(await axe(document.body)).toHaveNoViolations();
   });
 });

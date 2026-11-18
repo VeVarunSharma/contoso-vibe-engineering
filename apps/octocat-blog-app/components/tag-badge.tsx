@@ -10,9 +10,9 @@ export function TagBadge({ tag }: TagBadgeProps) {
   return (
     <Link
       href={`/tag/${tag.slug}`}
-      className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+      className="inline-flex min-h-11 items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground outline-offset-4 focus-visible:outline-2"
     >
-      <TagIcon className="h-3 w-3" />
+      <TagIcon className="h-3 w-3" aria-hidden="true" />
       {tag.name}
     </Link>
   );
