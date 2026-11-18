@@ -40,6 +40,10 @@ test("report -> reviewed draft -> real downloadable handoff, with no external re
     }
   });
   await page.goto("/");
+  const skipLink = page.getByRole("link", { name: "Skip to report" });
+  await skipLink.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Turn a support report into an engineering handoff",
   );

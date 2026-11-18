@@ -24,7 +24,7 @@ export default function LegacyVibePage() {
       {/* UI FLAW: Hardcoded styles instead of using @workspace/ui */}
       <button
         onClick={fetchData}
-        className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+        className="min-h-11 rounded bg-blue-500 p-2 text-white hover:bg-blue-600 outline-offset-4 focus-visible:outline-2"
       >
         Fetch User (Legacy)
       </button>

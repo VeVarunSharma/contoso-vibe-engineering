@@ -3,7 +3,7 @@ import { Github, Twitter, Youtube, Rss } from "lucide-react";
 
 export function SiteFooter() {
   return (
-    <footer className="border-t bg-muted/40">
+    <footer className="border-t bg-muted/40 [&_a]:inline-flex [&_a]:min-h-11 [&_a]:items-center [&_a]:outline-offset-4 [&_a]:focus-visible:outline-2">
       <div className="container mx-auto px-4 md:px-8 py-12">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {/* Product */}
@@ -151,7 +151,7 @@ export function SiteFooter() {
         {/* Bottom section */}
         <div className="flex flex-col md:flex-row items-center justify-between mt-12 pt-8 border-t">
           <div className="flex items-center gap-2 mb-4 md:mb-0">
-            <Github className="h-6 w-6" />
+            <Github className="h-6 w-6" aria-hidden="true" />
             <span className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} Octocat Blog. Built with Next.js.
             </span>
@@ -161,35 +161,35 @@ export function SiteFooter() {
               href="https://github.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-primary"
+              className="size-11 justify-center text-muted-foreground hover:text-primary"
               aria-label="GitHub"
             >
-              <Github className="h-5 w-5" />
+              <Github className="h-5 w-5" aria-hidden="true" />
             </a>
             <a
               href="https://twitter.com/github"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-primary"
+              className="size-11 justify-center text-muted-foreground hover:text-primary"
               aria-label="Twitter"
             >
-              <Twitter className="h-5 w-5" />
+              <Twitter className="h-5 w-5" aria-hidden="true" />
             </a>
             <a
               href="https://youtube.com/github"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-primary"
+              className="size-11 justify-center text-muted-foreground hover:text-primary"
               aria-label="YouTube"
             >
-              <Youtube className="h-5 w-5" />
+              <Youtube className="h-5 w-5" aria-hidden="true" />
             </a>
             <a
               href="/feed.xml"
-              className="text-muted-foreground hover:text-primary"
+              className="size-11 justify-center text-muted-foreground hover:text-primary"
               aria-label="RSS Feed"
             >
-              <Rss className="h-5 w-5" />
+              <Rss className="h-5 w-5" aria-hidden="true" />
             </a>
           </div>
         </div>

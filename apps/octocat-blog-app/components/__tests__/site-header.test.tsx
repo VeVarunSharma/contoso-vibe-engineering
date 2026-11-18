@@ -92,10 +92,6 @@ describe("SiteHeader", () => {
 
       // Menu should not be visible initially
       // (Desktop nav is always visible, but mobile nav should not be)
-      const mobileNav = screen.queryByRole("navigation", {
-        hidden: true,
-      });
-
       // Click to open mobile menu
       fireEvent.click(menuButton);
       expect(menuButton).toHaveAttribute("aria-expanded", "true");

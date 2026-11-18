@@ -43,7 +43,7 @@ export default async function HomePage() {
         <div className="flex flex-wrap gap-2 mb-12">
           <Link
             href="/"
-            className="inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            className="inline-flex min-h-11 items-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground outline-offset-4 focus-visible:outline-2"
           >
             All Posts
           </Link>
@@ -51,7 +51,7 @@ export default async function HomePage() {
             <Link
               key={category.id}
               href={`/category/${category.slug}`}
-              className="inline-flex items-center rounded-full border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="inline-flex min-h-11 items-center rounded-full border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground outline-offset-4 focus-visible:outline-2"
             >
               {category.name}
             </Link>
@@ -79,7 +79,7 @@ export default async function HomePage() {
             <h2 className="text-2xl font-bold">Latest Posts</h2>
             <Link
               href="/posts"
-              className="inline-flex items-center text-sm font-medium text-primary hover:underline"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline outline-offset-4 focus-visible:outline-2"
             >
               View all posts
               <ArrowRight className="ml-1 h-4 w-4" />
