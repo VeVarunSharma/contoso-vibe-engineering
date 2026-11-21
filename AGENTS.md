@@ -6,7 +6,7 @@
 
 ## Files matching `**`
 
-<!-- Source: local .github\instructions\design-standards.instructions.md -->
+<!-- Source: local .github/instructions/design-standards.instructions.md -->
 # Design Standards
 
 Follow these design system standards when working on this project:
@@ -18,7 +18,7 @@ Follow these design system standards when working on this project:
 - Maintain a minimum touch target size of 44x44px for interactive elements
 - Follow the project's typography scale for headings and body text
 
-<!-- Source: local .github\instructions\nextjs.instructions.md -->
+<!-- Source: local .github/instructions/nextjs.instructions.md -->
 # Next.js Best Practices for LLMs (2025)
 
 _Last updated: July 2025_
@@ -162,7 +162,7 @@ Do not create example/demo files (like ModalExample.tsx) in the main codebase un
 
 ## Files matching `**.cs, **.csproj`
 
-<!-- Source: local .github\instructions\copilot-sdk-csharp.instructions.md -->
+<!-- Source: local .github/instructions/copilot-sdk-csharp.instructions.md -->
 ## Core Principles
 
 - The SDK is in technical preview and may have breaking changes
@@ -712,7 +712,7 @@ var session = await client.CreateSessionAsync(new SessionConfig
 
 ## Files matching `**.go, go.mod`
 
-<!-- Source: local .github\instructions\copilot-sdk-go.instructions.md -->
+<!-- Source: local .github/instructions/copilot-sdk-go.instructions.md -->
 ## Core Principles
 
 - The SDK is in technical preview and may have breaking changes
@@ -1336,7 +1336,7 @@ session, _ := client.CreateSession(&copilot.SessionConfig{
 
 ## Files matching `**.py, pyproject.toml, setup.py`
 
-<!-- Source: local .github\instructions\copilot-sdk-python.instructions.md -->
+<!-- Source: local .github/instructions/copilot-sdk-python.instructions.md -->
 ## Core Principles
 
 - The SDK is in technical preview and may have breaking changes
@@ -2150,7 +2150,7 @@ def handler(event):
 
 ## Files matching `**.ts, **.js, package.json`
 
-<!-- Source: local .github\instructions\copilot-sdk-nodejs.instructions.md -->
+<!-- Source: local .github/instructions/copilot-sdk-nodejs.instructions.md -->
 ## Core Principles
 
 - The SDK is in technical preview and may have breaking changes
@@ -2865,7 +2865,7 @@ console.log(message.data.content);
 
 ## Files matching `**/*.test.{ts,tsx,js,jsx}`
 
-<!-- Source: local .apm\instructions\testing-standards.instructions.md -->
+<!-- Source: local .apm/instructions/testing-standards.instructions.md -->
 # Testing Standards
 
 Follow these testing conventions across the monorepo:
@@ -2892,7 +2892,7 @@ Follow these testing conventions across the monorepo:
 
 ## Files matching `services/**/*.{ts,js}`
 
-<!-- Source: local .apm\instructions\backend-services.instructions.md -->
+<!-- Source: local .apm/instructions/backend-services.instructions.md -->
 # Backend Services Standards
 
 Follow these standards when working on backend microservices in the `services/` directory:

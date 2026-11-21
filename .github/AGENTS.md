@@ -6,7 +6,7 @@
 
 ## Files matching `.github/workflows/*.yml`
 
-<!-- Source: local .github\instructions\github-actions-ci-cd-best-practices.instructions.md -->
+<!-- Source: local .github/instructions/github-actions-ci-cd-best-practices.instructions.md -->
 # GitHub Actions CI/CD Best Practices
 
 ## Your Mission

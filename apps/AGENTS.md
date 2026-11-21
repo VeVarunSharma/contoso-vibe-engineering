@@ -6,7 +6,7 @@
 
 ## Files matching `apps/**/*.{ts,tsx}`
 
-<!-- Source: local .apm\instructions\nextjs-monorepo.instructions.md -->
+<!-- Source: local .apm/instructions/nextjs-monorepo.instructions.md -->
 # Next.js Monorepo Standards
 
 Follow these standards when working on frontend applications in this Turborepo monorepo:
