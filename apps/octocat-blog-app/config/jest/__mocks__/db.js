@@ -117,13 +117,20 @@ const sharedMockDb = {
   leftJoin: jest.fn().mockReturnThis(),
   innerJoin: jest.fn().mockReturnThis(),
   orderBy: jest.fn().mockReturnThis(),
+  groupBy: jest.fn().mockResolvedValue([]),
   limit: jest.fn().mockReturnThis(),
   offset: jest.fn().mockReturnThis(),
+  insert: jest.fn().mockReturnThis(),
+  values: jest.fn().mockReturnThis(),
+  returning: jest.fn().mockResolvedValue([]),
   execute: jest.fn().mockResolvedValue([]),
   query: {
     posts: {
       findMany: jest.fn().mockResolvedValue(mockPosts),
       findFirst: jest.fn().mockResolvedValue(null),
+    },
+    comments: {
+      findMany: jest.fn().mockResolvedValue([]),
     },
     authors: {
       findMany: jest.fn().mockResolvedValue([mockAuthor]),
