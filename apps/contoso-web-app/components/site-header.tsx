@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Button } from "@workspace/ui";
 import { Code2 } from "lucide-react";
 
+const navLinkClass =
+  "inline-flex min-h-11 items-center rounded-md px-1 transition-colors hover:text-foreground/80 text-foreground/70 outline-offset-4 focus-visible:outline-2";
+
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -9,7 +12,7 @@ export function SiteHeader() {
         <div className="mr-4 flex">
           <Link
             href="/"
-            className="mr-6 flex items-center space-x-2"
+            className="mr-6 flex min-h-11 items-center space-x-2 rounded-md outline-offset-4 focus-visible:outline-2"
             aria-label="Contoso Vibe home"
           >
             <Code2 className="h-6 w-6" aria-hidden="true" />
@@ -21,29 +24,25 @@ export function SiteHeader() {
             className="flex items-center space-x-6 text-sm font-medium"
             aria-label="Main"
           >
-            <Link
-              href="#mission"
-              className="transition-colors hover:text-foreground/80 text-foreground/60"
-            >
+            <Link href="#mission" className={navLinkClass}>
               Mission
             </Link>
-            <Link
-              href="#team"
-              className="transition-colors hover:text-foreground/80 text-foreground/60"
-            >
+            <Link href="#team" className={navLinkClass}>
               Team
             </Link>
-            <Link
-              href="/muppets"
-              className="transition-colors hover:text-foreground/80 text-foreground/60"
-            >
+            <Link href="/muppets" className={navLinkClass}>
               Muppets
             </Link>
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-end space-x-2">
           <nav className="flex items-center" aria-label="Account">
-            <Button variant="ghost" size="sm" asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-h-11 outline-offset-4 focus-visible:outline-2"
+              asChild
+            >
               <Link
                 href="https://github.com/contoso-vibe"
                 target="_blank"
