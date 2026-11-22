@@ -1,7 +1,19 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalEnv": ["ALERT_WEBHOOK_URL", "LOG_LEVEL", "NODE_ENV"],
+  "globalEnv": [
+    "ALERT_WEBHOOK_URL",
+    "AZURE_POSTGRES_DATABASE",
+    "AZURE_POSTGRES_HOST",
+    "AZURE_POSTGRES_MANAGED_IDENTITY",
+    "AZURE_POSTGRES_USER",
+    "DATABASE_URL",
+    "LOG_LEVEL",
+    "NEXT_PUBLIC_APP_URL",
+    "NEXT_RUNTIME",
+    "NODE_ENV",
+    "RUN_DATABASE_MIGRATIONS"
+  ],
   "tasks": {
     "@workspace/dark-factory#build": {
       "dependsOn": ["^build"],

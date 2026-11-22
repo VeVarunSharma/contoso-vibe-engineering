@@ -27,6 +27,8 @@ tools:
     toolsets: [default]
   bash: [cat, find, gh, grep, head, jq, ls, sed, wc]
 steps:
+  - name: Expose gh-aw setup files inside the chroot
+    run: sudo ln -sT "${RUNNER_TEMP}/gh-aw" /gh-aw
   - name: Prefetch Terraform PR context
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
