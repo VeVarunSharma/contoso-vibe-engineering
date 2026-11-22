@@ -26,7 +26,10 @@ export function TeamSection() {
               className="flex flex-col items-center space-y-4 rounded-lg border p-6 shadow-sm transition-all hover:shadow-md"
             >
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary">
-                <member.icon className="h-10 w-10 text-secondary-foreground" />
+                <member.icon
+                  className="h-10 w-10 text-secondary-foreground"
+                  aria-hidden="true"
+                />
               </div>
               <div className="space-y-1 text-center">
                 <h3 className="text-xl font-bold">{member.name}</h3>

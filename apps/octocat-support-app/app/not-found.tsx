@@ -4,12 +4,18 @@ import { Button } from "@workspace/ui/components/button";
 
 export default function NotFound() {
   return (
-    <main className="container flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
+    <section
+      className="container flex flex-col items-center justify-center min-h-[70vh] px-4 text-center"
+      aria-labelledby="not-found-title"
+    >
       <FileQuestion
         className="h-16 w-16 text-muted-foreground mb-6"
         aria-hidden="true"
       />
-      <h1 className="text-3xl font-bold tracking-tight mb-3">
+      <h1
+        id="not-found-title"
+        className="text-3xl font-bold tracking-tight mb-3"
+      >
         Page not found
       </h1>
       <p className="text-muted-foreground max-w-md mb-6">
@@ -22,6 +28,6 @@ export default function NotFound() {
           Back to support
         </Link>
       </Button>
-    </main>
+    </section>
   );
 }

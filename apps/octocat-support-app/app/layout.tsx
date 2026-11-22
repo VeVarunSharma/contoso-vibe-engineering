@@ -42,7 +42,11 @@ export default function RootLayout({
         <Providers>
           <div className="relative flex min-h-screen flex-col">
             <SiteHeader />
-            <main id="main-content" className="flex-1">
+            <main
+              id="main-content"
+              tabIndex={-1}
+              className="flex-1 outline-none"
+            >
               {children}
             </main>
             <SiteFooter />

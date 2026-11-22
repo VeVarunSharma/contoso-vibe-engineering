@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom";
 import "jest-canvas-mock";
+import { toHaveNoViolations } from "jest-axe";
 // Optional: configure or set up a testing framework before each test.
 // If you delete this file, remove `setupFilesAfterEnv` from `jest.config.js`
 
@@ -8,3 +9,4 @@ import "jest-canvas-mock";
 
 // include this in your Jest setup file, or before your tests
 jest.setTimeout(90000);
+expect.extend(toHaveNoViolations);

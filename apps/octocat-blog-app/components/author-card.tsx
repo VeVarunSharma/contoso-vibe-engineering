@@ -22,7 +22,7 @@ export function AuthorCard({ author }: AuthorCardProps) {
       <div className="flex-1">
         <Link
           href={`/author/${author.username}`}
-          className="font-semibold hover:text-primary transition-colors"
+          className="inline-flex min-h-11 items-center font-semibold hover:text-primary transition-colors outline-offset-4 focus-visible:outline-2"
         >
           {author.name}
         </Link>
@@ -38,10 +38,10 @@ export function AuthorCard({ author }: AuthorCardProps) {
           href={author.githubUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-muted-foreground hover:text-primary"
+          className="inline-flex size-11 items-center justify-center rounded-sm text-muted-foreground hover:text-primary outline-offset-4 focus-visible:outline-2"
           aria-label="View GitHub profile"
         >
-          <Github className="h-5 w-5" />
+          <Github className="h-5 w-5" aria-hidden="true" />
         </a>
       )}
     </div>

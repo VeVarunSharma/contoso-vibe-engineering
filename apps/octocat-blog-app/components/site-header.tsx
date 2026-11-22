@@ -12,44 +12,57 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-4 focus:underline"
+      >
+        Skip to main content
+      </a>
       <div className="container flex h-16 items-center justify-between px-4 md:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <Github className="h-8 w-8" />
+        <Link
+          href="/"
+          className="flex min-h-11 items-center gap-2 rounded-sm outline-offset-4 focus-visible:outline-2"
+          aria-label="Octocat Blog home"
+        >
+          <Github className="h-8 w-8" aria-hidden="true" />
           <span className="font-bold text-xl hidden sm:inline-block">
             Octocat Blog
           </span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
+        <nav
+          className="hidden md:flex items-center gap-6"
+          aria-label="Primary navigation"
+        >
           <Link
             href="/"
-            className="text-sm font-medium transition-colors hover:text-primary"
+            className="inline-flex min-h-11 items-center text-sm font-medium transition-colors hover:text-primary outline-offset-4 focus-visible:outline-2"
           >
             Home
           </Link>
           <Link
             href="/category/releases"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            className="inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground transition-colors hover:text-primary outline-offset-4 focus-visible:outline-2"
           >
             Releases
           </Link>
           <Link
             href="/category/features"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            className="inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground transition-colors hover:text-primary outline-offset-4 focus-visible:outline-2"
           >
             Features
           </Link>
           <Link
             href="/category/changelog"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            className="inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground transition-colors hover:text-primary outline-offset-4 focus-visible:outline-2"
           >
             Changelog
           </Link>
           <Link
             href="/category/engineering"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            className="inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground transition-colors hover:text-primary outline-offset-4 focus-visible:outline-2"
           >
             Engineering
           </Link>
@@ -63,8 +76,14 @@ export function SiteHeader() {
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             aria-label="Toggle theme"
           >
-            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <Sun
+              className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"
+              aria-hidden="true"
+            />
+            <Moon
+              className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"
+              aria-hidden="true"
+            />
           </Button>
           <Button variant="ghost" size="icon" asChild>
             <a
@@ -73,7 +92,7 @@ export function SiteHeader() {
               rel="noopener noreferrer"
               aria-label="GitHub"
             >
-              <Github className="h-5 w-5" />
+              <Github className="h-5 w-5" aria-hidden="true" />
             </a>
           </Button>
           {/* Mobile menu button */}
@@ -83,46 +102,52 @@ export function SiteHeader() {
             className="md:hidden"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle menu"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-navigation"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-5 w-5" aria-hidden="true" />
           </Button>
         </div>
       </div>
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
-        <nav className="md:hidden border-t px-4 py-4 space-y-2 bg-background">
+        <nav
+          id="mobile-navigation"
+          className="md:hidden border-t px-4 py-4 space-y-2 bg-background"
+          aria-label="Mobile navigation"
+        >
           <Link
             href="/"
-            className="block py-2 text-sm font-medium"
+            className="flex min-h-11 items-center py-2 text-sm font-medium outline-offset-4 focus-visible:outline-2"
             onClick={() => setMobileMenuOpen(false)}
           >
             Home
           </Link>
           <Link
             href="/category/releases"
-            className="block py-2 text-sm font-medium text-muted-foreground"
+            className="flex min-h-11 items-center py-2 text-sm font-medium text-muted-foreground outline-offset-4 focus-visible:outline-2"
             onClick={() => setMobileMenuOpen(false)}
           >
             Releases
           </Link>
           <Link
             href="/category/features"
-            className="block py-2 text-sm font-medium text-muted-foreground"
+            className="flex min-h-11 items-center py-2 text-sm font-medium text-muted-foreground outline-offset-4 focus-visible:outline-2"
             onClick={() => setMobileMenuOpen(false)}
           >
             Features
           </Link>
           <Link
             href="/category/changelog"
-            className="block py-2 text-sm font-medium text-muted-foreground"
+            className="flex min-h-11 items-center py-2 text-sm font-medium text-muted-foreground outline-offset-4 focus-visible:outline-2"
             onClick={() => setMobileMenuOpen(false)}
           >
             Changelog
           </Link>
           <Link
             href="/category/engineering"
-            className="block py-2 text-sm font-medium text-muted-foreground"
+            className="flex min-h-11 items-center py-2 text-sm font-medium text-muted-foreground outline-offset-4 focus-visible:outline-2"
             onClick={() => setMobileMenuOpen(false)}
           >
             Engineering

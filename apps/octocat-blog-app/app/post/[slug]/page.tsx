@@ -87,7 +87,7 @@ export default async function PostPage({ params }: PostPageProps) {
       {/* Back link */}
       <Link
         href="/"
-        className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-8"
+        className="mb-8 inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-primary outline-offset-4 focus-visible:outline-2"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to all posts
@@ -119,7 +119,7 @@ export default async function PostPage({ params }: PostPageProps) {
             )}
             <Link
               href={`/author/${post.author.username}`}
-              className="font-medium hover:text-primary"
+              className="inline-flex min-h-11 items-center font-medium hover:text-primary outline-offset-4 focus-visible:outline-2"
             >
               {post.author.name}
             </Link>
@@ -167,7 +167,7 @@ export default async function PostPage({ params }: PostPageProps) {
             <Link
               key={tag.id}
               href={`/tag/${tag.slug}`}
-              className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-sm text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-colors"
+              className="inline-flex min-h-11 items-center rounded-full bg-muted px-3 py-1 text-sm text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground outline-offset-4 focus-visible:outline-2"
             >
               #{tag.name}
             </Link>
@@ -177,7 +177,7 @@ export default async function PostPage({ params }: PostPageProps) {
 
       {/* Author Card */}
       <div className="mb-8">
-        <h3 className="text-lg font-semibold mb-4">About the Author</h3>
+        <h2 className="text-lg font-semibold mb-4">About the Author</h2>
         <AuthorCard author={post.author} />
       </div>
 
@@ -188,7 +188,7 @@ export default async function PostPage({ params }: PostPageProps) {
           href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`${siteUrl}/post/${post.slug}`)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-muted-foreground hover:text-primary"
+          className="inline-flex min-h-11 items-center text-muted-foreground hover:text-primary outline-offset-4 focus-visible:outline-2"
         >
           Twitter
         </a>
@@ -196,7 +196,7 @@ export default async function PostPage({ params }: PostPageProps) {
           href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${siteUrl}/post/${post.slug}`)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-muted-foreground hover:text-primary"
+          className="inline-flex min-h-11 items-center text-muted-foreground hover:text-primary outline-offset-4 focus-visible:outline-2"
         >
           LinkedIn
         </a>
@@ -204,5 +204,3 @@ export default async function PostPage({ params }: PostPageProps) {
     </article>
   );
 }
-
-
