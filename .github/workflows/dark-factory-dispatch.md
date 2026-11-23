@@ -19,6 +19,9 @@ permissions:
   checks: read
 checkout: false
 strict: true
+engine:
+  id: copilot
+  version: "1.0.83"
 tools:
   bash: [cat, jq]
 steps:
