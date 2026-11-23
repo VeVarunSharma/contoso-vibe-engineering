@@ -2,6 +2,9 @@
   "extends": "@workspace/typescript-config/react-library.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node", "jest", "@testing-library/jest-dom"],
     "paths": {
       "@workspace/ui/*": ["./src/*"]
     }
